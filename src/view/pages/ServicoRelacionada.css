@@ -1,0 +1,334 @@
+@font-face {
+    font-family: 'CodecPro';
+    src: url('../assets/fonts/CodecPro.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+  
+  @font-face {
+    font-family: 'CodecProExtraBold';
+    src: url('../assets/fonts/CodecProExtraBold.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+  }
+
+  body {
+    font-family: 'CodecPro';
+    margin-bottom: 7% !important;
+  }
+
+.container {
+    display: flex;
+    min-height: 100vh;
+    background-color: #fff; /* bg-gray-100 */
+  }
+  
+  .main-content {
+    flex: 1;
+    margin-left: 16rem; /* Equivalente a ml-64 */
+    padding: 1.5rem; /* Equivalente a p-6 */
+    height: calc(100vh - 64px);
+  }
+
+  .encimatabela{
+    margin-top: 4rem;
+  }
+
+
+  /* Organizador */
+  .organize-container {
+    display: flex;
+    flex-direction: column;
+    
+    align-items: flex-start;
+  }
+  
+  .organize-text {
+    font-size: 18px;
+    font-weight: 500;
+    color: #252525;
+    margin: 0;
+  }
+  
+  .custom-select {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+  }
+  
+  .select-style {
+    appearance: none;
+    background-color: transparent;
+    border: none;
+    padding: 8px 24px 8px 0px;
+    font-size: 14px;
+    color: #3871c1;
+    cursor: pointer;
+    outline: none;
+    width: 100%;
+  }
+  
+  .custom-select::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid #3871c1;
+    pointer-events: none;
+  }
+
+  /* Pesquisa */
+  .search-bar {
+    position: relative;
+    width: 16rem; /* 64 */
+  }
+  
+  .search-bar input {
+    width: 100%;
+    padding: 0.5rem 2.5rem 0.5rem 1rem;
+    border: 1px solid #ccc;
+    border-radius: 2rem; /* Equivalente a rounded-md */
+    padding-left: 1rem;
+  }
+  
+  .search-icon {
+    position: absolute;
+    right: 1rem;
+    top: 49%;
+    transform: translateY(-50%);
+    color: #6b7280; /* text-gray-500 */
+    width: 16px;  /* Reduzindo o tamanho da lupa */
+    height: 16px; /* Reduzindo o tamanho da lupa */
+    pointer-events: none;
+  }
+  
+  .button {
+    font-family: 'CodecProExtraBold';
+    background: linear-gradient(90deg, #00adef 0%, #3871c1 100%);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .button:hover {
+    background-color: #3871c1;
+  }
+
+  .pesquisa{
+    margin-right: 2rem !important;
+  }
+
+  .button-container {
+    display: flex;
+    justify-content: center; /* Centraliza horizontalmente */
+    align-items: center; /* Centraliza verticalmente */
+    
+    bottom: 3rem; /* Alinha na parte inferior */
+    right: 2rem; /* Alinha à direita */
+}
+
+  .buttontxt {
+    color: white; /* Cor do texto */
+    border: none;
+    border-radius: 8px; /* Bordas arredondadas */
+    padding: 5px 20px; /* Aumentei o padding para deixar o botão maior */
+    font-size: 20px; /* Aumentei o tamanho da fonte */
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px; /* Aumentei o espaço entre o ícone e o texto */
+    transition: background-color 0.3s ease; /* Transição suave */
+    font-size: 1.2rem;
+    font-family: 'CodecPro';
+  }
+  
+  .buttontxt:hover {
+    background-color: #0056b3; /* Cor de fundo ao passar o mouse */
+  }
+  
+
+
+
+
+
+
+
+/* Estilo do contêiner estilizado */
+.styled-container {
+    background-color: white;
+    border-radius: 20px;
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
+    padding: 2rem; /* Mantém o padding em todas as direções */
+    width: 75%; /* muda a posição da tabela */
+    margin: 5rem auto 0;
+    position:absolute;
+    left: 21.01%; /* muda a posição da tabela */
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    margin-bottom: 3rem;
+  }
+  
+  /* Ajuste para o conteúdo interno */
+  .styled-container > * {
+    margin-top: 0.01rem; /* Ajuste esse valor para "puxar" o conteúdo para cima */
+  }
+
+
+
+
+
+
+
+
+
+
+  /* Formulario de Adicionar */
+
+  /* Estilos para o modal */
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.modal-box {
+  max-width: 500px;
+  width: 100%;
+}
+
+.form-control {
+  margin-bottom: 1rem;
+}
+
+.form-control label {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.form-control input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.modal-action {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background-color: #3871c1;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #2a5a9e;
+}
+
+
+
+
+
+
+.mini-table table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 30%;
+}
+
+.mini-table th, .mini-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+
+.mini-table input {
+  width: 100%;
+  padding: 5px;
+  border: 1px solid #ddd;
+}
+
+
+/* Estilo para a tabela */
+.data-table {
+  width: 100%;
+  text-align: left;
+  font-size: 14px;
+  border-collapse: collapse;
+}
+
+/* Cabeçalho da tabela */
+.data-table thead {
+  background: linear-gradient(90deg, #00adef 0%, #3871c1 100%) !important;
+  color: white;
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+/* Células do cabeçalho */
+.data-table thead th {
+  padding: 12px 16px;
+  white-space: nowrap;
+}
+
+/* Células congeladas no cabeçalho */
+.data-table thead th.frozen {
+  position: sticky;
+  left: 0;
+  background-color: #00adef;
+  z-index: 10;
+}
+
+/* Corpo da tabela */
+.data-table tbody {
+  background-color: #f9f9f9;
+}
+
+/* Células do corpo da tabela */
+.data-table td {
+  padding: 8px 16px;
+  border-bottom: 1px solid #ddd;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 400;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* Células de entrada de texto */
+.data-table input[type="text"] {
+  border: none;
+  background-color: transparent;
+  width: 100%;
+  text-align: center;
+  padding: 4px;
+  font-size: 12px;
+  font-weight: 400;
+}

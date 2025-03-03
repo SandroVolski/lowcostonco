@@ -1,0 +1,435 @@
+/* Estilos.css */
+@font-face {
+    font-family: 'CodecPro';
+    src: url('../assets/fonts/CodecPro.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+  
+  @font-face {
+    font-family: 'CodecProExtraBold';
+    src: url('../assets/fonts/CodecProExtraBold.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+  }
+
+  body {
+    font-family: 'CodecPro';
+  }
+
+
+
+
+
+
+
+
+
+
+
+/* HEADER */
+.header {
+    font-family: 'CodecProExtraBold';
+    width: 100%;
+    padding: 1rem 1.5rem;
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 16rem; /* Ajuste para o Sidebar */
+    z-index: 50;
+    height: 6rem !important; /* Definindo altura do header */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  /* Estilo para o título */
+  .header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-left: 1.5rem;
+    color: white;
+  }
+  
+  /* Estilo para o container da foto do usuário e nome */
+  .user-info {
+    position: absolute;
+    right: 1rem; /* Ajusta o espaçamento da borda direita */
+    top: 50%;
+    transform: translateY(-50%); /* Mantém alinhado verticalmente */
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-right: 20rem;
+}
+  
+  /* Estilo para o nome do usuário */
+  .user-info span {
+    color: white;
+  }
+  
+  /* Estilo do botão de avatar */
+  .avatar-button {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background-color: white;
+    overflow: hidden;
+    cursor: pointer;
+    transition: opacity 0.3s;
+    margin-left: auto !important;
+    
+  }
+  
+  .avatar-button:hover {
+    opacity: 0.9;
+  }
+  
+  /* Estilo para a imagem do avatar */
+  .avatar-button img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  /* Estilo do modal para alteração de foto */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 50;
+  }
+  
+  /* Estilo para o conteúdo do modal */
+  .modal-content {
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+  }
+  
+  /* Estilo para os botões dentro do modal */
+  .modal-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+  }
+  
+  .modal-buttons button {
+    padding: 0.5rem 1rem;
+  }
+  
+  .modal-buttons .cancel-btn {
+    color: #4a4a4a;
+  }
+  
+  .modal-buttons .save-btn {
+    background-color: #3498db;
+    color: white;
+    border-radius: 0.5rem;
+    background-color: #2980b9;
+  }
+  
+  .header-gradient {
+    background: linear-gradient(90deg, #00adef 0%, #3871c1 100%);
+  }
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+  /* SIDEBAR */
+
+  /* Estilo principal da Sidebar */
+.sidebar {
+    width: 16rem;
+    background-color: #252525;
+    min-height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Cabeçalho da Sidebar */
+.sidebar-header {
+    padding: 2rem;
+    border-bottom: 1px solid #252525;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* Logotipo */
+.sidebar-logo {
+    width: 2.5rem;
+    height: 2.5rem;
+    background-color: #0088FF;
+    border-radius: 50%;
+}
+
+/* Informações da empresa */
+.sidebar-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-title {
+    font-weight: 600;
+    color: white;
+}
+
+.sidebar-subtitle {
+    font-size: 0.875rem;
+    color: #999;
+}
+
+/* Menu principal */
+.sidebar-menu {
+    padding: 1rem;
+}
+
+.sidebar-menu ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    color: #ccc;
+    transition: 0.3s;
+}
+
+.sidebar-item:hover {
+    background-color: #444;
+    color: white;
+}
+
+/* Item ativo */
+.sidebar-item.active {
+    background-color: #0088FF;
+    color: white;
+}
+
+
+/* Itens inferiores (Perfil e Log Out) */
+.sidebar-bottom {
+    margin-top: auto;
+    padding: 1rem;
+    border-top: 1px solid #444;
+}
+
+.sidebar-bottom ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* DataTable */ 
+/* Contêiner da tabela */
+.data-table-container {
+  width: 100% !important;
+  overflow-x: auto;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  height: 100%;
+  margin-top: 0rem;
+}
+
+/* Estilização da tabela */
+.data-table {
+  width: 100%;
+  text-align: left;
+  font-size: 14px;
+  border-collapse: collapse;
+}
+
+/* Cabeçalho da tabela */
+.data-table thead {
+  background: linear-gradient(90deg, #00adef 0%, #3871c1 100%) !important;
+  color: white;
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+/* Células do cabeçalho */
+.data-table thead th {
+  padding: 12px 16px;
+  white-space: nowrap;
+}
+
+/* Células congeladas no cabeçalho */
+.data-table thead th.frozen {
+  position: sticky;
+  left: 0;
+  z-index: 30;
+  background:  #00adef ;
+}
+
+/* Corpo da tabela */
+.data-table tbody {
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+}
+
+/* Linhas do corpo da tabela */
+.data-table tbody tr {
+  background-color: white;
+  border-bottom: 1px solid #ddd;
+  transition: background-color 0.3s ease;
+}
+
+.data-table tbody tr:hover {
+  background-color: #dedede;
+}
+
+/* Células do corpo da tabela */
+.data-table tbody td {
+  padding: 12px 16px;
+}
+
+/* Células congeladas no corpo */
+.data-table tbody td.frozen {
+  position: sticky;
+  left: 0;
+  background-color: white;
+  z-index: 10;
+}
+
+/* Botão de expandir */
+.expand-button {
+  font-size: 12px;
+  color: white;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.expand-button:hover {
+  color: #e0e0e0;
+}
+
+/* Informações expandidas */
+.expanded-info {
+  margin-top: 8px;
+  padding-left: 16px;
+  border-left: 2px solid #0088FF;
+}
+
+.expanded-info div {
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Pontos indicativos de mais informação */
+.more-info {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.more-info span {
+  color: #FFD700;
+  font-size: 16px;
+}
+
+/* Estilizando o scrollbar */
+.data-table-container::-webkit-scrollbar {
+  width: 12px; /* Largura do scrollbar */
+}
+
+.data-table-container::-webkit-scrollbar-track {
+  background: #cff0fc; /* Cor de fundo da área do scrollbar */
+  border-radius: 10px; /* Bordas arredondadas */
+}
+
+.data-table-container::-webkit-scrollbar-thumb {
+  background: #3871c1; /* Cor do scrollbar */
+  border-radius: 10px; /* Bordas arredondadas */
+  border: 3px solid #f1f1f1; /* Espaço entre o scrollbar e a borda */
+}
+
+.data-table-container::-webkit-scrollbar-thumb:hover {
+  background: #468ef3; /* Cor do scrollbar ao passar o mouse */
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.cursor-pointer:hover {
+  color: #f3df90;
+}
+
+.cursor-pointer-aqui {
+  cursor: pointer;
+}
+
+.bg-blue-300 {
+  background-image: linear-gradient(to bottom, #E8E351, #F9FF4A) !important;
+}
+
+.hover\:bg-gray-300:hover {
+  background-color: #d1d5db; /* Cor cinza claro ao passar o mouse */
+}
+
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.pagination-controls button {
+  padding: 5px 10px;
+  background-color: #3871c1;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.pagination-controls button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
