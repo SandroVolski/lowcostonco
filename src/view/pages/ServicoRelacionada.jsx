@@ -3,6 +3,9 @@ import { useMemo } from "react";
 import { Header } from '../../components/Header';
 import { Sidebar } from '../../components/Sidebar';
 import { DataTable } from '../../components/DataTable';
+
+import PageTransition from "../../components/PageTransition";
+
 import '../../App.css';
 import './ServicoRelacionada.css';
 
@@ -34,6 +37,7 @@ export default function ServicoRelacionada() {
         newSet.clear(); // Limpa todas as seleções anteriores
         newSet.add(adjustedRowId); // Seleciona a nova linha
       }
+      console.log("Linha selecionada:", adjustedRowId);
       return newSet;
     });
   };
@@ -71,6 +75,7 @@ export default function ServicoRelacionada() {
           Revisado: item.Revisado,
           "Cód GGrem": item.Cod_Ggrem, // Ajustado para corresponder ao expandableHeaders
           Princípio_Ativo: item.PrincipioAtivo,
+          Principio_Ativo: item.Principio_Ativo,
           Laboratorio: item.Lab,
           "CNPJ Lab": item.cnpj_lab, // Ajustado para corresponder ao expandableHeaders
           "Classe Terapêutica": item.Classe_Terapeutica, // Ajustado para corresponder ao expandableHeaders
@@ -116,6 +121,7 @@ export default function ServicoRelacionada() {
 
   const handleDelete = async () => {
     const selectedRowId = Array.from(selectedRows)[0]; // Pega o ID da linha selecionada
+    console.log("ID da linha selecionada:", selectedRowId); // Verifica o valor do ID selecionado
     if (!selectedRowId) return; // Se nenhuma linha estiver selecionada, não faz nada
 
     try {
@@ -138,6 +144,7 @@ export default function ServicoRelacionada() {
       console.error("Erro ao excluir o serviço:", error);
     }
   };
+
 
   // Função para habilitar a edição de uma linha
   const handleEdit = () => {
@@ -162,6 +169,8 @@ export default function ServicoRelacionada() {
     if (!editingRow) return; // Se nenhuma linha estiver em edição, não faz nada
   
     try {
+      console.log("Dados completos a serem enviados:", editedData);
+
       const response = await fetch(`http://localhost/backend-php/api/update_service.php`, {
         method: 'PUT',
         headers: {
@@ -169,9 +178,15 @@ export default function ServicoRelacionada() {
         },
         body: JSON.stringify(editedData),
       });
+
+      console.log("Resposta do servidor - Status:", response.status);
   
+      const responseBody = await response.text();
+      console.log("Corpo da resposta:", responseBody);
+
       if (!response.ok) {
-        throw new Error("Erro ao atualizar o serviço");
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Erro ao atualizar o serviço");
       }
   
       // Atualiza o estado `data` com os dados editados
@@ -180,7 +195,7 @@ export default function ServicoRelacionada() {
           item.id === editingRow ? { ...item, ...editedData } : item
         )
       );
-  
+
       // Limpa a edição
       setEditingRow(null);
       setEditedData({});
@@ -239,110 +254,118 @@ export default function ServicoRelacionada() {
   }, [searchTerm, cleanedData]);
 
   return (
-    <div className="container">
-      <Sidebar />
-      
-      <div className="main-content">
-        <Header userName="Douglas" />
+    <PageTransition>
+      <div className="container">
+        <Sidebar />
         
-        <main>
-          <div className="styled-container">
-            <div className="mb-6 flex justify-between items-center encimatabela">
-              <div className="organize-container">
-                <h2 className="organize-text">Organizar por</h2>
-                <div className="custom-select">
-                  <select 
-                    className="select-style" 
-                    value={sortOrder} 
-                    onChange={handleSortChange}
-                  >
-                    <option value="asc">Ordem Crescente</option>
-                    <option value="desc">Ordem Decrescente</option>
-                  </select>
+        <div className="main-content">
+          <Header userName="Douglas" />
+          
+          <main>
+            <div className="styled-container">
+              <div className="mb-6 flex justify-between items-center encimatabela">
+                <div className="organize-container">
+                  <h2 className="organize-text">Organizar por</h2>
+                  <div className="custom-select">
+                    <select 
+                      className="select-style" 
+                      value={sortOrder} 
+                      onChange={handleSortChange}
+                    >
+                      <option value="asc">Ordem Crescente</option>
+                      <option value="desc">Ordem Decrescente</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  <div className="search-bar">
+                    <Search className="search-icon" />
+                    <input
+                      type="text"
+                      placeholder="Pesquisar por ID ou TUSS"
+                      className="border pesquisa"
+                      value={searchTerm}
+                      onChange={handleChange}
+                    />
+                  </div>
+                  
+                  {/*<button className="button" onClick={handlePrint}>
+                    <Printer className="h-4 w-4" />
+                    <span>Print</span>
+                  </button> */}
+                  
+                  <div className="button-container">
+                    {selectedRows.size > 0 ? (
+                      <>
+                        {isEditing ? (
+                          <button className="btn btn-danger" onClick={handleCancel}>
+                            Cancelar
+                          </button>
+                        ) : (
+                          <button className="btn btn-danger" onClick={handleDelete}>
+                            <Trash2 className="w-5 h-5" /> Excluir
+                          </button>
+                        )}
+                        {isEditing ? (
+                          <button className="btn btn-success" onClick={handleSave}>
+                            Salvar
+                          </button>
+                        ) : (
+                          <button className="btn btn-warning" onClick={handleEdit}>
+                            <Edit className="w-5 h-5" /> Alterar
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <button className="button buttontxt btn-primary">
+                        <Plus /> Adicionar
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-              
-              <div className="flex items-center gap-4">
-                <div className="search-bar">
-                  <Search className="search-icon" />
-                  <input
-                    type="text"
-                    placeholder="Pesquisar por ID ou TUSS"
-                    className="border pesquisa"
-                    value={searchTerm}
-                    onChange={handleChange}
+
+              {/* 🔹 Verifica se está carregando ou se deu erro */}
+              {loading ? (
+                <div className="flex justify-center items-center h-full">
+                  <img
+                    src="../src/assets/loadingcorreto.gif"
+                    alt="Carregando..."
+                    className="w-12 h-12" // Ajuste o tamanho conforme necessário
                   />
                 </div>
-                
-                {/*<button className="button" onClick={handlePrint}>
-                  <Printer className="h-4 w-4" />
-                  <span>Print</span>
-                </button> */}
-                
-                <div className="button-container">
-                  {selectedRows.size > 0 ? (
-                    <>
-                      {isEditing ? (
-                        <button className="btn btn-danger" onClick={handleCancel}>
-                          Cancelar
-                        </button>
-                      ) : (
-                        <button className="btn btn-danger" onClick={handleDelete}>
-                          <Trash2 className="w-5 h-5" /> Excluir
-                        </button>
-                      )}
-                      {isEditing ? (
-                        <button className="btn btn-success" onClick={handleSave}>
-                          Salvar
-                        </button>
-                      ) : (
-                        <button className="btn btn-warning" onClick={handleEdit}>
-                          <Edit className="w-5 h-5" /> Alterar
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    <button className="button buttontxt btn-primary">
-                      <Plus /> Adicionar
-                    </button>
+              ) : error ? (
+                <p className="text-red-500">Erro: {error}</p>
+              ) : (
+                <div className="h-[calc(100vh-220px)] overflow-hidden">
+                  <DataTable
+                    data={filteredData}
+                    searchTerm={searchTerm}
+                    sortOrder={sortOrder}
+                    onSelectionChange={toggleRowSelection}
+                    editingRow={editingRow}
+                    editedData={editedData}
+                    handleInputChange={handleInputChange}
+                    selectedRows={selectedRows}
+                  />
+                  {/* Botão "Mostrar mais" */}
+                  {hasMore && (
+                    <div className="flex justify-center mt-4">
+                      <button
+                        onClick={() => setPage(prev => prev + 1)}
+                        className="button buttontxt"
+                      >
+                        <span>Mostrar mais</span>
+                      </button>
+                    </div>
                   )}
                 </div>
-              </div>
+              )}
             </div>
-
-            {/* 🔹 Verifica se está carregando ou se deu erro */}
-            {loading ? (
-              <p>Carregando dados...</p>
-            ) : error ? (
-              <p className="text-red-500">Erro: {error}</p>
-            ) : (
-              <div className="h-[calc(100vh-220px)] overflow-hidden">
-                <DataTable
-                  data={filteredData}
-                  searchTerm={searchTerm}
-                  sortOrder={sortOrder}
-                  onSelectionChange={toggleRowSelection}
-                  editingRow={editingRow}
-                  editedData={editedData}
-                  handleInputChange={handleInputChange}
-                  selectedRows={selectedRows}
-                />
-                {/* Botão "Mostrar mais" */}
-                {hasMore && (
-                  <div className="flex justify-center mt-4">
-                    <button
-                      onClick={() => setPage(prev => prev + 1)}
-                      className="button buttontxt"
-                    >
-                      <span>Mostrar mais</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
-    </div>
+    </PageTransition>
   );
 }

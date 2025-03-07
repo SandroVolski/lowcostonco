@@ -1,10 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import ServicoRelacionada from './view/pages/ServicoRelacionada'; // Ajuste o caminho se necessário
+import App from './App'; // Importe o componente App
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <ServicoRelacionada />
+    <App /> {/* Renderize o App, que contém o Router */}
   </React.StrictMode>
 );

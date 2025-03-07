@@ -1,25 +1,30 @@
 import React from "react";
 import { Database, LayoutGrid, LogOut, User } from "lucide-react";
+import { useLocation, Link } from "react-router-dom";
 import "./Estilos.css"; // Importa os estilos
 
 export function Sidebar() {
+  const location = useLocation();
+
   const menuItems = [
-    { icon: LayoutGrid, label: "Inicial", active: false },
-    { icon: Database, label: "Relação de Serviços", active: true },
-    { icon: Database, label: "Outro BD", active: false },
-    { icon: Database, label: "Outro BD", active: false },
+    { icon: LayoutGrid, label: "Inicial", path: "/Home" },
+    { icon: Database, label: "Relação de Serviços", path: "/ServicoRelacionada" },
+    { icon: Database, label: "Pacientes em Trata."},
+    { icon: Database, label: "Empresas"},
   ];
 
   const bottomItems = [
-    { icon: User, label: "Perfil", active: false },
-    { icon: LogOut, label: "Log Out", active: false },
+    { icon: User, label: "Perfil"},
+    { icon: LogOut, label: "Log Out"},
   ];
 
   return (
     <aside className="sidebar">
       {/* Cabeçalho */}
       <div className="sidebar-header">
-        <div className="sidebar-logo"></div>
+        <div className="sidebar-logo">
+        <img src="../src/assets/logolowcost.jpeg" alt="Logo" className="sidebar-logo" />
+        </div>
         <div className="sidebar-info">
           <span className="sidebar-title">LOW COST ONCO</span>
           <span className="sidebar-subtitle">Gestão de Custos</span>
@@ -29,15 +34,15 @@ export function Sidebar() {
       {/* Menu Principal */}
       <nav className="sidebar-menu">
         <ul>
-          {menuItems.map(({ icon: Icon, label, active }, index) => (
+          {menuItems.map(({ icon: Icon, label, path }, index) => (
             <li key={index}>
-              <a
-                href="#"
-                className={`sidebar-item ${active ? "active" : ""}`}
+              <Link
+                to={path}
+                className={`sidebar-item ${location.pathname === path ? "active" : ""}`}
               >
                 <Icon size={20} />
                 <span>{label}</span>
-              </a>
+              </Link>
             </li>
           ))}
         </ul>
@@ -46,12 +51,15 @@ export function Sidebar() {
       {/* Itens Inferiores */}
       <div className="sidebar-bottom">
         <ul>
-          {bottomItems.map(({ icon: Icon, label }, index) => (
+          {bottomItems.map(({ icon: Icon, label, path }, index) => (
             <li key={index}>
-              <a href="#" className="sidebar-item">
+              <Link
+                to={path}
+                className={`sidebar-item ${location.pathname === path ? "active" : ""}`}
+              >
                 <Icon size={20} />
                 <span>{label}</span>
-              </a>
+              </Link>
             </li>
           ))}
         </ul>

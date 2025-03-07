@@ -1,0 +1,91 @@
+/* Home.css */
+
+.main-layout {
+    padding: 2rem;
+    margin-top: 4rem; /* Para compensar a altura do Header fixo */
+    width: 100%;
+    margin-left: 8rem;
+    min-height: calc(100vh - 64px);
+    overflow-y: auto;
+  }
+  
+  /* Estilos para cards */
+  .grid {
+    display: grid;
+    grid-gap: 1.5rem;   
+  }
+  
+  .grid-cols-1 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+  
+  @media (min-width: 768px) {
+    .md\:grid-cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .lg\:grid-cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  
+  /* Efeitos de hover para os cards */
+  .transition-all {
+    transition-property: all;
+    transition-duration: 300ms;
+  }
+  
+  .hover\:shadow-lg:hover {
+    box-shadow: 10px 10px 15px -3px rgba(0, 0.1, 0, 0.1), 4px 4px 6px -2px rgba(0, 0.05, 0, 0.05) !important;
+  }
+  
+  .hover\:-translate-y-1:hover {
+    transform: translateY(-0.5rem) !important;
+  }
+  
+  /* Estilos para links nos cards */
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+  
+  /* Estilos para títulos de seção */
+  h2.text-2xl {
+    font-family: 'CodecProExtraBold';
+    position: relative;
+    padding-bottom: 0.5rem;
+  }
+  
+  h2.text-2xl::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 50px;
+    height: 3px;
+    /*background-color: #3b82f6; /* Azul que combina com seu tema */
+    border-radius: 2px;
+  }
+  
+  /* Estilos para cards não clicáveis */
+  .opacity-70 {
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+  }
+  
+  .opacity-70:hover {
+    opacity: 0.8;
+  }
+  
+  /* Ajustes para dispositivos móveis */
+  @media (max-width: 640px) {
+    .main-layout {
+      padding: 16px;
+    }
+    
+    h2.text-2xl {
+      font-size: 1.5rem;
+    }
+  }

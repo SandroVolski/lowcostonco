@@ -19,7 +19,7 @@ export function DataTable({ data, onSelectionChange, selectedRows, editingRow, e
   // Mapeamento das colunas expansíveis
   const expandableHeaders = {
     "Registro Visa": [
-      "Cód GGrem", "Princípio_Ativo", "Laboratório", "CNPJ Lab",
+      "Cód GGrem", "Principio_Ativo", "Laboratório", "CNPJ Lab",
       "Classe Terapêutica", "Tipo do Produto", "Regime Preço",
       "Restrição Hosp", "Cap  ", "Confaz87", "ICMS0", "Lista", "Status"
     ],

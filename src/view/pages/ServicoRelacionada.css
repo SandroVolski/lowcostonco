@@ -332,3 +332,9 @@
   font-size: 12px;
   font-weight: 400;
 }
+
+.loading-gif {
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+}
