@@ -1,128 +1,70 @@
-import React, { useState, useEffect } from "react";
-import { useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Header } from '../../components/Header';
 import { Sidebar } from '../../components/Sidebar';
 import { DataTable } from '../../components/DataTable';
-
 import PageTransition from "../../components/PageTransition";
+import { useServiceData } from '../../components/ServiceContext'; // Importe o contexto
 
 import '../../App.css';
 import './ServicoRelacionada.css';
 
-import { Search, Printer, Share2, Plus, Trash2, Edit } from "lucide-react";
+import { Search, Plus, Trash2, Edit, RefreshCw } from "lucide-react";
 
 export default function ServicoRelacionada() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortOrder, setSortOrder] = useState("asc");
-  const [data, setData] = useState([]); // Estado para armazenar os dados iniciais
-  const [loading, setLoading] = useState(true); // Estado de carregamento
-  const [error, setError] = useState(null); // Estado de erro
-  const [page, setPage] = useState(1); // Estado para controlar a página atual
-  const [hasMore, setHasMore] = useState(true); // Estado para verificar se há mais dados
   const [selectedRows, setSelectedRows] = useState(new Set());
-  const [editingRow, setEditingRow] = useState(null); // Estado para controlar a linha em edição
-  const [editedData, setEditedData] = useState({}); // Estado para armazenar os dados editados
-  const [isEditing, setIsEditing] = useState(false); // Estado para controlar o modo de edição
+  const [editingRow, setEditingRow] = useState(null);
+  const [editedData, setEditedData] = useState({});
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Usando o contexto de serviços
+  const { 
+    serviceData, 
+    loading, 
+    error, 
+    hasMore, 
+    sortOrder, 
+    setSortOrder, 
+    loadMore,
+    updateService,
+    deleteService,
+    loadServiceData,
+    initialized
+  } = useServiceData();
+
+  useEffect(() => {
+    // Somente carrega os dados automaticamente se não estiverem inicializados
+    if (!initialized && !loading && serviceData.length === 0) {
+      loadServiceData(1, true);
+    }
+  }, [initialized, loading, serviceData.length, loadServiceData]);
 
   // Função para alternar a seleção de uma linha
   const toggleRowSelection = (rowId) => {
     if (isEditing) return; // Não permite desselecionar durante a edição
 
-    const adjustedRowId = Number(rowId); // Converte rowId para número e soma 1
+    const adjustedRowId = Number(rowId);
     setSelectedRows((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(adjustedRowId)) {
-        newSet.delete(adjustedRowId); // Desseleciona a linha se já estiver selecionada
+        newSet.delete(adjustedRowId);
       } else {
-        newSet.clear(); // Limpa todas as seleções anteriores
-        newSet.add(adjustedRowId); // Seleciona a nova linha
+        newSet.clear();
+        newSet.add(adjustedRowId);
       }
       console.log("Linha selecionada:", adjustedRowId);
       return newSet;
     });
   };
 
-  // Função para buscar os dados iniciais
-  const fetchInitialData = async () => {
-    try {
-      setLoading(true); // Define o estado de carregamento antes de buscar os dados
-      
-      const response = await fetch(`http://localhost/backend-php/api/get_services.php?page=${page}&limit=500&order=${sortOrder}`);
-      if (!response.ok) {
-        throw new Error(`Erro ao carregar os dados: ${response.status}`);
-      }
-  
-      const result = await response.json();
-  
-      if (!Array.isArray(result)) {
-        throw new Error("Os dados recebidos não são uma lista válida");
-      }
-  
-      if (result.length === 0) {
-        setHasMore(false);
-      } else {
-        // Mapeia os dados da API para o formato esperado pela tabela
-        const mappedData = result.map(item => ({
-          id: item.id,
-          codigoTUSS: item.Codigo_TUSS,
-          Descricao_Apresentacao: item.Descricao_Apresentacao,
-          Descricao_Resumida: item.Descricao_Resumida,
-          Descricao_Comercial: item.Descricao_Comercial,
-          Concentracao: item.Concentracao,
-          Unidade_Fracionamento: item.UnidadeFracionamento,
-          Fracionamento: item.Fracionamento,
-          "Laboratório": item.Laboratorio,
-          Revisado: item.Revisado,
-          "Cód GGrem": item.Cod_Ggrem, // Ajustado para corresponder ao expandableHeaders
-          Princípio_Ativo: item.PrincipioAtivo,
-          Principio_Ativo: item.Principio_Ativo,
-          Laboratorio: item.Lab,
-          "CNPJ Lab": item.cnpj_lab, // Ajustado para corresponder ao expandableHeaders
-          "Classe Terapêutica": item.Classe_Terapeutica, // Ajustado para corresponder ao expandableHeaders
-          "Tipo do Produto": item.Tipo_Porduto, // Ajustado para corresponder ao expandableHeaders
-          "Regime Preço": item.Regime_Preco, // Ajustado para corresponder ao expandableHeaders
-          "Restrição Hosp": item.Restricao_Hosp, // Ajustado para corresponder ao expandableHeaders
-          Cap: item.Cap,
-          Confaz87: item.Confaz87,
-          ICMS0: item.Icms0,
-          Lista: item.Lista,
-          Status: item.Status,
-          Tabela: item.tabela,
-          "Tabela Classe": item.tabela_classe, // Ajustado para corresponder ao expandableHeaders
-          "Tabela tipo": item.tabela_tipo, // Ajustado para corresponder ao expandableHeaders
-          "Classe JaraguaSul": item.classe_Jaragua_do_sul, // Ajustado para corresponder ao expandableHeaders
-          "Classificação tipo": item.classificacao_tipo, // Ajustado para corresponder ao expandableHeaders
-          Finalidade: item.finalidade,
-          Objetivo: item.objetivo,
-          "Via_Administração": item.Via_administracao, // Ajustado para corresponder ao expandableHeaders
-          "Classe_Farmaceutica": item.ClasseFarmaceutica, // Ajustado para corresponder ao expandableHeaders
-          "Princípio_Ativo_Classificado": item.PrincipioAtivoClassificado, // Ajustado para corresponder ao expandableHeaders
-          FaseuGF: item.FaseUGF,
-          Armazenamento: item.Armazenamento,
-          Medicamento: item.tipo_medicamento,
-          Descricao: item.UnidadeFracionamentoDescricao, // Ajustado para corresponder ao expandableHeaders
-          Divisor: item.Divisor,
-          "Fator_Conversão": item.id_fatorconversao, // Ajustado para corresponder ao expandableHeaders
-          "ID Taxa": item.id_taxas, // Ajustado para corresponder ao expandableHeaders
-          "tipo taxa": item.tipo_taxa, // Ajustado para corresponder ao expandableHeaders
-          finalidade: item.TaxaFinalidade, // Ajustado para corresponder ao expandableHeaders
-          "Tempo infusão": item.tempo_infusao // Ajustado para corresponder ao expandableHeaders
-        }));
-
-        setData((prevData) => [...prevData, ...mappedData]);
-      }
-    } catch (error) {
-      console.error("Erro ao buscar os serviços:", error);
-      setError(error.message);
-    } finally {
-      setLoading(false); // Define o carregamento como concluído
-    }
+  const handleLoadData = () => {
+    loadServiceData(1, true);
   };
 
+  // Função para excluir um serviço
   const handleDelete = async () => {
-    const selectedRowId = Array.from(selectedRows)[0]; // Pega o ID da linha selecionada
-    console.log("ID da linha selecionada:", selectedRowId); // Verifica o valor do ID selecionado
-    if (!selectedRowId) return; // Se nenhuma linha estiver selecionada, não faz nada
+    const selectedRowId = Array.from(selectedRows)[0];
+    if (!selectedRowId) return;
 
     try {
       const response = await fetch(`http://localhost/backend-php/api/delete_service.php?id=${selectedRowId}`, {
@@ -133,9 +75,9 @@ export default function ServicoRelacionada() {
         throw new Error("Erro ao excluir o serviço");
       }
 
-      // Remove a linha excluída do estado `data`
-      setData((prevData) => prevData.filter(item => item.id !== selectedRowId));
-
+      // Atualiza o estado global
+      deleteService(selectedRowId);
+      
       // Limpa a seleção
       setSelectedRows(new Set());
 
@@ -145,28 +87,27 @@ export default function ServicoRelacionada() {
     }
   };
 
-
   // Função para habilitar a edição de uma linha
   const handleEdit = () => {
-    const selectedRowId = Array.from(selectedRows)[0]; // Pega o ID da linha selecionada
-    if (!selectedRowId) return; // Se nenhuma linha estiver selecionada, não faz nada
+    const selectedRowId = Array.from(selectedRows)[0];
+    if (!selectedRowId) return;
   
-    const rowToEdit = data.find(item => item.id === selectedRowId);
+    const rowToEdit = serviceData.find(item => item.id === selectedRowId);
     if (!rowToEdit) return;
   
-    setEditingRow(selectedRowId); // Define a linha em edição
-    setEditedData(rowToEdit); // Preenche os dados editados com os valores atuais
+    setEditingRow(selectedRowId);
+    setEditedData(rowToEdit);
     setIsEditing(true);
   };
   
   const handleCancel = () => {
-    setEditingRow(null); // Limpa a linha em edição
-    setEditedData({}); // Limpa os dados editados
-    setIsEditing(false); // Desativa o modo de edição
+    setEditingRow(null);
+    setEditedData({});
+    setIsEditing(false);
   };
   
   const handleSave = async () => {
-    if (!editingRow) return; // Se nenhuma linha estiver em edição, não faz nada
+    if (!editingRow) return;
   
     try {
       console.log("Dados completos a serem enviados:", editedData);
@@ -189,17 +130,13 @@ export default function ServicoRelacionada() {
         throw new Error(errorData.message || "Erro ao atualizar o serviço");
       }
   
-      // Atualiza o estado `data` com os dados editados
-      setData((prevData) =>
-        prevData.map(item =>
-          item.id === editingRow ? { ...item, ...editedData } : item
-        )
-      );
+      // Atualiza o estado global
+      updateService(editedData);
 
       // Limpa a edição
       setEditingRow(null);
       setEditedData({});
-      setIsEditing(false); // Desativa o modo de edição
+      setIsEditing(false);
   
       console.log("Serviço atualizado com sucesso!");
     } catch (error) {
@@ -216,38 +153,31 @@ export default function ServicoRelacionada() {
     }));
   };
 
-  // Busca os dados iniciais quando o componente é montado ou a página muda
-  useEffect(() => {
-    fetchInitialData();
-  }, [page, sortOrder]);
-
   // Limpa os dados nulos ou indefinidos
   const cleanedData = useMemo(() => {
-    return data.map(item => 
+    return serviceData.map(item => 
       Object.fromEntries(
         Object.entries(item).filter(([_, value]) => value !== null && value !== undefined)
       )
     );
-  }, [data]);
+  }, [serviceData]);
 
   const handleChange = (event) => {
     const value = event.target.value;  
     console.log("Digitando:", value);
-    setSearchTerm(value); // Garante que todo o valor digitado seja atualizado corretamente
+    setSearchTerm(value);
   };
 
   const handleSortChange = (e) => {
     setSortOrder(e.target.value);
-    setPage(1); // Reinicia a página ao mudar a ordenação
-    setData([]); // Limpa os dados existentes
   };
 
   const filteredData = useMemo(() => {
-    if (!searchTerm.trim()) return cleanedData; // Se estiver vazio, retorna todos os dados
+    if (!searchTerm.trim()) return cleanedData;
   
     return cleanedData.filter(item => {
-      const id = item.id?.toString() ?? ""; // Converte o ID para string (se existir)
-      const tuss = item.codigoTUSS?.toString() ?? ""; // Converte o Código TUSS para string (se existir)
+      const id = item.id?.toString() ?? "";
+      const tuss = item.codigoTUSS?.toString() ?? "";
   
       return id.includes(searchTerm) || tuss.includes(searchTerm);
     });
@@ -283,17 +213,12 @@ export default function ServicoRelacionada() {
                     <Search className="search-icon" />
                     <input
                       type="text"
-                      placeholder="Pesquisar por ID ou TUSS"
+                      placeholder="Pesquisar"
                       className="border pesquisa"
                       value={searchTerm}
                       onChange={handleChange}
                     />
                   </div>
-                  
-                  {/*<button className="button" onClick={handlePrint}>
-                    <Printer className="h-4 w-4" />
-                    <span>Print</span>
-                  </button> */}
                   
                   <div className="button-container">
                     {selectedRows.size > 0 ? (
@@ -326,17 +251,34 @@ export default function ServicoRelacionada() {
                 </div>
               </div>
 
-              {/* 🔹 Verifica se está carregando ou se deu erro */}
               {loading ? (
                 <div className="flex justify-center items-center h-full">
                   <img
                     src="../src/assets/loadingcorreto.gif"
                     alt="Carregando..."
-                    className="w-12 h-12" // Ajuste o tamanho conforme necessário
+                    className="w-12 h-12"
                   />
                 </div>
               ) : error ? (
-                <p className="text-red-500">Erro: {error}</p>
+                <div className="flex flex-col items-center justify-center h-64 gap-4">
+                  <p className="text-red-500">Erro: {error}</p>
+                  <button
+                    onClick={handleLoadData}
+                    className="button buttontxt flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-5 h-5" /> Tentar novamente
+                  </button>
+                </div>
+              ) : serviceData.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 gap-4">
+                  <p className="text-gray-500">Nenhum dado disponível</p>
+                  <button
+                    onClick={handleLoadData}
+                    className="button buttontxt flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-5 h-5" /> Carregar dados
+                  </button>
+                </div>
               ) : (
                 <div className="h-[calc(100vh-220px)] overflow-hidden">
                   <DataTable
@@ -349,14 +291,21 @@ export default function ServicoRelacionada() {
                     handleInputChange={handleInputChange}
                     selectedRows={selectedRows}
                   />
-                  {/* Botão "Mostrar mais" */}
                   {hasMore && (
                     <div className="flex justify-center mt-4">
                       <button
-                        onClick={() => setPage(prev => prev + 1)}
+                        onClick={loadMore}
                         className="button buttontxt"
+                        disabled={loading}
                       >
-                        <span>Mostrar mais</span>
+                        {loading ? (
+                          <span className="flex items-center justify-center">
+                            <span className="animate-spin mr-2 h-4 w-4 border-b-2 border-white rounded-full"></span>
+                            Carregando...
+                          </span>
+                        ) : (
+                          <span>Mostrar mais</span>
+                        )}
                       </button>
                     </div>
                   )}

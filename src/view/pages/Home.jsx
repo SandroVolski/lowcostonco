@@ -76,7 +76,10 @@ export default function Home() {
                         <motion.div
                         key={index}
                         initial={{ y: -20, opacity: 2 }}
-                        animate={{ y: 0, opacity: 1 }}
+                        animate={{ 
+                          y: 0, 
+                          opacity: item.isClickable ? 1 : 0.4 // Define a opacidade baseada em isClickable
+                        }}
                         transition={{
                             duration: 0.3, // Duração da animação
                             delay: index * 0.2, // Atraso progressivo para o efeito de onda
@@ -113,7 +116,10 @@ export default function Home() {
                         <motion.div
                         key={index}
                         initial={{ y: 20, opacity: 2 }}
-                        animate={{ y: 0, opacity: 1 }}
+                        animate={{ 
+                          y: 0, 
+                          opacity: item.isClickable ? 0.4 : 0.4 // Define a opacidade baseada em isClickable
+                        }}
                         transition={{
                             duration: 0.3, // Duração da animação
                             delay: index * 0.2, // Atraso progressivo para o efeito de onda

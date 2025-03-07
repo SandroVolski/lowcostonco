@@ -33,7 +33,7 @@ export function Header({ userName }) {
             className="avatar-button"
           >
             <img
-              src="https://i.pravatar.cc/100"
+              src="../src/assets/avatargif.gif"
               alt="User avatar"
               className="avatar-img"
             />

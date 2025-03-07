@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { Loader2, Dna, CheckCircle } from 'lucide-react';
+import { Loader2, CheckCircle } from 'lucide-react';
 import PageTransition from "../../components/PageTransition";
 import { useNavigate } from 'react-router-dom';
+import { useServiceData } from '../../components/ServiceContext'; // Importe o contexto
+import { useAuth } from '../../auth/AuthProvider'
+
 
 function Login() {
   const [code, setCode] = useState('');
@@ -9,7 +12,13 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [dataLoading, setDataLoading] = useState(false);
   const navigate = useNavigate();
+  
+  // Usando o contexto de serviços
+  const { loadServiceData, initialized } = useServiceData();
+
+  const { login } = useAuth();
 
   // Credenciais fixas para demonstração
   const VALID_CODE = 'ONCOGlobal';
@@ -25,6 +34,22 @@ function Login() {
     
     if (code === VALID_CODE && password === VALID_PASSWORD) {
       setSuccess(true);
+
+      login();
+      
+      // Inicia o carregamento dos dados se ainda não estiverem carregados
+      if (!initialized) {
+        setDataLoading(true);
+        try {
+          await loadServiceData(1, true);
+          console.log("Dados pré-carregados com sucesso!");
+        } catch (error) {
+          console.error("Erro ao pré-carregar dados:", error);
+        } finally {
+          setDataLoading(false);
+        }
+      }
+      
       // Aguarda 2 segundos antes de redirecionar
       setTimeout(() => {
         navigate('/Home');
@@ -64,9 +89,22 @@ function Login() {
           </div>
 
           {success ? (
-            <div className="bg-green-50 p-4 rounded-lg border border-green-100 flex items-center justify-center space-x-2 animate-fade-in">
-              <CheckCircle className="text-green-500 w-6 h-6" />
-              <span className="text-green-700 font-medium">Login realizado com sucesso! Redirecionando...</span>
+            <div className="space-y-4">
+              <div className="bg-green-50 p-4 rounded-lg border border-green-100 flex items-center justify-center space-x-2 animate-fade-in">
+                <CheckCircle className="text-green-500 w-6 h-6" />
+                <span className="text-green-700 font-medium">Login realizado com sucesso!</span>
+              </div>
+              
+              {dataLoading && (
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex items-center justify-center space-x-2">
+                  <Loader2 className="text-blue-500 w-6 h-6 animate-spin" />
+                  <span className="text-blue-700 font-medium">Preparando dados do sistema...</span>
+                </div>
+              )}
+              
+              <p className="text-center text-gray-600">
+                Redirecionando para o sistema...
+              </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
