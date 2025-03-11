@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from "react";
+import React, { createContext, useState, useContext, useEffect, useCallback } from "react";
 
 // Criando o contexto
 const ServiceContext = createContext();
@@ -109,6 +109,125 @@ export const ServiceProvider = ({ children }) => {
     loadServiceData(1, true);
   };
 
+
+
+  // Adicione esta função ao ServiceContext.js
+  const addService = async (newService) => {
+    // É importante garantir que a estrutura esteja correta antes de enviar
+    const formattedService = formatServiceData(newService);
+    console.log("Dados formatados sendo enviados:", formattedService);
+    
+    try {
+        const response = await fetch(`http://localhost/backend-php/api/insert_service.php`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formattedService),
+        });
+
+        // Captura o texto completo da resposta para depuração
+        const responseText = await response.text();
+        console.log("Resposta completa do servidor:", responseText);
+        
+        // Se a resposta não for JSON válido, irá falhar aqui
+        try {
+            // Tente converter a resposta em JSON
+            const result = JSON.parse(responseText);
+            
+            // Adiciona o id retornado pelo servidor ao novo serviço
+            const serviceWithId = { 
+                ...newService, 
+                id: result.id 
+            };
+            
+            // Adiciona no início da lista
+            setServiceData(prev => [serviceWithId, ...prev]);
+            
+            return result.id;
+        } catch (parseError) {
+            console.error("Erro ao fazer parse da resposta:", parseError);
+            console.error("Conteúdo da resposta:", responseText);
+            throw new Error('Resposta inválida do servidor: não é JSON');
+        }
+    } catch (error) {
+        console.error("Erro ao adicionar o serviço:", error);
+        throw error;
+    }
+  };
+
+  // Função para garantir que a estrutura dos dados está correta
+  const formatServiceData = (data) => {
+    // Cria uma cópia para não modificar o original
+    const formatted = { ...data };
+    
+    // Garante que os objetos aninhados existam e tenham a estrutura correta
+    formatted.RegistroVisa = {
+        Cod_Ggrem: formatted.Cod_Ggrem || '',
+        Principio_Ativo: formatted.Principio_Ativo || '',
+        Lab: formatted.Lab || '',
+        // Adicione outros campos de RegistroVisa aqui
+    };
+    
+    // Remove campos extras que foram achatados
+    delete formatted.Cod_Ggrem;
+    delete formatted.Principio_Ativo;
+    delete formatted.Lab;
+    
+    // Garante que Tabela existe e tem a estrutura correta
+    if (!formatted.Tabela || typeof formatted.Tabela !== 'object') {
+        formatted.Tabela = {
+            tabela: formatted.tabela || '',
+            tabela_classe: formatted.tabela_classe || '',
+            // Adicione outros campos de Tabela aqui
+        };
+        
+        // Remove campos extras
+        delete formatted.tabela;
+        delete formatted.tabela_classe;
+    }
+    
+    // Faça o mesmo para outros objetos aninhados (PrincipioAtivo, UnidadeFracionamento, Taxas)
+    // PrincipioAtivo
+    formatted.PrincipioAtivo = {
+        PrincipioAtivo: formatted.PrincipioAtivo || '',
+        PrincipioAtivoClassificado: formatted.PrincipioAtivoClassificado || '',
+        FaseUGF: formatted.FaseUGF || '',
+    };
+    delete formatted.PrincipioAtivoClassificado;
+    delete formatted.FaseUGF;
+    
+    // UnidadeFracionamento
+    formatted.UnidadeFracionamento = {
+        UnidadeFracionamento: formatted.UnidadeFracionamento || '',
+        Descricao: formatted.UnidadeFracionamentoDescricao || '',
+        Divisor: formatted.Divisor || '',
+    };
+    delete formatted.UnidadeFracionamentoDescricao;
+    delete formatted.Divisor;
+    
+    // Taxas
+    formatted.Taxas = {
+        tipo_taxa: formatted.tipo_taxa || '',
+        finalidade: formatted.TaxaFinalidade || formatted.finalidade || '',
+        tempo_infusao: formatted.tempo_infusao || '',
+    };
+    delete formatted.tipo_taxa;
+    delete formatted.TaxaFinalidade;
+    delete formatted.finalidade;
+    delete formatted.tempo_infusao;
+    
+    // Corrige outros campos que podem ter nomes diferentes
+    if (formatted.Via_administracao && !formatted.ViaAdministracao) {
+        formatted.ViaAdministracao = formatted.Via_administracao;
+        delete formatted.Via_administracao;
+    }
+    
+    return formatted;
+  };
+
+
+
   // Função para carregar mais dados
   const loadMore = () => {
     if (!loading && hasMore) {
@@ -152,6 +271,7 @@ export const ServiceProvider = ({ children }) => {
     loadServiceData,
     updateService,
     deleteService,
+    addService,
     resetAndLoad
   };
 

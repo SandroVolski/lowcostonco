@@ -16,6 +16,60 @@ export default function ServicoRelacionada() {
   const [editingRow, setEditingRow] = useState(null);
   const [editedData, setEditedData] = useState({});
   const [isEditing, setIsEditing] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newServiceData, setNewServiceData] = useState({
+    Codigo_TUSS: '',
+    Descricao_Apresentacao: '',
+    Descricao_Resumida: '',
+    Descricao_Comercial: '',
+    Concentracao: '',
+    Fracionamento: '',
+    Laboratorio: '',
+    Revisado: 0,
+    
+    // Campos de RegistroVisa
+    Cod_Ggrem: '',
+    Principio_Ativo: '',
+    Lab: '',
+    cnpj_lab: '',
+    Classe_Terapeutica: '',
+    Tipo_Porduto: '',
+    Regime_Preco: '',
+    Restricao_Hosp: '',
+    Cap: '',
+    Confaz87: '',
+    Icms0: '',
+    Lista: '',
+    Status: '',
+    
+    // Campos de Tabela
+    tabela: '',
+    tabela_classe: '',
+    tabela_tipo: '',
+    classe_Jaragua_do_sul: '',
+    classificacao_tipo: '',
+    finalidade: '',
+    objetivo: '',
+    
+    // Outros campos
+    Via_administracao: '',  // Note que este campo deve corresponder ao nome esperado no PHP
+    ClasseFarmaceutica: '',
+    PrincipioAtivo: '',
+    PrincipioAtivoClassificado: '',
+    FaseUGF: '',
+    Armazenamento: '',
+    tipo_medicamento: '',
+    
+    // Unidade de Fracionamento
+    UnidadeFracionamento: '',
+    UnidadeFracionamentoDescricao: '',  // Nome usado no PHP
+    Divisor: '',
+    
+    // Taxas
+    tipo_taxa: '',
+    TaxaFinalidade: '',  // Nome usado no PHP
+    tempo_infusao: ''
+  });
 
   // Usando o contexto de serviços
   const { 
@@ -29,7 +83,8 @@ export default function ServicoRelacionada() {
     updateService,
     deleteService,
     loadServiceData,
-    initialized
+    initialized,
+    addService
   } = useServiceData();
 
   useEffect(() => {
@@ -104,6 +159,153 @@ export default function ServicoRelacionada() {
     setEditingRow(null);
     setEditedData({});
     setIsEditing(false);
+  };
+
+  // Adicione estas funções ao componente
+  const handleAdd = () => {
+    setIsAdding(true);
+    setSelectedRows(new Set()); // Limpa qualquer seleção existente
+  };
+
+  const handleCancelAdd = () => {
+    setIsAdding(false);
+    setNewServiceData({
+      Codigo_TUSS: '',
+    Descricao_Apresentacao: '',
+    Descricao_Resumida: '',
+    Descricao_Comercial: '',
+    Concentracao: '',
+    Fracionamento: '',
+    Laboratorio: '',
+    Revisado: 0,
+    
+    // Campos de RegistroVisa
+    Cod_Ggrem: '',
+    Principio_Ativo: '',
+    Lab: '',
+    cnpj_lab: '',
+    Classe_Terapeutica: '',
+    Tipo_Porduto: '',
+    Regime_Preco: '',
+    Restricao_Hosp: '',
+    Cap: '',
+    Confaz87: '',
+    Icms0: '',
+    Lista: '',
+    Status: '',
+    
+    // Campos de Tabela
+    tabela: '',
+    tabela_classe: '',
+    tabela_tipo: '',
+    classe_Jaragua_do_sul: '',
+    classificacao_tipo: '',
+    finalidade: '',
+    objetivo: '',
+    
+    // Outros campos
+    Via_administracao: '',  // Note que este campo deve corresponder ao nome esperado no PHP
+    ClasseFarmaceutica: '',
+    PrincipioAtivo: '',
+    PrincipioAtivoClassificado: '',
+    FaseUGF: '',
+    Armazenamento: '',
+    tipo_medicamento: '',
+    
+    // Unidade de Fracionamento
+    UnidadeFracionamento: '',
+    UnidadeFracionamentoDescricao: '',  // Nome usado no PHP
+    Divisor: '',
+    
+    // Taxas
+    tipo_taxa: '',
+    TaxaFinalidade: '',  // Nome usado no PHP
+    tempo_infusao: ''
+    });
+  };
+
+  const handleSaveNew = async () => {
+    try {
+      console.log("Dados a serem enviados:", JSON.stringify(newServiceData));
+      await addService(newServiceData);
+      setIsAdding(false);
+      setNewServiceData({
+        Codigo_TUSS: '',
+        Descricao_Apresentacao: '',
+        Descricao_Resumida: '',
+        Descricao_Comercial: '',
+        Concentracao: '',
+        Fracionamento: '',
+        Laboratorio: '',
+        Revisado: 0,
+        
+        // Campos de RegistroVisa
+        Cod_Ggrem: '',
+        Principio_Ativo: '',
+        Lab: '',
+        cnpj_lab: '',
+        Classe_Terapeutica: '',
+        Tipo_Porduto: '',
+        Regime_Preco: '',
+        Restricao_Hosp: '',
+        Cap: '',
+        Confaz87: '',
+        Icms0: '',
+        Lista: '',
+        Status: '',
+        
+        // Campos de Tabela
+        tabela: '',
+        tabela_classe: '',
+        tabela_tipo: '',
+        classe_Jaragua_do_sul: '',
+        classificacao_tipo: '',
+        finalidade: '',
+        objetivo: '',
+        
+        // Outros campos
+        Via_administracao: '',  // Note que este campo deve corresponder ao nome esperado no PHP
+        ClasseFarmaceutica: '',
+        PrincipioAtivo: '',
+        PrincipioAtivoClassificado: '',
+        FaseUGF: '',
+        Armazenamento: '',
+        tipo_medicamento: '',
+        
+        // Unidade de Fracionamento
+        UnidadeFracionamento: '',
+        UnidadeFracionamentoDescricao: '',  // Nome usado no PHP
+        Divisor: '',
+        
+        // Taxas
+        tipo_taxa: '',
+        TaxaFinalidade: '',  // Nome usado no PHP
+        tempo_infusao: ''
+      });
+      console.log("Serviço adicionado com sucesso!");
+    } catch (error) {
+      console.error("Erro ao adicionar o serviço:", error);
+    }
+  };
+
+  // Função para capturar as alterações nos campos do novo serviço
+  const handleNewInputChange = (e, field, nestedObject = null) => {
+    const value = e.target.type === 'number' ? Number(e.target.value) : e.target.value;
+    
+    if (nestedObject) {
+        setNewServiceData(prev => ({
+            ...prev,
+            [nestedObject]: {
+                ...(prev[nestedObject] || {}), // Garante que o objeto existe
+                [field]: value
+            }
+        }));
+    } else {
+        setNewServiceData(prev => ({
+            ...prev,
+            [field]: value
+        }));
+    }
   };
   
   const handleSave = async () => {
@@ -243,9 +445,20 @@ export default function ServicoRelacionada() {
                         )}
                       </>
                     ) : (
-                      <button className="button buttontxt btn-primary">
-                        <Plus /> Adicionar
-                      </button>
+                      isAdding ? (
+                        <>
+                          <button className="btn btn-danger" onClick={handleCancelAdd}>
+                            Cancelar
+                          </button>
+                          <button className="btn btn-success" onClick={handleSaveNew}>
+                            Salvar
+                          </button>
+                        </>
+                      ) : (
+                        <button className="button buttontxt btn-primary" onClick={handleAdd}>
+                          <Plus /> Adicionar
+                        </button>
+                      )
                     )}
                   </div>
                 </div>
@@ -290,6 +503,9 @@ export default function ServicoRelacionada() {
                     editedData={editedData}
                     handleInputChange={handleInputChange}
                     selectedRows={selectedRows}
+                    isAdding={isAdding}  // Nova prop
+                    newServiceData={newServiceData}  // Nova prop
+                    handleNewInputChange={handleNewInputChange}  // Nova prop
                   />
                   {hasMore && (
                     <div className="flex justify-center mt-4">

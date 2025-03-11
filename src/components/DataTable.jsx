@@ -9,7 +9,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 
 const columnHelper = createColumnHelper();
 
-export function DataTable({ data, onSelectionChange, selectedRows, editingRow, editedData, handleInputChange }) {
+export function DataTable({ data, onSelectionChange, selectedRows, editingRow, editedData, handleInputChange, isAdding, newServiceData, handleNewInputChange }) {
   //const [selectedRows, setSelectedRows] = useState(new Set());
   const [expandedHeaders, setExpandedHeaders] = useState(new Set());
   const [expandedRows, setExpandedRows] = useState(new Set());
@@ -181,6 +181,7 @@ export function DataTable({ data, onSelectionChange, selectedRows, editingRow, e
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
+  
 
   return (
     <div className="table-container data-table-container" style={{ overflowX: 'auto', maxWidth: '100%', whiteSpace: 'nowrap' }}>
@@ -201,6 +202,275 @@ export function DataTable({ data, onSelectionChange, selectedRows, editingRow, e
           ))}
         </thead>
         <tbody>
+
+        {isAdding && (
+          <tr className="bg-gray-100">
+            <td className="border px-4 py-2 text-center">Novo</td>
+            
+            {/* Código TUSS */}
+            <td className="border px-4 py-2 text-center">
+              <input
+                type="text"
+                value={newServiceData.Codigo_TUSS || ''}
+                onChange={(e) => handleNewInputChange(e, 'Codigo_TUSS')}
+                className="w-full p-1 border rounded"
+                
+              />
+            </td>
+
+            {/* Registro ANVISA */}
+            <td className="border px-4 py-2 text-center space-y-1">
+              <input
+                type="text"
+                value={newServiceData.RegistroVisa?.Cod_Ggrem || ''}
+                onChange={(e) => handleNewInputChange(e, 'Cod_Ggrem', 'RegistroVisa')}
+                className="w-full p-1 border rounded"
+                
+              />
+              <input
+                type="text"
+                value={newServiceData.RegistroVisa?.Principio_Ativo || ''}
+                onChange={(e) => handleNewInputChange(e, 'Principio_Ativo', 'RegistroVisa')}
+                className="w-full p-1 border rounded"
+              />
+              <input
+                type="text"
+                value={newServiceData.RegistroVisa?.Lab || ''}
+                onChange={(e) => handleNewInputChange(e, 'Lab', 'RegistroVisa')}
+                className="w-full p-1 border rounded"
+                
+              />
+              {/* Adicione os demais campos do RegistroVisa seguindo o mesmo padrão */}
+            </td>
+
+            {/* Tabela */}
+            <td className="border px-4 py-2 text-center space-y-1">
+              <input
+                type="text"
+                value={newServiceData.Tabela?.tabela || ''}
+                onChange={(e) => handleNewInputChange(e, 'tabela', 'Tabela')}
+                className="w-full p-1 border rounded"
+                
+              />
+              <input
+                type="text"
+                value={newServiceData.Tabela?.tabela_classe || ''}
+                onChange={(e) => handleNewInputChange(e, 'tabela_classe', 'Tabela')}
+                className="w-full p-1 border rounded"
+                
+              />
+              {/* Adicione os demais campos da Tabela */}
+            </td>
+
+            {/* Via Administração */}
+            <td className="border px-4 py-2 text-center">
+              <input
+                type="text"
+                value={newServiceData.ViaAdministracao || ''}
+                onChange={(e) => handleNewInputChange(e, 'ViaAdministracao')}
+                className="w-full p-1 border rounded"
+                
+              />
+            </td>
+
+            {/* Classe Farmacêutica */}
+            <td className="border px-4 py-2 text-center">
+              <input
+                type="text"
+                value={newServiceData.ClasseFarmaceutica || ''}
+                onChange={(e) => handleNewInputChange(e, 'ClasseFarmaceutica')}
+                className="w-full p-1 border rounded"
+                
+              />
+            </td>
+
+            {/* Princípio Ativo */}
+            <td className="border px-4 py-2 text-center space-y-1">
+              <input
+                type="text"
+                value={newServiceData.PrincipioAtivo?.PrincipioAtivo || ''}
+                onChange={(e) => handleNewInputChange(e, 'PrincipioAtivo', 'PrincipioAtivo')}
+                className="w-full p-1 border rounded"
+                
+              />
+              <input
+                type="text"
+                value={newServiceData.PrincipioAtivo?.PrincipioAtivoClassificado || ''}
+                onChange={(e) => handleNewInputChange(e, 'PrincipioAtivoClassificado', 'PrincipioAtivo')}
+                className="w-full p-1 border rounded"
+                
+              />
+              <input
+                type="text"
+                value={newServiceData.PrincipioAtivo?.FaseUGF || ''}
+                onChange={(e) => handleNewInputChange(e, 'FaseUGF', 'PrincipioAtivo')}
+                className="w-full p-1 border rounded"
+                
+              />
+            </td>
+
+            {/* Armazenamento */}
+            <td className="border px-4 py-2 text-center">
+              <input
+                type="text"
+                value={newServiceData.Armazenamento || ''}
+                onChange={(e) => handleNewInputChange(e, 'Armazenamento')}
+                className="w-full p-1 border rounded"
+                
+              />
+            </td>
+
+            {/* Descrições */}
+            <td className="border px-4 py-2 text-center">
+              <input
+                type="text"
+                value={newServiceData.Descricao_Apresentacao || ''}
+                onChange={(e) => handleNewInputChange(e, 'Descricao_Apresentacao')}
+                className="w-full p-1 border rounded"
+                
+              />
+            </td>
+
+            <td className="border px-4 py-2 text-center">
+              <input
+                type="text"
+                value={newServiceData.Descricao_Resumida || ''}
+                onChange={(e) => handleNewInputChange(e, 'Descricao_Resumida')}
+                className="w-full p-1 border rounded"
+                
+              />
+            </td>
+
+            <td className="border px-4 py-2 text-center">
+              <input
+                type="text"
+                value={newServiceData.Descricao_Comercial || ''}
+                onChange={(e) => handleNewInputChange(e, 'Descricao_Comercial')}
+                className="w-full p-1 border rounded"
+                
+              />
+            </td>
+
+            {/* Medicamento */}
+            <td className="border px-4 py-2 text-center">
+              <input
+                type="text"
+                value={newServiceData.tipo_medicamento || ''}
+                onChange={(e) => handleNewInputChange(e, 'tipo_medicamento')}
+                className="w-full p-1 border rounded"
+                
+              />
+            </td>
+
+            {/* Unidade Fracionamento */}
+            <td className="border px-4 py-2 text-center space-y-1">
+              <input
+                type="text"
+                value={newServiceData.UnidadeFracionamento?.UnidadeFracionamento || ''}
+                onChange={(e) => handleNewInputChange(e, 'UnidadeFracionamento', 'UnidadeFracionamento')}
+                className="w-full p-1 border rounded"
+                
+              />
+              <input
+                type="text"
+                value={newServiceData.UnidadeFracionamento?.Descricao || ''}
+                onChange={(e) => handleNewInputChange(e, 'Descricao', 'UnidadeFracionamento')}
+                className="w-full p-1 border rounded"
+                
+              />
+              <input
+                type="number"
+                value={newServiceData.UnidadeFracionamento?.Divisor || ''}
+                onChange={(e) => handleNewInputChange(e, 'Divisor', 'UnidadeFracionamento')}
+                className="w-full p-1 border rounded"
+                
+              />
+            </td>
+
+            {/* Fator Conversão */}
+            <td className="border px-4 py-2 text-center">
+              <input
+                type="text"
+                value={newServiceData.idFatorConversao || ''}
+                onChange={(e) => handleNewInputChange(e, 'idFatorConversao')}
+                className="w-full p-1 border rounded"
+                
+              />
+            </td>
+
+            {/* Concentração */}
+            <td className="border px-4 py-2 text-center">
+              <input
+                type="text"
+                value={newServiceData.Concentracao || ''}
+                onChange={(e) => handleNewInputChange(e, 'Concentracao')}
+                className="w-full p-1 border rounded"
+                
+              />
+            </td>
+
+            {/* Fracionamento */}
+            <td className="border px-4 py-2 text-center">
+              <input
+                type="text"
+                value={newServiceData.Fracionamento || ''}
+                onChange={(e) => handleNewInputChange(e, 'Fracionamento')}
+                className="w-full p-1 border rounded"
+                
+              />
+            </td>
+
+            {/* Laboratório */}
+            <td className="border px-4 py-2 text-center">
+              <input
+                type="text"
+                value={newServiceData.Laboratorio || ''}
+                onChange={(e) => handleNewInputChange(e, 'Laboratorio')}
+                className="w-full p-1 border rounded"
+                
+              />
+            </td>
+
+            {/* Taxas */}
+            <td className="border px-4 py-2 text-center space-y-1">
+              <input
+                type="text"
+                value={newServiceData.Taxas?.tipo_taxa || ''}
+                onChange={(e) => handleNewInputChange(e, 'tipo_taxa', 'Taxas')}
+                className="w-full p-1 border rounded"
+                
+              />
+              <input
+                type="text"
+                value={newServiceData.Taxas?.finalidade || ''}
+                onChange={(e) => handleNewInputChange(e, 'finalidade', 'Taxas')}
+                className="w-full p-1 border rounded"
+                
+              />
+              <input
+                type="text"
+                value={newServiceData.Taxas?.tempo_infusao || ''}
+                onChange={(e) => handleNewInputChange(e, 'tempo_infusao', 'Taxas')}
+                className="w-full p-1 border rounded"
+                
+              />
+            </td>
+
+            {/* Revisado */}
+            <td className="border px-4 py-2 text-center">
+              <select
+                value={newServiceData.Revisado || '0'}
+                onChange={(e) => handleNewInputChange(e, 'Revisado')}
+                className="w-full p-1 border rounded"
+              >
+                <option value="0">Não</option>
+                <option value="1">Sim</option>
+              </select>
+            </td>
+          </tr>
+        )}
+
+
           {table.getRowModel().rows.map(row => {
             const adjustedRowId = Number(row.id); // Converte row.id para número e soma 1
             const rowId = row.original.id;
