@@ -1,75 +1,132 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Header } from '../../components/Header';
 import { Sidebar } from '../../components/Sidebar';
 import { DataTable } from '../../components/DataTable';
 import PageTransition from "../../components/PageTransition";
 import { useServiceData } from '../../components/ServiceContext'; // Importe o contexto
+import { DropdownOptionsProvider, useDropdownOptions } from '../../components/DropdownOptionsContext';
 
 import '../../App.css';
 import './ServicoRelacionada.css';
 
-import { Search, Plus, Trash2, Edit, RefreshCw } from "lucide-react";
+import { Search, Plus, Trash2, Edit, RefreshCw, X, Save } from "lucide-react";
 
 export default function ServicoRelacionada() {
+  // Componente principal que inclui o Provider
+  return (
+    <DropdownOptionsProvider>
+      <ServicoRelacionadaContent />
+    </DropdownOptionsProvider>
+  );
+}
+
+function ServicoRelacionadaContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [editingRow, setEditingRow] = useState(null);
   const [editedData, setEditedData] = useState({});
   const [isEditing, setIsEditing] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
-  const [newServiceData, setNewServiceData] = useState({
-    Codigo_TUSS: '',
-    Descricao_Apresentacao: '',
-    Descricao_Resumida: '',
-    Descricao_Comercial: '',
-    Concentracao: '',
-    Fracionamento: '',
-    Laboratorio: '',
-    Revisado: 0,
-    
-    // Campos de RegistroVisa
-    Cod_Ggrem: '',
-    Principio_Ativo: '',
-    Lab: '',
-    cnpj_lab: '',
-    Classe_Terapeutica: '',
-    Tipo_Porduto: '',
-    Regime_Preco: '',
-    Restricao_Hosp: '',
-    Cap: '',
-    Confaz87: '',
-    Icms0: '',
-    Lista: '',
-    Status: '',
-    
-    // Campos de Tabela
-    tabela: '',
-    tabela_classe: '',
-    tabela_tipo: '',
-    classe_Jaragua_do_sul: '',
-    classificacao_tipo: '',
-    finalidade: '',
-    objetivo: '',
-    
-    // Outros campos
-    Via_administracao: '',  // Note que este campo deve corresponder ao nome esperado no PHP
-    ClasseFarmaceutica: '',
-    PrincipioAtivo: '',
-    PrincipioAtivoClassificado: '',
-    FaseUGF: '',
-    Armazenamento: '',
-    tipo_medicamento: '',
-    
-    // Unidade de Fracionamento
-    UnidadeFracionamento: '',
-    UnidadeFracionamentoDescricao: '',  // Nome usado no PHP
-    Divisor: '',
-    
-    // Taxas
-    tipo_taxa: '',
-    TaxaFinalidade: '',  // Nome usado no PHP
-    tempo_infusao: ''
-  });
+  const [localLoading, setLocalLoading] = useState(false);
+  const [updateCounter, setUpdateCounter] = useState(0);
+
+  // Referência para o componente DataTable para controlar expansão de colunas
+  const dataTableRef = useRef(null);
+
+  const resetNewServiceData = () => {
+    return {
+      Codigo_TUSS: '',
+      Descricao_Apresentacao: '',
+      Descricao_Resumida: '',
+      Descricao_Comercial: '',
+      Concentracao: '',
+      Fracionamento: '',
+      Laboratorio: '',
+      Revisado: 0,
+      
+      // Campos de RegistroVisa
+      Cod_Ggrem: '',
+      Principio_Ativo: '',
+      Lab: '',
+      cnpj_lab: '',
+      Classe_Terapeutica: '',
+      Tipo_Porduto: '',
+      Regime_Preco: '',
+      Restricao_Hosp: '',
+      Cap: '',
+      Confaz87: '',
+      Icms0: '',
+      Lista: '',
+      Status: '',
+      
+      // Campos de Tabela
+      tabela: '',
+      tabela_classe: '',
+      tabela_tipo: '',
+      classe_Jaragua_do_sul: '',
+      classificacao_tipo: '',
+      finalidade: '',
+      objetivo: '',
+      
+      // Novos campos para armazenar os IDs
+      idViaAdministracao: null,
+      idClasseFarmaceutica: null,
+      idPrincipioAtivo: null,
+      idArmazenamento: null,
+      idMedicamento: null,
+      idUnidadeFracionamento: null,
+      idFatorConversao: null,
+      idTaxas: null,
+  
+      // Outros campos
+      Via_administracao: '',
+      ViaAdministracao: '',
+      ClasseFarmaceutica: '',
+      PrincipioAtivo: '',
+      PrincipioAtivoClassificado: '',
+      FaseUGF: '',
+      Armazenamento: '',
+      tipo_medicamento: '',
+      
+      // Unidade de Fracionamento
+      UnidadeFracionamento: '',
+      Unidade_Fracionamento: '',
+      UnidadeFracionamentoDescricao: '',
+      Descricao: '',
+      Divisor: '',
+      
+      // Taxas
+      tipo_taxa: '',
+      TaxaFinalidade: '',
+      tempo_infusao: ''
+    };
+  };
+
+  const [newServiceData, setNewServiceData] = useState(resetNewServiceData());
+
+  // Adicione este useEffect ao seu componente ServicoRelacionadaContent
+  useEffect(() => {
+    if (isAdding) {
+      console.log('=== ESTADO DE newServiceData ATUALIZADO ===');
+      console.log('idViaAdministracao:', newServiceData.idViaAdministracao, 'tipo:', typeof newServiceData.idViaAdministracao);
+      console.log('ViaAdministracao:', newServiceData.ViaAdministracao);
+      console.log('idClasseFarmaceutica:', newServiceData.idClasseFarmaceutica);
+      console.log('ClasseFarmaceutica:', newServiceData.ClasseFarmaceutica);
+      console.log('idPrincipioAtivo:', newServiceData.idPrincipioAtivo);
+      console.log('PrincipioAtivo:', newServiceData.PrincipioAtivo);
+      console.log('idArmazenamento:', newServiceData.idArmazenamento);
+      console.log('Armazenamento:', newServiceData.Armazenamento);
+      console.log('idMedicamento:', newServiceData.idMedicamento);
+      console.log('tipo_medicamento:', newServiceData.tipo_medicamento);
+      console.log('idUnidadeFracionamento:', newServiceData.idUnidadeFracionamento);
+      console.log('UnidadeFracionamento:', newServiceData.UnidadeFracionamento);
+      console.log('idFatorConversao:', newServiceData.idFatorConversao);
+      console.log('Fator_Conversão:', newServiceData.Fator_Conversão);
+      console.log('idTaxas:', newServiceData.idTaxas);
+      console.log('TaxaFinalidade:', newServiceData.TaxaFinalidade);
+      console.log('============================================');
+    }
+  }, [newServiceData, isAdding, updateCounter]);
 
   // Usando o contexto de serviços
   const { 
@@ -87,6 +144,8 @@ export default function ServicoRelacionada() {
     addService
   } = useServiceData();
 
+  const { dropdownOptions } = useDropdownOptions();
+  
   useEffect(() => {
     // Somente carrega os dados automaticamente se não estiverem inicializados
     if (!initialized && !loading && serviceData.length === 0) {
@@ -150,6 +209,7 @@ export default function ServicoRelacionada() {
     const rowToEdit = serviceData.find(item => item.id === selectedRowId);
     if (!rowToEdit) return;
   
+    console.log("Dados originais para edição:", rowToEdit);
     setEditingRow(selectedRowId);
     setEditedData(rowToEdit);
     setIsEditing(true);
@@ -161,153 +221,454 @@ export default function ServicoRelacionada() {
     setIsEditing(false);
   };
 
-  // Adicione estas funções ao componente
+  // Função modificada para colapsar cabeçalhos expandidos antes de adicionar
   const handleAdd = () => {
+    // First collapse all expanded headers if any
+    if (dataTableRef.current && typeof dataTableRef.current.collapseAllHeaders === 'function') {
+      dataTableRef.current.collapseAllHeaders();
+      console.log("Colapsando todas as seções expandidas antes de adicionar");
+    }
+    
     setIsAdding(true);
+    setNewServiceData(resetNewServiceData());
     setSelectedRows(new Set()); // Limpa qualquer seleção existente
   };
 
   const handleCancelAdd = () => {
     setIsAdding(false);
-    setNewServiceData({
-      Codigo_TUSS: '',
-    Descricao_Apresentacao: '',
-    Descricao_Resumida: '',
-    Descricao_Comercial: '',
-    Concentracao: '',
-    Fracionamento: '',
-    Laboratorio: '',
-    Revisado: 0,
-    
-    // Campos de RegistroVisa
-    Cod_Ggrem: '',
-    Principio_Ativo: '',
-    Lab: '',
-    cnpj_lab: '',
-    Classe_Terapeutica: '',
-    Tipo_Porduto: '',
-    Regime_Preco: '',
-    Restricao_Hosp: '',
-    Cap: '',
-    Confaz87: '',
-    Icms0: '',
-    Lista: '',
-    Status: '',
-    
-    // Campos de Tabela
-    tabela: '',
-    tabela_classe: '',
-    tabela_tipo: '',
-    classe_Jaragua_do_sul: '',
-    classificacao_tipo: '',
-    finalidade: '',
-    objetivo: '',
-    
-    // Outros campos
-    Via_administracao: '',  // Note que este campo deve corresponder ao nome esperado no PHP
-    ClasseFarmaceutica: '',
-    PrincipioAtivo: '',
-    PrincipioAtivoClassificado: '',
-    FaseUGF: '',
-    Armazenamento: '',
-    tipo_medicamento: '',
-    
-    // Unidade de Fracionamento
-    UnidadeFracionamento: '',
-    UnidadeFracionamentoDescricao: '',  // Nome usado no PHP
-    Divisor: '',
-    
-    // Taxas
-    tipo_taxa: '',
-    TaxaFinalidade: '',  // Nome usado no PHP
-    tempo_infusao: ''
-    });
+    setNewServiceData(resetNewServiceData());
   };
 
   const handleSaveNew = async () => {
+    // Validação básica
+    if (!newServiceData.Codigo_TUSS) {
+      alert('Por favor, preencha o Código TUSS.');
+      return;
+    }
+    
+    if (!newServiceData.Descricao_Apresentacao) {
+      alert('Por favor, preencha a Descrição de Apresentação.');
+      return;
+    }
+    
+    // Criar uma cópia dos dados para poder modificá-los
+    const dataToSend = { ...newServiceData };
+    
+    // Remover campos que podem causar conflitos de tipo
+    // Estes campos de texto não devem ser enviados quando já temos os IDs
+    if (dataToSend.idUnidadeFracionamento) {
+      delete dataToSend.UnidadeFracionamento;
+      delete dataToSend.Unidade_Fracionamento;
+    }
+    
+    if (dataToSend.idPrincipioAtivo) {
+      delete dataToSend.PrincipioAtivo;
+      delete dataToSend.Principio_Ativo;
+    }
+    
+    if (dataToSend.idViaAdministracao) {
+      delete dataToSend.ViaAdministracao;
+      delete dataToSend.Via_Administração;
+      delete dataToSend.Via_administracao;
+    }
+    
+    if (dataToSend.idClasseFarmaceutica) {
+      delete dataToSend.ClasseFarmaceutica;
+      delete dataToSend.Classe_Farmaceutica;
+    }
+    
+    if (dataToSend.idTaxas) {
+      delete dataToSend.TaxaFinalidade;
+      delete dataToSend.finalidade;
+      delete dataToSend["tipo taxa"];
+      delete dataToSend.tipo_taxa;
+      delete dataToSend["Tempo infusão"];
+      delete dataToSend.tempo_infusao;
+    }
+    
+    if (dataToSend.idMedicamento) {
+      delete dataToSend.tipo_medicamento;
+      delete dataToSend.Medicamento;
+    }
+    
+    if (dataToSend.idFatorConversao) {
+      delete dataToSend.Fator_Conversão;
+      delete dataToSend.fator;
+    }
+    
+    console.group('DADOS A SEREM SALVOS (LIMPOS):');
+    console.log('Dados filtrados a serem enviados:', dataToSend);
+    console.groupEnd();
+  
     try {
-      console.log("Dados a serem enviados:", JSON.stringify(newServiceData));
-      await addService(newServiceData);
+      // Mostrar indicador de carregamento
+      setLocalLoading(true);
+      
+      console.log("Dados a serem enviados:", JSON.stringify(dataToSend));
+      const serviceId = await addService(dataToSend);
+      
       setIsAdding(false);
-      setNewServiceData({
-        Codigo_TUSS: '',
-        Descricao_Apresentacao: '',
-        Descricao_Resumida: '',
-        Descricao_Comercial: '',
-        Concentracao: '',
-        Fracionamento: '',
-        Laboratorio: '',
-        Revisado: 0,
-        
-        // Campos de RegistroVisa
-        Cod_Ggrem: '',
-        Principio_Ativo: '',
-        Lab: '',
-        cnpj_lab: '',
-        Classe_Terapeutica: '',
-        Tipo_Porduto: '',
-        Regime_Preco: '',
-        Restricao_Hosp: '',
-        Cap: '',
-        Confaz87: '',
-        Icms0: '',
-        Lista: '',
-        Status: '',
-        
-        // Campos de Tabela
-        tabela: '',
-        tabela_classe: '',
-        tabela_tipo: '',
-        classe_Jaragua_do_sul: '',
-        classificacao_tipo: '',
-        finalidade: '',
-        objetivo: '',
-        
-        // Outros campos
-        Via_administracao: '',  // Note que este campo deve corresponder ao nome esperado no PHP
-        ClasseFarmaceutica: '',
-        PrincipioAtivo: '',
-        PrincipioAtivoClassificado: '',
-        FaseUGF: '',
-        Armazenamento: '',
-        tipo_medicamento: '',
-        
-        // Unidade de Fracionamento
-        UnidadeFracionamento: '',
-        UnidadeFracionamentoDescricao: '',  // Nome usado no PHP
-        Divisor: '',
-        
-        // Taxas
-        tipo_taxa: '',
-        TaxaFinalidade: '',  // Nome usado no PHP
-        tempo_infusao: ''
-      });
-      console.log("Serviço adicionado com sucesso!");
+      handleCancelAdd();
+      
+      // Feedback de sucesso
+      alert(`Serviço adicionado com sucesso! ID: ${serviceId}`);
+      console.log("Serviço adicionado com sucesso!", serviceId);
+      
+      // Em vez de chamar resetAndLoad, use as funções que já existem no contexto
+      if (typeof loadServiceData === 'function') {
+        loadServiceData(1, true);
+      }
+      
     } catch (error) {
       console.error("Erro ao adicionar o serviço:", error);
+      alert(`Erro ao adicionar o serviço: ${error.message || 'Erro desconhecido'}`);
+    } finally {
+      setLocalLoading(false);
     }
   };
 
-  // Função para capturar as alterações nos campos do novo serviço
-  const handleNewInputChange = (e, field, nestedObject = null) => {
-    const value = e.target.type === 'number' ? Number(e.target.value) : e.target.value;
+  // CORRECTEDFUNCTION: Função para capturar as alterações nos campos do novo serviço - CORRIGIDA
+  const handleNewInputChange = (e, field) => {
+    const { value } = e.target;
     
-    if (nestedObject) {
-        setNewServiceData(prev => ({
-            ...prev,
-            [nestedObject]: {
-                ...(prev[nestedObject] || {}), // Garante que o objeto existe
-                [field]: value
-            }
-        }));
-    } else {
-        setNewServiceData(prev => ({
-            ...prev,
-            [field]: value
-        }));
-    }
+    // IMPORTANTE: Use a sintaxe de função para garantir o estado mais atualizado
+    setNewServiceData(prevData => ({
+      ...prevData,
+      [field]: value // Armazena o valor completo do input, não apenas o último caractere
+    }));
   };
   
+  // CORRECTEDFUNCTION: Função para capturar as alterações nos campos editáveis - CORRIGIDA
+  const handleInputChange = (e, field) => {
+    const { value } = e.target;
+    
+    // Use a sintaxe de função para garantir o estado mais atualizado
+    setEditedData(prevData => ({
+      ...prevData,
+      [field]: value
+    }));
+  };
+
+  // CORRECTEDFUNCTION: Função handleNewDropdownChange corrigida
+  const handleNewDropdownChange = (e, field) => {
+    const value = e.target.value;
+    const selectedId = value ? parseInt(value, 10) : null;
+    
+    console.log(`Dropdown ${field} mudou para ${value}`);
+    
+    // Crie uma cópia do estado atual para fazer modificações
+    const updatedData = { ...newServiceData };
+    
+    // Dependendo do campo, atualize diferentes campos relacionados
+    switch(field) {
+      case 'PrincipioAtivo':
+        if (value) {
+          // Encontrar o objeto do princípio ativo selecionado
+          const selectedPrincipio = dropdownOptions.principioAtivo.find(
+            p => String(p.idPrincipioAtivo) === String(value)
+          );
+          
+          if (selectedPrincipio) {
+            console.log("Princípio ativo encontrado:", selectedPrincipio);
+            
+            // Atualizar ID
+            updatedData.idPrincipioAtivo = selectedId;
+            
+            // Preencher campos relacionados
+            updatedData.PrincipioAtivo = selectedPrincipio.PrincipioAtivo;
+            updatedData.Principio_Ativo = selectedPrincipio.PrincipioAtivo;
+            updatedData.PrincipioAtivoClassificado = selectedPrincipio.PrincipioAtivoClassificado || selectedPrincipio.PrincipioAtivo;
+            updatedData.FaseUGF = selectedPrincipio.FaseUGF || '';
+          }
+        } else {
+          // Limpar campos se não houver seleção
+          updatedData.idPrincipioAtivo = null;
+          updatedData.PrincipioAtivo = '';
+          updatedData.Principio_Ativo = '';
+          updatedData.PrincipioAtivoClassificado = '';
+          updatedData.FaseUGF = '';
+        }
+        break;
+        
+      case 'UnidadeFracionamento':
+        if (value) {
+          const selectedUnidade = dropdownOptions.unidadeFracionamento.find(
+            u => String(u.id_unidadefracionamento) === String(value)
+          );
+          
+          if (selectedUnidade) {
+            console.log("Unidade de fracionamento encontrada:", selectedUnidade);
+            
+            // Atualizar ID
+            updatedData.idUnidadeFracionamento = selectedId;
+            
+            // Preencher campos relacionados
+            updatedData.UnidadeFracionamento = selectedUnidade.UnidadeFracionamento;
+            updatedData.Unidade_Fracionamento = selectedUnidade.UnidadeFracionamento;
+            updatedData.UnidadeFracionamentoDescricao = selectedUnidade.Descricao || '';
+            updatedData.Divisor = selectedUnidade.Divisor || '';
+          }
+        } else {
+          // Limpar campos se não houver seleção
+          updatedData.idUnidadeFracionamento = null;
+          updatedData.UnidadeFracionamento = '';
+          updatedData.Unidade_Fracionamento = '';
+          updatedData.UnidadeFracionamentoDescricao = '';
+          updatedData.Divisor = '';
+        }
+        break;
+        
+      case 'Taxas':
+        if (value) {
+          const selectedTaxa = dropdownOptions.taxas.find(
+            t => String(t.id_taxas) === String(value)
+          );
+          
+          if (selectedTaxa) {
+            console.log("Taxa encontrada:", selectedTaxa);
+            
+            // Atualizar ID
+            updatedData.idTaxas = selectedId;
+            
+            // Preencher campos relacionados
+            updatedData.TaxaFinalidade = selectedTaxa.finalidade;
+            updatedData.finalidade = selectedTaxa.finalidade;
+            updatedData.tipo_taxa = selectedTaxa.tipo_taxa || '';
+            updatedData["tipo taxa"] = selectedTaxa.tipo_taxa || '';
+            updatedData.tempo_infusao = selectedTaxa.tempo_infusao || '';
+            updatedData["Tempo infusão"] = selectedTaxa.tempo_infusao || '';
+            updatedData.id_taxa = selectedTaxa.id_taxas;
+            updatedData["ID Taxa"] = selectedTaxa.id_taxas;
+          }
+        } else {
+          // Limpar campos se não houver seleção
+          updatedData.idTaxas = null;
+          updatedData.TaxaFinalidade = '';
+          updatedData.finalidade = '';
+          updatedData.tipo_taxa = '';
+          updatedData["tipo taxa"] = '';
+          updatedData.tempo_infusao = '';
+          updatedData["Tempo infusão"] = '';
+          updatedData.id_taxa = '';
+          updatedData["ID Taxa"] = '';
+        }
+        break;
+        
+      case 'ViaAdministracao':
+        if (value) {
+          const selectedVia = dropdownOptions.viaAdministracao.find(
+            v => String(v.idviaadministracao) === String(value)
+          );
+          
+          if (selectedVia) {
+            console.log("Via de administração encontrada:", selectedVia);
+            
+            // Atualizar ID
+            updatedData.idViaAdministracao = selectedId;
+            
+            // Preencher campos relacionados
+            updatedData.ViaAdministracao = selectedVia.Via_administracao;
+            updatedData.Via_Administração = selectedVia.Via_administracao;
+            updatedData.Via_administracao = selectedVia.Via_administracao;
+          }
+        } else {
+          // Limpar campos se não houver seleção
+          updatedData.idViaAdministracao = null;
+          updatedData.ViaAdministracao = '';
+          updatedData.Via_Administração = '';
+          updatedData.Via_administracao = '';
+        }
+        break;
+        
+      case 'ClasseFarmaceutica':
+        if (value) {
+          const selectedClasse = dropdownOptions.classeFarmaceutica.find(
+            c => String(c.id_medicamento) === String(value)
+          );
+          
+          if (selectedClasse) {
+            console.log("Classe farmacêutica encontrada:", selectedClasse);
+            
+            // Atualizar ID
+            updatedData.idClasseFarmaceutica = selectedId;
+            
+            // Preencher campos relacionados
+            updatedData.ClasseFarmaceutica = selectedClasse.ClasseFarmaceutica;
+            updatedData.Classe_Farmaceutica = selectedClasse.ClasseFarmaceutica;
+          }
+        } else {
+          // Limpar campos se não houver seleção
+          updatedData.idClasseFarmaceutica = null;
+          updatedData.ClasseFarmaceutica = '';
+          updatedData.Classe_Farmaceutica = '';
+        }
+        break;
+        
+      case 'Armazenamento':
+        if (value) {
+          const selectedArm = dropdownOptions.armazenamento.find(
+            a => String(a.idArmazenamento) === String(value)
+          );
+          
+          if (selectedArm) {
+            console.log("Armazenamento encontrado:", selectedArm);
+            
+            // Atualizar ID
+            updatedData.idArmazenamento = selectedId;
+            
+            // Preencher campos relacionados
+            updatedData.Armazenamento = selectedArm.Armazenamento;
+          }
+        } else {
+          // Limpar campos se não houver seleção
+          updatedData.idArmazenamento = null;
+          updatedData.Armazenamento = '';
+        }
+        break;
+        
+      case 'tipo_medicamento':
+        if (value) {
+          const selectedMed = dropdownOptions.tipoMedicamento.find(
+            m => String(m.id_medicamento) === String(value)
+          );
+          
+          if (selectedMed) {
+            console.log("Medicamento encontrado:", selectedMed);
+            
+            // Atualizar ID
+            updatedData.idMedicamento = selectedId;
+            
+            // Preencher campos relacionados
+            updatedData.tipo_medicamento = selectedMed.tipo_medicamento;
+            updatedData.Medicamento = selectedMed.tipo_medicamento;
+          }
+        } else {
+          // Limpar campos se não houver seleção
+          updatedData.idMedicamento = null;
+          updatedData.tipo_medicamento = '';
+          updatedData.Medicamento = '';
+        }
+        break;
+        
+      case 'FatorConversao':
+        if (value) {
+          const selectedFator = dropdownOptions.fatorConversao.find(
+            f => String(f.id_fatorconversao) === String(value)
+          );
+          
+          if (selectedFator) {
+            console.log("Fator de conversão encontrado:", selectedFator);
+            
+            // Atualizar ID
+            updatedData.idFatorConversao = selectedId;
+            
+            // Preencher campos relacionados
+            updatedData.Fator_Conversão = selectedFator.fator;
+            updatedData.fator = selectedFator.fator;
+          }
+        } else {
+          // Limpar campos se não houver seleção
+          updatedData.idFatorConversao = null;
+          updatedData.Fator_Conversão = '';
+          updatedData.fator = '';
+        }
+        break;
+        
+      default:
+        console.error(`Campo não reconhecido: ${field}`);
+    }
+    
+    // Atualizar o estado com os novos dados
+    setNewServiceData(updatedData);
+    
+    // IMPORTANTE: Forçar atualização com o trigger
+    setUpdateCounter(prev => prev + 1);
+    
+    console.log("Estado atualizado para:", updatedData);
+  };
+
+  // Função para lidar com alterações nos dropdowns durante a edição
+  const handleDropdownChange = (e, field) => {
+    const value = e.target.value;
+    const selectedId = value ? parseInt(value, 10) : null;
+    
+    console.log(`Edit dropdown changed: ${field}, selectedId: ${selectedId}`);
+    
+    // Similar ao handleNewDropdownChange, mas para o modo de edição
+    const updatedData = { ...editedData };
+    
+    switch(field) {
+      case 'ViaAdministracao':
+        if (value) {
+          const selectedVia = dropdownOptions.viaAdministracao.find(
+            v => String(v.idviaadministracao) === String(value)
+          );
+          
+          if (selectedVia) {
+            console.log('Found matching Via for edit:', selectedVia);
+            
+            updatedData.idViaAdministracao = selectedId;
+            updatedData.Via_Administração = selectedVia.Via_administracao;
+            updatedData.ViaAdministracao = selectedVia.Via_administracao;
+          }
+        } else {
+          updatedData.idViaAdministracao = null;
+          updatedData.Via_Administração = '';
+          updatedData.ViaAdministracao = '';
+        }
+        break;
+        
+      case 'ClasseFarmaceutica':
+        if (value) {
+          const selectedClasse = dropdownOptions.classeFarmaceutica.find(
+            c => String(c.id_medicamento) === String(value)
+          );
+          
+          if (selectedClasse) {
+            updatedData.idClasseFarmaceutica = selectedId;
+            updatedData.Classe_Farmaceutica = selectedClasse.ClasseFarmaceutica;
+            updatedData.ClasseFarmaceutica = selectedClasse.ClasseFarmaceutica;
+          }
+        } else {
+          updatedData.idClasseFarmaceutica = null;
+          updatedData.Classe_Farmaceutica = '';
+          updatedData.ClasseFarmaceutica = '';
+        }
+        break;
+        
+      case 'PrincipioAtivo':
+        if (value) {
+          const selectedPrincipio = dropdownOptions.principioAtivo.find(
+            p => String(p.idPrincipioAtivo) === String(value)
+          );
+          
+          if (selectedPrincipio) {
+            updatedData.idPrincipioAtivo = selectedId;
+            updatedData["Princípio Ativo"] = selectedPrincipio.PrincipioAtivo;
+            updatedData.Principio_Ativo = selectedPrincipio.PrincipioAtivo;
+            updatedData.Princípio_Ativo_Classificado = selectedPrincipio.PrincipioAtivoClassificado || selectedPrincipio.PrincipioAtivo;
+            updatedData.FaseuGF = selectedPrincipio.FaseUGF || '';
+          }
+        } else {
+          updatedData.idPrincipioAtivo = null;
+          updatedData["Princípio Ativo"] = '';
+          updatedData.Principio_Ativo = '';
+          updatedData.Princípio_Ativo_Classificado = '';
+          updatedData.FaseuGF = '';
+        }
+        break;
+        
+      // Implemente os outros cases seguindo o mesmo padrão...
+      
+      default:
+        console.error(`Campo não reconhecido: ${field}`);
+    }
+    
+    // Atualizar o estado
+    setEditedData(updatedData);
+    console.log(`Campo ${field} atualizado durante edição:`, updatedData);
+  };
+
   const handleSave = async () => {
     if (!editingRow) return;
   
@@ -344,15 +705,6 @@ export default function ServicoRelacionada() {
     } catch (error) {
       console.error("Erro ao atualizar o serviço:", error);
     }
-  };
-  
-  // Função para capturar as alterações nos campos editáveis
-  const handleInputChange = (e, field) => {
-    const value = e.target.value;
-    setEditedData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
   };
 
   // Limpa os dados nulos ou indefinidos
@@ -423,42 +775,75 @@ export default function ServicoRelacionada() {
                   </div>
                   
                   <div className="button-container">
-                    {selectedRows.size > 0 ? (
+                  {selectedRows.size > 0 ? (
+                    <>
+                      {isEditing ? (
+                        <button 
+                          className="btn btn-danger" 
+                          onClick={handleCancel}
+                          disabled={localLoading}
+                        >
+                          Cancelar
+                        </button>
+                      ) : (
+                        <button 
+                          className="btn btn-danger" 
+                          onClick={handleDelete}
+                          disabled={localLoading}
+                        >
+                          <Trash2 className="w-5 h-5" /> Excluir
+                        </button>
+                      )}
+                      {isEditing ? (
+                        <button 
+                          className="btn btn-success" 
+                          onClick={handleSave}
+                          disabled={localLoading}
+                        >
+                          {localLoading ? 'Salvando...' : 'Salvar'}
+                        </button>
+                      ) : (
+                        <button 
+                          className="btn btn-warning" 
+                          onClick={handleEdit}
+                          disabled={localLoading}
+                        >
+                          <Edit className="w-5 h-5" /> Alterar
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    isAdding ? (
                       <>
-                        {isEditing ? (
-                          <button className="btn btn-danger" onClick={handleCancel}>
-                            Cancelar
-                          </button>
-                        ) : (
-                          <button className="btn btn-danger" onClick={handleDelete}>
-                            <Trash2 className="w-5 h-5" /> Excluir
-                          </button>
-                        )}
-                        {isEditing ? (
-                          <button className="btn btn-success" onClick={handleSave}>
-                            Salvar
-                          </button>
-                        ) : (
-                          <button className="btn btn-warning" onClick={handleEdit}>
-                            <Edit className="w-5 h-5" /> Alterar
-                          </button>
-                        )}
+                        <button 
+                          className="btn btn-danger" 
+                          onClick={handleCancelAdd}
+                          disabled={localLoading}
+                        >
+                          Cancelar
+                        </button>
+                        <button 
+                          className="btn btn-success" 
+                          onClick={handleSaveNew}
+                          disabled={localLoading}
+                        >
+                          {localLoading ? (
+                            <>
+                              <span className="animate-spin mr-2 h-4 w-4 border-b-2 border-white rounded-full"></span>
+                              Salvando...
+                            </>
+                          ) : 'Salvar'}
+                        </button>
                       </>
                     ) : (
-                      isAdding ? (
-                        <>
-                          <button className="btn btn-danger" onClick={handleCancelAdd}>
-                            Cancelar
-                          </button>
-                          <button className="btn btn-success" onClick={handleSaveNew}>
-                            Salvar
-                          </button>
-                        </>
-                      ) : (
-                        <button className="button buttontxt btn-primary" onClick={handleAdd}>
-                          <Plus /> Adicionar
-                        </button>
-                      )
+                      <button 
+                        className="button buttontxt btn-primary" 
+                        onClick={handleAdd}
+                        disabled={localLoading}
+                      >
+                        <Plus /> Adicionar
+                      </button>
+                    )
                     )}
                   </div>
                 </div>
@@ -495,6 +880,7 @@ export default function ServicoRelacionada() {
               ) : (
                 <div className="h-[calc(100vh-220px)] overflow-hidden">
                   <DataTable
+                    ref={dataTableRef}
                     data={filteredData}
                     searchTerm={searchTerm}
                     sortOrder={sortOrder}
@@ -502,10 +888,14 @@ export default function ServicoRelacionada() {
                     editingRow={editingRow}
                     editedData={editedData}
                     handleInputChange={handleInputChange}
+                    handleDropdownChange={handleDropdownChange}
                     selectedRows={selectedRows}
-                    isAdding={isAdding}  // Nova prop
-                    newServiceData={newServiceData}  // Nova prop
-                    handleNewInputChange={handleNewInputChange}  // Nova prop
+                    isAdding={isAdding}
+                    newServiceData={newServiceData}
+                    handleNewInputChange={handleNewInputChange}
+                    handleNewDropdownChange={handleNewDropdownChange}
+                    dropdownOptions={dropdownOptions}
+                    updateTrigger={updateCounter}
                   />
                   {hasMore && (
                     <div className="flex justify-center mt-4">

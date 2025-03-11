@@ -338,3 +338,37 @@
   justify-content: center !important;
   text-align: center !important;
 }
+
+
+
+
+
+
+
+.table-container.adding-mode tbody tr:not(:first-child) {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.table-container.adding-mode thead {
+  opacity: 1 !important;
+}
+
+.adding-row {
+  background-color: #FFFDE7 !important;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+  position: relative;
+  z-index: 10;
+}
+
+.select-with-details {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+.field-info {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 4px;
+}

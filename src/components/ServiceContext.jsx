@@ -118,113 +118,168 @@ export const ServiceProvider = ({ children }) => {
     console.log("Dados formatados sendo enviados:", formattedService);
     
     try {
-        const response = await fetch(`http://localhost/backend-php/api/insert_service.php`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(formattedService),
-        });
-
-        // Captura o texto completo da resposta para depuração
-        const responseText = await response.text();
-        console.log("Resposta completa do servidor:", responseText);
+      // Chamada à API
+      const response = await fetch(`http://localhost/backend-php/api/insert_service.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formattedService),
+      });
+  
+      // Captura o texto completo da resposta para depuração
+      const responseText = await response.text();
+      console.log("Resposta completa do servidor:", responseText);
+      
+      // Verificar se a resposta está vazia
+      if (!responseText || responseText.trim() === '') {
+        console.error("Resposta vazia do servidor");
+        throw new Error('Resposta vazia do servidor');
+      }
+      
+      // Se a resposta não for JSON válido, irá falhar aqui
+      try {
+        // Tente converter a resposta em JSON
+        const result = JSON.parse(responseText);
         
-        // Se a resposta não for JSON válido, irá falhar aqui
-        try {
-            // Tente converter a resposta em JSON
-            const result = JSON.parse(responseText);
-            
-            // Adiciona o id retornado pelo servidor ao novo serviço
-            const serviceWithId = { 
-                ...newService, 
-                id: result.id 
-            };
-            
-            // Adiciona no início da lista
-            setServiceData(prev => [serviceWithId, ...prev]);
-            
-            return result.id;
-        } catch (parseError) {
-            console.error("Erro ao fazer parse da resposta:", parseError);
-            console.error("Conteúdo da resposta:", responseText);
-            throw new Error('Resposta inválida do servidor: não é JSON');
+        // Verificar se o resultado tem a estrutura esperada
+        if (!result || !result.id) {
+          console.warn("Resposta não contém um ID válido:", result);
+          // Se não houver ID, mas não houver erro explícito, considere sucesso parcial
+          return result.id || 0;
         }
-    } catch (error) {
-        console.error("Erro ao adicionar o serviço:", error);
-        throw error;
-    }
-  };
-
-  // Função para garantir que a estrutura dos dados está correta
-  const formatServiceData = (data) => {
-    // Cria uma cópia para não modificar o original
-    const formatted = { ...data };
-    
-    // Garante que os objetos aninhados existam e tenham a estrutura correta
-    formatted.RegistroVisa = {
-        Cod_Ggrem: formatted.Cod_Ggrem || '',
-        Principio_Ativo: formatted.Principio_Ativo || '',
-        Lab: formatted.Lab || '',
-        // Adicione outros campos de RegistroVisa aqui
-    };
-    
-    // Remove campos extras que foram achatados
-    delete formatted.Cod_Ggrem;
-    delete formatted.Principio_Ativo;
-    delete formatted.Lab;
-    
-    // Garante que Tabela existe e tem a estrutura correta
-    if (!formatted.Tabela || typeof formatted.Tabela !== 'object') {
-        formatted.Tabela = {
-            tabela: formatted.tabela || '',
-            tabela_classe: formatted.tabela_classe || '',
-            // Adicione outros campos de Tabela aqui
+        
+        // Adiciona o id retornado pelo servidor ao novo serviço
+        const serviceWithId = { 
+          ...newService, 
+          id: result.id 
         };
         
-        // Remove campos extras
-        delete formatted.tabela;
-        delete formatted.tabela_classe;
+        // Adiciona no início da lista
+        setServiceData(prev => [serviceWithId, ...prev]);
+        
+        return result.id;
+      } catch (parseError) {
+        console.error("Erro ao fazer parse da resposta:", parseError);
+        console.error("Conteúdo da resposta:", responseText);
+        
+        // Verificar se a resposta contém sucesso mesmo não sendo JSON válido
+        if (responseText.includes('sucesso') || responseText.includes('success')) {
+          console.log("Resposta indica sucesso, mas não é JSON válido");
+          return 0; // Retorna 0 como fallback para ID
+        }
+        
+        throw new Error('Resposta inválida do servidor: não é JSON');
+      }
+    } catch (error) {
+      console.error("Erro ao adicionar o serviço:", error);
+      throw error;
     }
-    
-    // Faça o mesmo para outros objetos aninhados (PrincipioAtivo, UnidadeFracionamento, Taxas)
-    // PrincipioAtivo
-    formatted.PrincipioAtivo = {
-        PrincipioAtivo: formatted.PrincipioAtivo || '',
-        PrincipioAtivoClassificado: formatted.PrincipioAtivoClassificado || '',
-        FaseUGF: formatted.FaseUGF || '',
-    };
-    delete formatted.PrincipioAtivoClassificado;
-    delete formatted.FaseUGF;
-    
-    // UnidadeFracionamento
-    formatted.UnidadeFracionamento = {
-        UnidadeFracionamento: formatted.UnidadeFracionamento || '',
-        Descricao: formatted.UnidadeFracionamentoDescricao || '',
-        Divisor: formatted.Divisor || '',
-    };
-    delete formatted.UnidadeFracionamentoDescricao;
-    delete formatted.Divisor;
-    
-    // Taxas
-    formatted.Taxas = {
-        tipo_taxa: formatted.tipo_taxa || '',
-        finalidade: formatted.TaxaFinalidade || formatted.finalidade || '',
-        tempo_infusao: formatted.tempo_infusao || '',
-    };
-    delete formatted.tipo_taxa;
-    delete formatted.TaxaFinalidade;
-    delete formatted.finalidade;
-    delete formatted.tempo_infusao;
-    
-    // Corrige outros campos que podem ter nomes diferentes
-    if (formatted.Via_administracao && !formatted.ViaAdministracao) {
-        formatted.ViaAdministracao = formatted.Via_administracao;
-        delete formatted.Via_administracao;
-    }
-    
-    return formatted;
   };
+
+  // Função formatServiceData corrigida para preservar os IDs
+const formatServiceData = (data) => {
+  // Cria uma cópia para não modificar o original
+  const formatted = { ...data };
+  
+  // IMPORTANTE: Primeiro, garanta que os IDs estejam definidos corretamente
+  // Campos de ID para serem mantidos
+  const idFields = [
+    'idViaAdministracao', 
+    'idClasseFarmaceutica', 
+    'idPrincipioAtivo',
+    'idArmazenamento', 
+    'idMedicamento', 
+    'idUnidadeFracionamento',
+    'idFatorConversao', 
+    'idTaxas'
+  ];
+  
+  // Verificação de debug para os campos de ID
+  console.log("IDs antes da formatação:", idFields.map(id => ({ [id]: data[id] })));
+  
+  // Garanta que os IDs sejam números ou null
+  idFields.forEach(field => {
+    if (formatted[field] === '' || formatted[field] === undefined) {
+      formatted[field] = null;
+    } else if (typeof formatted[field] === 'string') {
+      formatted[field] = parseInt(formatted[field], 10);
+    }
+    // Verificação adicional para certificar-se que o ID é um número válido
+    if (formatted[field] !== null && isNaN(formatted[field])) {
+      console.warn(`Campo ${field} tem valor inválido:`, formatted[field]);
+      formatted[field] = null;
+    }
+  });
+  
+  // Remover campos que não existem diretamente na tabela principal
+  // Campos que devem estar no RegistroVisa
+  delete formatted.Cod_Ggrem;
+  delete formatted.Principio_Ativo;
+  delete formatted.Lab;
+  delete formatted.cnpj_lab;
+  delete formatted.Classe_Terapeutica;
+  delete formatted.Tipo_Porduto;
+  delete formatted.Regime_Preco;
+  delete formatted.Restricao_Hosp;
+  delete formatted.Cap;
+  delete formatted.Confaz87;
+  delete formatted.Icms0;
+  delete formatted.Lista;
+  delete formatted.Status;
+  
+  // Campos que devem estar na Tabela
+  delete formatted.tabela;
+  delete formatted.tabela_classe;
+  delete formatted.tabela_tipo;
+  delete formatted.classe_Jaragua_do_sul;
+  delete formatted.classificacao_tipo;
+  delete formatted.finalidade;
+  delete formatted.objetivo;
+  
+  // Campos adicionais que podem estar em outras tabelas relacionadas
+  // IMPORTANTE: NÃO remova os campos de ID que precisam ser preservados
+  delete formatted.ViaAdministracao;
+  delete formatted.ClasseFarmaceutica;
+  delete formatted.PrincipioAtivo;
+  delete formatted.PrincipioAtivoClassificado;
+  delete formatted.FaseUGF;
+  delete formatted.Armazenamento;
+  delete formatted.Medicamento;
+  delete formatted.UnidadeFracionamentoDescricao;
+  delete formatted.Divisor;
+  delete formatted.tipo_taxa;
+  delete formatted.TaxaFinalidade;
+  delete formatted.tempo_infusao;
+  
+  // IMPORTANTE: Remover campos que estão causando problemas com o banco de dados
+  delete formatted.Via_administracao;
+  delete formatted.tipo_medicamento;
+  
+  // Garantir que campos obrigatórios existam
+  formatted.Codigo_TUSS = formatted.Codigo_TUSS || '';
+  formatted.Descricao_Apresentacao = formatted.Descricao_Apresentacao || '';
+  formatted.Revisado = formatted.Revisado || 0;
+  
+  // Limpar campos desnecessários ou temporários
+  const fieldsToDelete = [
+    'isEditing',
+    'isAdding',
+    'dropdownOptions'
+  ];
+  
+  fieldsToDelete.forEach(field => {
+    if (formatted[field] !== undefined) {
+      delete formatted[field];
+    }
+  });
+  
+  // VERIFICAÇÃO FINAL: confirme que os IDs ainda estão presentes
+  console.log("IDs após formatação:", idFields.map(id => ({ [id]: formatted[id] })));
+  console.log("Dados formatados para envio:", formatted);
+  
+  return formatted;
+};
 
 
 
