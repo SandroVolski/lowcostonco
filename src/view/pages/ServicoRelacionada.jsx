@@ -35,6 +35,7 @@ function ServicoRelacionadaContent() {
 
   const resetNewServiceData = () => {
     return {
+      Cod: '',
       Codigo_TUSS: '',
       Descricao_Apresentacao: '',
       Descricao_Resumida: '',
@@ -45,6 +46,7 @@ function ServicoRelacionadaContent() {
       Revisado: 0,
       
       // Campos de RegistroVisa
+      RegistroVisa: '',
       Cod_Ggrem: '',
       Principio_Ativo: '',
       Lab: '',
@@ -69,6 +71,7 @@ function ServicoRelacionadaContent() {
       objetivo: '',
       
       // Novos campos para armazenar os IDs
+      idRegistroVisa: null,
       idViaAdministracao: null,
       idClasseFarmaceutica: null,
       idPrincipioAtivo: null,
@@ -77,6 +80,7 @@ function ServicoRelacionadaContent() {
       idUnidadeFracionamento: null,
       idFatorConversao: null,
       idTaxas: null,
+      idTabela: null,
   
       // Outros campos
       Via_administracao: '',
@@ -108,6 +112,9 @@ function ServicoRelacionadaContent() {
   useEffect(() => {
     if (isAdding) {
       console.log('=== ESTADO DE newServiceData ATUALIZADO ===');
+      console.log('Cod:', newServiceData.Cod);
+      console.log('RegistroVisa:', newServiceData.RegistroVisa);
+      console.log('idRegistroVisa:', newServiceData.idRegistroVisa);
       console.log('idViaAdministracao:', newServiceData.idViaAdministracao, 'tipo:', typeof newServiceData.idViaAdministracao);
       console.log('ViaAdministracao:', newServiceData.ViaAdministracao);
       console.log('idClasseFarmaceutica:', newServiceData.idClasseFarmaceutica);
@@ -248,6 +255,25 @@ function ServicoRelacionadaContent() {
     
     if (!newServiceData.Descricao_Apresentacao) {
       alert('Por favor, preencha a Descrição de Apresentação.');
+      return;
+    }
+
+    // Verificar se há campos de RegistroVisa preenchidos sem o RegistroVisa principal
+    const hasRegistroVisaFields = [
+      'Cod_Ggrem', 'Lab', 'cnpj_lab', 'Classe_Terapeutica', 
+      'Tipo_Porduto', 'Regime_Preco', 'Restricao_Hosp', 'Cap', 
+      'Confaz87', 'Icms0', 'Lista', 'Status', 'Principio_Ativo'
+    ].some(field => newServiceData[field] && newServiceData[field].trim() !== '');
+    
+    // Se tem algum campo de RegistroVisa preenchido mas não tem o campo RegistroVisa
+    if (hasRegistroVisaFields && (!newServiceData.RegistroVisa || newServiceData.RegistroVisa.trim() === '')) {
+      alert('Você preencheu campos do Registro Visa, mas o campo "RegistroVisa" é obrigatório. Por favor, preencha-o.');
+      
+      // Destacar o campo RegistroVisa expandindo o cabeçalho, se necessário
+      if (dataTableRef.current && typeof dataTableRef.current.expandHeader === 'function') {
+        dataTableRef.current.expandHeader("Registro Visa");
+      }
+      
       return;
     }
     
@@ -573,6 +599,41 @@ function ServicoRelacionadaContent() {
           updatedData.fator = '';
         }
         break;
+
+        case 'Tabela':
+          if (value) {
+            // Encontrar o objeto da tabela selecionada
+            const selectedTabela = dropdownOptions.tabela.find(
+              t => String(t.id_tabela) === String(value)
+            );
+            
+            if (selectedTabela) {
+              console.log("Tabela encontrada:", selectedTabela);
+              
+              // Atualizar ID
+              updatedData.idTabela = selectedId;
+              
+              // Preencher campos relacionados
+              updatedData.tabela = selectedTabela.tabela;
+              updatedData.tabela_classe = selectedTabela.tabela_classe || '';
+              updatedData.tabela_tipo = selectedTabela.tabela_tipo || '';
+              updatedData.classe_Jaragua_do_sul = selectedTabela.classe_Jaragua_do_sul || '';
+              updatedData.classificacao_tipo = selectedTabela.classificacao_tipo || '';
+              updatedData.finalidade = selectedTabela.finalidade || '';
+              updatedData.objetivo = selectedTabela.objetivo || '';
+            }
+          } else {
+            // Limpar campos se não houver seleção
+            updatedData.idTabela = null;
+            updatedData.tabela = '';
+            updatedData.tabela_classe = '';
+            updatedData.tabela_tipo = '';
+            updatedData.classe_Jaragua_do_sul = '';
+            updatedData.classificacao_tipo = '';
+            updatedData.finalidade = '';
+            updatedData.objetivo = '';
+          }
+          break;
         
       default:
         console.error(`Campo não reconhecido: ${field}`);
@@ -657,6 +718,36 @@ function ServicoRelacionadaContent() {
           updatedData.FaseuGF = '';
         }
         break;
+
+        case 'Tabela':
+          if (value) {
+            const selectedTabela = dropdownOptions.tabela.find(
+              t => String(t.id_tabela) === String(value)
+            );
+            
+            if (selectedTabela) {
+              console.log('Found matching Tabela for edit:', selectedTabela);
+              
+              updatedData.idTabela = selectedId;
+              updatedData.tabela = selectedTabela.tabela;
+              updatedData.tabela_classe = selectedTabela.tabela_classe || '';
+              updatedData.tabela_tipo = selectedTabela.tabela_tipo || '';
+              updatedData.classe_Jaragua_do_sul = selectedTabela.classe_Jaragua_do_sul || '';
+              updatedData.classificacao_tipo = selectedTabela.classificacao_tipo || '';
+              updatedData.finalidade = selectedTabela.finalidade || '';
+              updatedData.objetivo = selectedTabela.objetivo || '';
+            }
+          } else {
+            updatedData.idTabela = null;
+            updatedData.tabela = '';
+            updatedData.tabela_classe = '';
+            updatedData.tabela_tipo = '';
+            updatedData.classe_Jaragua_do_sul = '';
+            updatedData.classificacao_tipo = '';
+            updatedData.finalidade = '';
+            updatedData.objetivo = '';
+          }
+          break;
         
       // Implemente os outros cases seguindo o mesmo padrão...
       

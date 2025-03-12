@@ -36,7 +36,9 @@ const ExpandedFieldsPreview = ({ header, data }) => {
     " Tabela ": [
       { label: "Tabela", field: "tabela" },
       { label: "Classe", field: "tabela_classe" },
-      { label: "Finalidade", field: "finalidade" }
+      { label: "Tipo", field: "tabela_tipo" },
+      { label: "Finalidade", field: "finalidade" },
+      { label: "Objetivo", field: "objetivo" }
     ]
   };
 
@@ -89,7 +91,17 @@ export const DataTable = forwardRef(({
   // Expose methods to parent component
   useImperativeHandle(ref, () => ({
     collapseAllHeaders: () => setExpandedHeaders(new Set()),
-    hasExpandedHeaders: () => expandedHeaders.size > 0
+    hasExpandedHeaders: () => expandedHeaders.size > 0,
+    // Nova função para expandir um cabeçalho específico
+    expandHeader: (header) => {
+      setExpandedHeaders((prev) => {
+        const newSet = new Set(prev);
+        if (!newSet.has(header)) {
+          newSet.add(header);
+        }
+        return newSet;
+      });
+    }
   }));
 
   // Verificação de debug
@@ -122,7 +134,7 @@ export const DataTable = forwardRef(({
   // Mapeamento das colunas expansíveis
   const expandableHeaders = {
     "Registro Visa": [
-      "Cód GGrem", "Principio_Ativo", "Laboratório", "CNPJ Lab",
+      "RegistroVisa", "Cód GGrem", "Principio_Ativo", "Laboratório", "CNPJ Lab",
       "Classe Terapêutica", "Tipo do Produto", "Regime Preço",
       "Restrição Hosp", "Cap  ", "Confaz87", "ICMS0", "Lista", "Status"
     ],
@@ -133,11 +145,12 @@ export const DataTable = forwardRef(({
   };
 
   // Identificar quais colunas expansíveis precisam de selects
-  const expansibleSelectColumns = ["Princípio Ativo", "Unidade Fracionamento", "Taxas"];
+  const expansibleSelectColumns = ["Princípio Ativo", "Unidade Fracionamento", "Taxas", " Tabela "];
 
   // Mapeamento de campos para subcolunas na adição
   const subFieldMapping = {
     "Registro Visa": {
+      "RegistroVisa": { field: "RegistroVisa", placeholder: "Registro Visa", required: true },
       "Cód GGrem": { field: "Cod_Ggrem", placeholder: "Cód GGrem" },
       "Principio_Ativo": { field: "Principio_Ativo", placeholder: "Princípio Ativo" },
       "Laboratório": { field: "Lab", placeholder: "Laboratório" },
@@ -200,7 +213,7 @@ export const DataTable = forwardRef(({
   };
 
   const columnOrder = [
-    "ID", "Código TUSS", "Registro Visa", " Tabela ", "Via_Administração",
+    "ID", "Cod", "Código TUSS", "Registro Visa", " Tabela ", "Via_Administração",
     "Classe_Farmaceutica", "Princípio Ativo", "Armazenamento", "Descricao_Apresentacao",
     "Descricao_Resumida", "Descricao_Comercial", "Medicamento", "Unidade Fracionamento",
     "Fator_Conversão", "Concentracao", "Fracionamento", "Laboratorio", "Taxas", "Revisado"
@@ -218,7 +231,7 @@ export const DataTable = forwardRef(({
       case "Registro Visa":
         return Boolean(newServiceData.Cod_Ggrem || newServiceData.Lab || newServiceData.Status);
       case " Tabela ":
-        return Boolean(newServiceData.tabela || newServiceData.tabela_classe || newServiceData.finalidade);
+        return Boolean(newServiceData.tabela_classe || newServiceData.tabela_tipo || newServiceData.finalidade);
       default:
         return false;
     }
@@ -350,6 +363,46 @@ export const DataTable = forwardRef(({
           </div>
         );
       }
+
+      if (header === " Tabela ") {
+        return (
+          <div>
+            <select
+              value={String(newServiceData.idTabela || '')}
+              onChange={(e) => {
+                console.log("Select Tabela alterado:", e.target.value);
+                handleNewDropdownChange(e, 'Tabela');
+              }}
+              className="w-full p-1 border rounded mb-1"
+            >
+              <option value="">Selecione...</option>
+              {Array.isArray(dropdownOptions?.tabela) ? 
+                dropdownOptions.tabela.map((tab) => (
+                  <option 
+                    key={`tabela-${tab.id_tabela}`} 
+                    value={String(tab.id_tabela)}
+                  >
+                    {tab.tabela}
+                  </option>
+                )) : 
+                <option value="">Carregando opções...</option>
+              }
+            </select>
+            
+            {/* Exibir valor selecionado abaixo do select */}
+            {newServiceData.tabela && (
+              <div className="text-xs text-blue-600 mt-1">
+                Selecionado: {newServiceData.tabela}
+              </div>
+            )}
+            
+            {/* Mostrar preview de campos relacionados se não estiver expandido */}
+            {hasFilledRelatedFields(header) && !expandedHeaders.has(header) && (
+              <ExpandedFieldsPreview header={header} data={newServiceData} />
+            )}
+          </div>
+        );
+      }
     }
     
     // Para outras colunas expansíveis
@@ -374,6 +427,16 @@ export const DataTable = forwardRef(({
 
     // Para colunas normais, escolhemos o input apropriado
     switch(header) {
+      case "Cod":
+        return (
+          <input
+            type="text"
+            value={newServiceData.Cod || ''}
+            onChange={(e) => handleNewInputChange(e, 'Cod')}
+            className="w-full p-1 border rounded"
+            placeholder="Cod"
+          />
+        );
       case "Código TUSS":
         return (
           <input
@@ -648,7 +711,18 @@ export const DataTable = forwardRef(({
   const renderAddSubcolumnInput = (header, subHeader) => {
     // Usamos o mapeamento de subcampos
     if (subFieldMapping[header] && subFieldMapping[header][subHeader]) {
-      const { field, placeholder } = subFieldMapping[header][subHeader];
+      const { field, placeholder, required } = subFieldMapping[header][subHeader];
+      
+      // Verificar se algum campo do RegistroVisa está preenchido
+      const hasAnyRegistroVisaField = header === "Registro Visa" && Object.keys(subFieldMapping["Registro Visa"])
+        .filter(key => key !== "RegistroVisa") // Excluir o próprio campo RegistroVisa 
+        .some(key => {
+          const fieldName = subFieldMapping["Registro Visa"][key].field;
+          return newServiceData[fieldName] && newServiceData[fieldName].trim() !== '';
+        });
+      
+      // Se for o campo RegistroVisa e tiver algum outro campo de RegistroVisa preenchido, destacar como obrigatório
+      const isRequiredField = required || (field === "RegistroVisa" && hasAnyRegistroVisaField);
       
       // Verifica se este campo foi preenchido automaticamente
       const wasAutoFilled = newServiceData[field] && (
@@ -667,12 +741,19 @@ export const DataTable = forwardRef(({
             type="text"
             value={newServiceData[field] || ''}
             onChange={(e) => handleNewInputChange(e, field)}
-            className={`w-full p-1 border rounded ${wasAutoFilled ? 'bg-blue-50' : ''}`}
-            placeholder={placeholder}
+            className={`w-full p-1 border rounded 
+                      ${wasAutoFilled ? 'bg-blue-50' : ''} 
+                      ${isRequiredField ? 'border-red-500' : ''}`}
+            placeholder={`${placeholder}${isRequiredField ? ' *' : ''}`}
           />
           {wasAutoFilled && (
             <div className="absolute right-0 top-0 h-full flex items-center pr-2">
               <span className="text-xs text-blue-500">Auto</span>
+            </div>
+          )}
+          {isRequiredField && !newServiceData[field] && (
+            <div className="text-xs text-red-500 mt-1">
+              Este campo é obrigatório quando outros campos do Registro Visa estão preenchidos
             </div>
           )}
         </div>
@@ -694,6 +775,38 @@ export const DataTable = forwardRef(({
           return info.getValue();
         },
         size: 80,
+        frozen: true,
+      }),
+      columnHelper.accessor('Cod', {
+        header: 'Cod',
+        cell: info => {
+          // Linha de adição
+          if (isAdding && info.row.index === 0) {
+            return (
+              <input
+                type="text"
+                value={newServiceData.Cod || ''}
+                onChange={(e) => handleNewInputChange(e, 'Cod')}
+                className="w-full p-1 border rounded"
+              />
+            );
+          }
+          
+          // Linha normal em modo de edição
+          const rowId = info.row.original.id;
+          const isEditing = editingRow === rowId;
+          return isEditing ? (
+            <input
+              type="text"
+              value={editedData.Cod || ''}
+              onChange={(e) => handleInputChange(e, 'Cod')}
+              className="w-full p-1 border rounded"
+            />
+          ) : (
+            info.getValue()
+          );
+        },
+        size: 100,
         frozen: true,
       }),
       columnHelper.accessor('codigoTUSS', {
@@ -730,7 +843,7 @@ export const DataTable = forwardRef(({
       }),
     ];
 
-    columnOrder.slice(2).forEach((header) => {
+    columnOrder.slice(3).forEach((header) => {
       if (expandableHeaders[header]) {
         cols.push({
           header: () => (
@@ -855,6 +968,38 @@ export const DataTable = forwardRef(({
                         )}
                       </div>
                     );
+
+                    case " Tabela ":
+                      return (
+                        <div>
+                          <select
+                            value={
+                              editedData.idTabela || 
+                              (editedData.tabela ? 
+                                Array.isArray(dropdownOptions?.tabela) && 
+                                dropdownOptions.tabela.find(t => t.tabela === editedData.tabela)?.id_tabela || ''
+                                : '')
+                            }
+                            onChange={(e) => handleDropdownChange(e, 'Tabela')}
+                            className="w-full p-1 border rounded mb-1"
+                          >
+                            <option value="">Selecione...</option>
+                            {Array.isArray(dropdownOptions?.tabela) ? 
+                              dropdownOptions.tabela.map((tab, index) => (
+                                <option key={`edit-tabela-${tab.id_tabela}-${index}`} value={tab.id_tabela}>
+                                  {tab.tabela}
+                                </option>
+                              )) : 
+                              <option value="">Carregando opções...</option>
+                            }
+                          </select>
+                          {editedData.tabela && !expandedHeaders.has(header) && (
+                            <div className="text-xs text-blue-600 mt-1">
+                              Modificado: {editedData.tabela}
+                            </div>
+                          )}
+                        </div>
+                      );
                     
                   default:
                     return (

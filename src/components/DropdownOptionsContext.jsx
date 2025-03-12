@@ -110,6 +110,53 @@ const staticDropdownOptions = {
     { idPrincipioAtivo: 2222, PrincipioAtivo: "Princípio Ativo Especial 2" },
     { idPrincipioAtivo: 4000, PrincipioAtivo: "Princípio Ativo Especial 3" },
     // Adicione mais itens conforme necessário com IDs únicos
+  ],
+  tabela: [
+    { id_tabela: 1, tabela: "Medicamento Oncologia", tabela_classe: "Oncologia", tabela_tipo: "Material e Medicamento", classe_Jaragua_do_sul: "Medicamento", classificacao_tipo: "Medicamento", finalidade: "Necessita Classificação", objetivo: "Medicamentos" },
+    { id_tabela: 2, tabela: "Imunobiológicos Não Oncológicos", tabela_classe: "Oncologia", tabela_tipo: "Material e Medicamento", classe_Jaragua_do_sul: "Medicamento", classificacao_tipo: "Medicamento", finalidade: "Medicamentos", objetivo: "Reembolso Serviço" },
+    { id_tabela: 3, tabela: "Medicamentos de Suporte", tabela_classe: "Oncologia", tabela_tipo: "Material e Medicamento", classe_Jaragua_do_sul: "Medicamento", classificacao_tipo: "Medicamento", finalidade: "Medicamentos", objetivo: "Reembolso Serviço" },
+    { id_tabela: 4, tabela: "Materiais", tabela_classe: "Oncologia", tabela_tipo: "Material e Medicamento", classe_Jaragua_do_sul: "Material", classificacao_tipo: "Material", finalidade: "Materiais", objetivo: "Reembolso Serviço" },
+    { id_tabela: 5, tabela: "Taxas e Diárias", tabela_classe: "Oncologia", tabela_tipo: "Taxas", classe_Jaragua_do_sul: "Procedimentos/Infusões", classificacao_tipo: "Taxa", finalidade: "Taxas", objetivo: "Custeio Serviço" },
+    { id_tabela: 6, tabela: "Pacotes", tabela_classe: "Oncologia", tabela_tipo: "Taxas", classe_Jaragua_do_sul: "Procedimentos/Infusões", classificacao_tipo: "Pacote", finalidade: "Pacotes", objetivo: "Custeio Serviço" },
+    { id_tabela: 7, tabela: "Honorários", tabela_classe: "Suporte", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Procedimentos/Infusões", classificacao_tipo: "Honorário", finalidade: "Demais Honorários", objetivo: "Remuneração Profissional" },
+    { id_tabela: 8, tabela: "Não Classificado", tabela_classe: "", tabela_tipo: "Não Classificado", classe_Jaragua_do_sul: "", classificacao_tipo: "Não Classificado (8)", finalidade: "", objetivo: "" },
+    { id_tabela: 9, tabela: "Medicamento Oral", tabela_classe: "Oncologia", tabela_tipo: "Material e Medicamento", classe_Jaragua_do_sul: "Medicamento", classificacao_tipo: "Medicamento", finalidade: "Medicamentos", objetivo: "Reembolso Serviço" },
+    { id_tabela: 10, tabela: "Outros Medicamentos", tabela_classe: "Geral", tabela_tipo: "Material e Medicamento", classe_Jaragua_do_sul: "Medicamento", classificacao_tipo: "Medicamento", finalidade: "Medicamentos", objetivo: "Reembolso Serviço" },
+    { id_tabela: 11, tabela: "Exames", tabela_classe: "Suporte", tabela_tipo: "Exames", classe_Jaragua_do_sul: "Outros Serviços", classificacao_tipo: "Exame", finalidade: "Outros Serviços", objetivo: "Remuneração Profissional e Custeio Serviço" },
+    { id_tabela: 12, tabela: "Taxas?", tabela_classe: "Geral", tabela_tipo: "Não Classificado", classe_Jaragua_do_sul: "", classificacao_tipo: "Não Classificado (12)", finalidade: "", objetivo: "" },
+    { id_tabela: 88, tabela: "Necessita Classificação", tabela_classe: "", tabela_tipo: "Não Classificado", classe_Jaragua_do_sul: "", classificacao_tipo: "Não Classificado (88)", finalidade: "", objetivo: "" },
+    { id_tabela: 13, tabela: "Honorários", tabela_classe: "Suporte", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Consulta Médica", classificacao_tipo: "Honorário", finalidade: "Consulta Médica", objetivo: "Remuneração Profissional" },
+    { id_tabela: 14, tabela: "Honorários", tabela_classe: "Suporte", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Consulta Multi", classificacao_tipo: "Honorário", finalidade: "Consulta Psicologia", objetivo: "Remuneração Profissional" },
+    { id_tabela: 15, tabela: "Honorários", tabela_classe: "Suporte", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Consulta Multi", classificacao_tipo: "Honorário", finalidade: "Consulta Nutricionista", objetivo: "Remuneração Profissional" },
+    { id_tabela: 16, tabela: "Honorários", tabela_classe: "Oncologia", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Procedimentos/Infusões", classificacao_tipo: "Honorário", finalidade: "Honorários Planejamento", objetivo: "Remuneração Profissional" },
+    { id_tabela: 17, tabela: "Honorários", tabela_classe: "Oncologia", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Procedimentos/Infusões", classificacao_tipo: "Honorário", finalidade: "Honorários Subsequentes", objetivo: "Remuneração Profissional" },
+    { id_tabela: 18, tabela: "Honorários", tabela_classe: "Suporte", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Procedimentos/Infusões", classificacao_tipo: "Honorário", finalidade: "Atendimentos Outras Especialidades", objetivo: "Remuneração Profissional" },
+    { id_tabela: 19, tabela: "Honorários", tabela_classe: "Suporte", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Consultas", classificacao_tipo: "Honorário", finalidade: "", objetivo: "Remuneração Profissional" },
+    { id_tabela: 20, tabela: "Taxas e Diárias", tabela_classe: "Oncologia", tabela_tipo: "Taxas", classe_Jaragua_do_sul: "Procedimentos/Infusões", classificacao_tipo: "Taxa", finalidade: "Infusão Endovenosa", objetivo: "Custeio Serviço" },
+    { id_tabela: 21, tabela: "Taxas e Diárias", tabela_classe: "Oncologia", tabela_tipo: "Taxas", classe_Jaragua_do_sul: "Procedimentos/Infusões", classificacao_tipo: "Taxa", finalidade: "Taxa de Curativo", objetivo: "Custeio Serviço" },
+    { id_tabela: 22, tabela: "Taxas e Diárias", tabela_classe: "Oncologia", tabela_tipo: "Taxas", classe_Jaragua_do_sul: "Procedimentos/Infusões", classificacao_tipo: "Taxa", finalidade: "Taxa Aplicação SC", objetivo: "Custeio Serviço" },
+    { id_tabela: 23, tabela: "Taxas e Diárias", tabela_classe: "Suporte", tabela_tipo: "Taxas", classe_Jaragua_do_sul: "Procedimentos/Infusões", classificacao_tipo: "Taxa", finalidade: "Taxa Genérica", objetivo: "Custeio Serviço" },
+    { id_tabela: 24, tabela: "Taxas e Diárias", tabela_classe: "Oncologia", tabela_tipo: "Taxas", classe_Jaragua_do_sul: "Procedimentos/Infusões", classificacao_tipo: "Taxa", finalidade: "Taxa de Observação - Até 06hrs", objetivo: "Custeio Serviço" },
+    { id_tabela: 25, tabela: "Taxas e Diárias", tabela_classe: "Oncologia", tabela_tipo: "Taxas", classe_Jaragua_do_sul: "Procedimentos/Infusões", classificacao_tipo: "Taxa", finalidade: "Taxa de Permeabilização de Cateter", objetivo: "Custeio Serviço" },
+    { id_tabela: 26, tabela: "Procedimentos", tabela_classe: "Oncologia", tabela_tipo: "Procedimentos", classe_Jaragua_do_sul: "Procedimento", classificacao_tipo: "Procedimento", finalidade: "Radioterapia", objetivo: "" },
+    { id_tabela: 27, tabela: "Honorários", tabela_classe: "Oncologia", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Procedimento/Infusões", classificacao_tipo: "Honorário", finalidade: "Prescrição Oral", objetivo: "Remuneração Profissional" },
+    { id_tabela: 28, tabela: "Taxas e Diárias", tabela_classe: "Geral", tabela_tipo: "Diárias", classe_Jaragua_do_sul: "Diárias", classificacao_tipo: "Diária", finalidade: "Diária Apartamento", objetivo: "Custeio Serviço" },
+    { id_tabela: 29, tabela: "Taxas e Diárias", tabela_classe: "Geral", tabela_tipo: "Diárias", classe_Jaragua_do_sul: "Diárias", classificacao_tipo: "Diárias", finalidade: "Diária Enfermaria", objetivo: "Custeio Serviço" },
+    { id_tabela: 30, tabela: "Honorários", tabela_classe: "Suporte", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Honorários", classificacao_tipo: "Honorário", finalidade: "Procedimento Cirurgico", objetivo: "Remuneração Profissional" },
+    { id_tabela: 35, tabela: "Honorários", tabela_classe: "Suporte", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Honorários", classificacao_tipo: "Honorários", finalidade: "Diversos", objetivo: "Remuneração Profissional" },
+    { id_tabela: 36, tabela: "Honorários", tabela_classe: "Suporte", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Consultas", classificacao_tipo: "Honorário", finalidade: "Consulta Emergência", objetivo: "Remuneração Profissional" },
+    { id_tabela: 37, tabela: "Honorários", tabela_classe: "Oncologia", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Honorários", classificacao_tipo: "Honorário", finalidade: "Prescrição Terapia Subcutânea", objetivo: "Remuneração Profissional" },
+    { id_tabela: 31, tabela: "Honorários", tabela_classe: "Suporte", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Consulta Multi", classificacao_tipo: "Honorários", finalidade: "Consulta Fisioterapia", objetivo: "Remuneração Profissional" },
+    { id_tabela: 32, tabela: "Honorários", tabela_classe: "Suporte", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Consulta Multi", classificacao_tipo: "Honorários", finalidade: "Consulta Terapia Ocupacional", objetivo: "Remuneração Profissional" },
+    { id_tabela: 33, tabela: "Honorários", tabela_classe: "Suporte", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Consulta Multi", classificacao_tipo: "Honorários", finalidade: "Consulta Fonoaudiologia", objetivo: "Remuneração Profissional" },
+    { id_tabela: 34, tabela: "Gases", tabela_classe: "Suporte", tabela_tipo: "Gases", classe_Jaragua_do_sul: "Gases", classificacao_tipo: "Gases", finalidade: "Gases", objetivo: "Reembolso Serviço" },
+    { id_tabela: 38, tabela: "Odontologia", tabela_classe: "Geral", tabela_tipo: "Procedimentos", classe_Jaragua_do_sul: "Procedimentos", classificacao_tipo: "Honorário", finalidade: "Procedimentos Odontologia", objetivo: "Remuneração Profissional" },
+    { id_tabela: 39, tabela: "Honorários", tabela_classe: "Oncologia", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Honorários", classificacao_tipo: "Honorário", finalidade: "Pulsoterapia", objetivo: "Remuneração Profissional" },
+    { id_tabela: 40, tabela: "Honorários", tabela_classe: "Oncologia", tabela_tipo: "Honorários", classe_Jaragua_do_sul: "Honorário", classificacao_tipo: "Honorário", finalidade: "Hormonioterapia", objetivo: "Remuneração Profissional" },
+    { id_tabela: 41, tabela: "Medicamento Doenças Raras", tabela_classe: "Oncologia", tabela_tipo: "Material e Medicamento", classe_Jaragua_do_sul: "Medicamento", classificacao_tipo: "Medicamento", finalidade: "Medicamentos", objetivo: "Reembolso Serviço" },
+    { id_tabela: 42, tabela: "Taxas e Diárias", tabela_classe: "Geral", tabela_tipo: "Diárias", classe_Jaragua_do_sul: "Diárias", classificacao_tipo: "Diária", finalidade: "Diária de Uti", objetivo: "Custeio Serviço" },
+    { id_tabela: 43, tabela: "Suplementos", tabela_classe: "Outros", tabela_tipo: "Suplementos", classe_Jaragua_do_sul: "Suplementos", classificacao_tipo: "Suplemento", finalidade: "Suplementos", objetivo: "Reembolso Serviço" },
+    { id_tabela: 44, tabela: "Medicamento Complementar Onco", tabela_classe: "Oncologia", tabela_tipo: "Material e Medicamento", classe_Jaragua_do_sul: "Medicamento", classificacao_tipo: "Medicamento", finalidade: "Medicamentos", objetivo: "Medicamentos" }
   ]
 };
 
@@ -127,7 +174,8 @@ const staticDropdownOptions = {
         tipoMedicamento: [],
         unidadeFracionamento: [],
         fatorConversao: [],
-        taxas: []
+        taxas: [],
+        tabela: []
     });
 
     // Função auxiliar para buscar dados com tratamento de erro
@@ -186,7 +234,8 @@ const staticDropdownOptions = {
         tipoMedicamento: ensureUniqueIds([...staticDropdownOptions.tipoMedicamento], 'id_medicamento'),
         unidadeFracionamento: ensureUniqueIds([...staticDropdownOptions.unidadeFracionamento], 'id_unidadefracionamento'),
         fatorConversao: ensureUniqueIds([...staticDropdownOptions.fatorConversao], 'id_fatorconversao'),
-        taxas: ensureUniqueIds([...staticDropdownOptions.taxas], 'id_taxas')
+        taxas: ensureUniqueIds([...staticDropdownOptions.taxas], 'id_taxas'),
+        tabela: ensureUniqueIds([...staticDropdownOptions.tabela], 'id_tabela')
     };
 
 
@@ -205,7 +254,8 @@ const staticDropdownOptions = {
           tipoMedicamento: processedStaticOptions.tipoMedicamento,
           unidadeFracionamento: processedStaticOptions.unidadeFracionamento,
           fatorConversao: processedStaticOptions.fatorConversao,
-          taxas: processedStaticOptions.taxas
+          taxas: processedStaticOptions.taxas,
+          tabela: processedStaticOptions.tabela          
         };
   
         // Via Administração
@@ -287,6 +337,14 @@ const staticDropdownOptions = {
           // Processa os dados para garantir IDs únicos
           fetchedData.taxas = ensureUniqueIds(taxasResult.data, 'id_taxas');
         }
+
+        const tabelaResult = await fetchDataSafely(
+            'http://localhost/backend-php/api/get_tabela.php',
+            processedStaticOptions.tabela
+          );
+          if (tabelaResult.success) {
+            fetchedData.tabela = ensureUniqueIds(tabelaResult.data, 'id_tabela');
+          }
         
         // Atualizar o estado com os dados obtidos
         setDropdownOptions(fetchedData);

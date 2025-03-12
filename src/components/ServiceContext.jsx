@@ -41,6 +41,7 @@ export const ServiceProvider = ({ children }) => {
         // Mapeia os dados da API para o formato esperado
         const mappedData = result.map(item => ({
           id: item.id,
+          Cod: item.Cod,
           codigoTUSS: item.Codigo_TUSS,
           Descricao_Apresentacao: item.Descricao_Apresentacao,
           Descricao_Resumida: item.Descricao_Resumida,
@@ -50,6 +51,7 @@ export const ServiceProvider = ({ children }) => {
           Fracionamento: item.Fracionamento,
           "Laboratório": item.Laboratorio,
           Revisado: item.Revisado,
+          "RegistroVisa": item.RegistroVisa,
           "Cód GGrem": item.Cod_Ggrem,
           Princípio_Ativo: item.PrincipioAtivo,
           Principio_Ativo: item.Principio_Ativo,
@@ -192,7 +194,8 @@ const formatServiceData = (data) => {
     'idMedicamento', 
     'idUnidadeFracionamento',
     'idFatorConversao', 
-    'idTaxas'
+    'idTaxas',
+    'idTabela'
   ];
   
   // Verificação de debug para os campos de ID
@@ -212,76 +215,87 @@ const formatServiceData = (data) => {
     }
   });
   
-  // Remover campos que não existem diretamente na tabela principal
-  // Campos que devem estar no RegistroVisa
-  delete formatted.Cod_Ggrem;
-  delete formatted.Principio_Ativo;
-  delete formatted.Lab;
-  delete formatted.cnpj_lab;
-  delete formatted.Classe_Terapeutica;
-  delete formatted.Tipo_Porduto;
-  delete formatted.Regime_Preco;
-  delete formatted.Restricao_Hosp;
-  delete formatted.Cap;
-  delete formatted.Confaz87;
-  delete formatted.Icms0;
-  delete formatted.Lista;
-  delete formatted.Status;
-  
-  // Campos que devem estar na Tabela
-  delete formatted.tabela;
-  delete formatted.tabela_classe;
-  delete formatted.tabela_tipo;
-  delete formatted.classe_Jaragua_do_sul;
-  delete formatted.classificacao_tipo;
-  delete formatted.finalidade;
-  delete formatted.objetivo;
-  
-  // Campos adicionais que podem estar em outras tabelas relacionadas
-  // IMPORTANTE: NÃO remova os campos de ID que precisam ser preservados
-  delete formatted.ViaAdministracao;
-  delete formatted.ClasseFarmaceutica;
-  delete formatted.PrincipioAtivo;
-  delete formatted.PrincipioAtivoClassificado;
-  delete formatted.FaseUGF;
-  delete formatted.Armazenamento;
-  delete formatted.Medicamento;
-  delete formatted.UnidadeFracionamentoDescricao;
-  delete formatted.Divisor;
-  delete formatted.tipo_taxa;
-  delete formatted.TaxaFinalidade;
-  delete formatted.tempo_infusao;
-  
-  // IMPORTANTE: Remover campos que estão causando problemas com o banco de dados
-  delete formatted.Via_administracao;
-  delete formatted.tipo_medicamento;
-  
-  // Garantir que campos obrigatórios existam
-  formatted.Codigo_TUSS = formatted.Codigo_TUSS || '';
-  formatted.Descricao_Apresentacao = formatted.Descricao_Apresentacao || '';
-  formatted.Revisado = formatted.Revisado || 0;
-  
-  // Limpar campos desnecessários ou temporários
-  const fieldsToDelete = [
-    'isEditing',
-    'isAdding',
-    'dropdownOptions'
-  ];
-  
-  fieldsToDelete.forEach(field => {
-    if (formatted[field] !== undefined) {
-      delete formatted[field];
+    // IMPORTANTE: Verificar se temos dados de RegistroVisa
+    const hasRegistroVisaData = formatted.RegistroVisa && formatted.RegistroVisa.trim() !== '';
+    
+    // Configurar o idRegistroVisa apenas se não existir e tivermos dados de RegistroVisa
+    if (hasRegistroVisaData) {
+      // Se temos um valor de RegistroVisa, usamos ele como ID
+      formatted.idRegistroVisa = formatted.RegistroVisa;
+      
+      // IMPORTANTE: NÃO removemos os campos do RegistroVisa, pois eles precisam ser enviados para a API
+      // Eles serão inseridos na tabela dregistro_anvisa
+    } else {
+      // Se não temos dados de RegistroVisa, removemos os campos relacionados
+      delete formatted.RegistroVisa;
+      delete formatted.Cod_Ggrem;
+      delete formatted.Principio_Ativo;
+      delete formatted.Lab;
+      delete formatted.cnpj_lab;
+      delete formatted.Classe_Terapeutica;
+      delete formatted.Tipo_Porduto;
+      delete formatted.Regime_Preco;
+      delete formatted.Restricao_Hosp;
+      delete formatted.Cap;
+      delete formatted.Confaz87;
+      delete formatted.Icms0;
+      delete formatted.Lista;
+      delete formatted.Status;
     }
-  });
-  
-  // VERIFICAÇÃO FINAL: confirme que os IDs ainda estão presentes
-  console.log("IDs após formatação:", idFields.map(id => ({ [id]: formatted[id] })));
-  console.log("Dados formatados para envio:", formatted);
-  
-  return formatted;
-};
-
-
+    
+    // Campos que devem estar na Tabela
+    delete formatted.tabela;
+    delete formatted.tabela_classe;
+    delete formatted.tabela_tipo;
+    delete formatted.classe_Jaragua_do_sul;
+    delete formatted.classificacao_tipo;
+    delete formatted.finalidade;
+    delete formatted.objetivo;
+    
+    // Campos adicionais que podem estar em outras tabelas relacionadas
+    // IMPORTANTE: NÃO remova os campos de ID que precisam ser preservados
+    delete formatted.ViaAdministracao;
+    delete formatted.ClasseFarmaceutica;
+    delete formatted.PrincipioAtivo;
+    delete formatted.PrincipioAtivoClassificado;
+    delete formatted.FaseUGF;
+    delete formatted.Armazenamento;
+    delete formatted.Medicamento;
+    delete formatted.UnidadeFracionamentoDescricao;
+    delete formatted.Divisor;
+    delete formatted.tipo_taxa;
+    delete formatted.TaxaFinalidade;
+    delete formatted.tempo_infusao;
+    
+    // IMPORTANTE: Remover campos que estão causando problemas com o banco de dados
+    delete formatted.Via_administracao;
+    delete formatted.tipo_medicamento;
+    
+    // Garantir que campos obrigatórios existam
+    formatted.Cod = formatted.Cod || '';
+    formatted.Codigo_TUSS = formatted.Codigo_TUSS || '';
+    formatted.Descricao_Apresentacao = formatted.Descricao_Apresentacao || '';
+    formatted.Revisado = formatted.Revisado || 0;
+    
+    // Limpar campos desnecessários ou temporários
+    const fieldsToDelete = [
+      'isEditing',
+      'isAdding',
+      'dropdownOptions'
+    ];
+    
+    fieldsToDelete.forEach(field => {
+      if (formatted[field] !== undefined) {
+        delete formatted[field];
+      }
+    });
+    
+    // VERIFICAÇÃO FINAL: confirme que os IDs ainda estão presentes
+    console.log("IDs após formatação:", idFields.map(id => ({ [id]: formatted[id] })));
+    console.log("Dados formatados para envio:", formatted);
+    
+    return formatted;
+  };
 
   // Função para carregar mais dados
   const loadMore = () => {
