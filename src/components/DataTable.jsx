@@ -5,7 +5,7 @@ import {
   flexRender,
 } from '@tanstack/react-table';
 import { createColumnHelper } from '@tanstack/react-table';
-import { ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { ChevronDown, ChevronUp, ArrowDownWideNarrow, ArrowUpWideNarrow, Info } from 'lucide-react';
 
 const columnHelper = createColumnHelper();
 
@@ -73,7 +73,8 @@ const ExpandedFieldsPreview = ({ header, data }) => {
 export const DataTable = forwardRef(({ 
   data, 
   onSelectionChange, 
-  selectedRows, 
+  selectedRows
+  , 
   editingRow, 
   editedData, 
   handleInputChange, 
@@ -83,7 +84,10 @@ export const DataTable = forwardRef(({
   handleNewInputChange,
   handleNewDropdownChange,
   dropdownOptions,
-  updateTrigger
+  updateTrigger,
+  sortField,
+  sortOrder,
+  changeSort
 }, ref) => {
   const [expandedHeaders, setExpandedHeaders] = useState(new Set());
   const [expandedRows, setExpandedRows] = useState(new Set());
@@ -116,12 +120,9 @@ export const DataTable = forwardRef(({
     console.log('DataTable renderizando com valores importantes:');
     console.log('- updateTrigger:', updateTrigger);
     console.log('- idPrincipioAtivo:', newServiceData.idPrincipioAtivo);
-    console.log('- PrincipioAtivo:', newServiceData.PrincipioAtivo);
-    console.log('- idUnidadeFracionamento:', newServiceData.idUnidadeFracionamento);
-    console.log('- UnidadeFracionamento:', newServiceData.UnidadeFracionamento);
-    console.log('- idTaxas:', newServiceData.idTaxas);
-    console.log('- TaxaFinalidade:', newServiceData.TaxaFinalidade);
-  }, [updateTrigger, newServiceData]);
+    console.log('- sortField:', sortField);
+    console.log('- sortOrder:', sortOrder);
+  }, [updateTrigger, newServiceData, sortField, sortOrder]);
 
   // Debugging para mostrar o estado dos dados de edição
   useEffect(() => {
@@ -147,48 +148,68 @@ export const DataTable = forwardRef(({
   // Identificar quais colunas expansíveis precisam de selects
   const expansibleSelectColumns = ["Princípio Ativo", "Unidade Fracionamento", "Taxas", " Tabela "];
 
+  // Mapeamento de cabeçalho para campo de API
+  const headerToFieldMap = {
+    'ID': 'id',
+    'Cod': 'Cod',
+    'Código TUSS': 'Codigo_TUSS',
+    'Descricao_Apresentacao': 'Descricao_Apresentacao',
+    'Descricao_Resumida': 'Descricao_Resumida',
+    'Descricao_Comercial': 'Descricao_Comercial',
+    'Concentracao': 'Concentracao',
+    'Fracionamento': 'Fracionamento',
+    'Laboratorio': 'Laboratorio',
+    'Revisado': 'Revisado',
+    'Via_Administração': 'Via_administracao',
+    'Classe_Farmaceutica': 'ClasseFarmaceutica',
+    'Medicamento': 'tipo_medicamento',
+    'Armazenamento': 'Armazenamento',
+    'FaseuGF': 'FaseUGF',
+    'Unidade_Fracionamento': 'UnidadeFracionamento'
+  };
+
   // Mapeamento de campos para subcolunas na adição
   const subFieldMapping = {
     "Registro Visa": {
-      "RegistroVisa": { field: "RegistroVisa", placeholder: "Registro Visa", required: true },
-      "Cód GGrem": { field: "Cod_Ggrem", placeholder: "Cód GGrem" },
-      "Principio_Ativo": { field: "Principio_Ativo", placeholder: "Princípio Ativo" },
-      "Laboratório": { field: "Lab", placeholder: "Laboratório" },
-      "CNPJ Lab": { field: "cnpj_lab", placeholder: "CNPJ Lab" },
-      "Classe Terapêutica": { field: "Classe_Terapeutica", placeholder: "Classe Terapêutica" },
-      "Tipo do Produto": { field: "Tipo_Porduto", placeholder: "Tipo do Produto" },
-      "Regime Preço": { field: "Regime_Preco", placeholder: "Regime Preço" },
-      "Restrição Hosp": { field: "Restricao_Hosp", placeholder: "Restrição Hosp" },
-      "Cap  ": { field: "Cap", placeholder: "Cap" },
-      "Confaz87": { field: "Confaz87", placeholder: "Confaz87" },
-      "ICMS0": { field: "Icms0", placeholder: "ICMS0" },
-      "Lista": { field: "Lista", placeholder: "Lista" },
-      "Status": { field: "Status", placeholder: "Status" }
+      "RegistroVisa": { field: "RegistroVisa", placeholder: "", required: true },
+      "Cód GGrem": { field: "Cod_Ggrem", placeholder: "" },
+      "Principio_Ativo": { field: "Principio_Ativo", placeholder: "" },
+      "Laboratório": { field: "Lab", placeholder: "" },
+      "CNPJ Lab": { field: "cnpj_lab", placeholder: "" },
+      "Classe Terapêutica": { field: "Classe_Terapeutica", placeholder: "" },
+      "Tipo do Produto": { field: "Tipo_Porduto", placeholder: "" },
+      "Regime Preço": { field: "Regime_Preco", placeholder: "" },
+      "Restrição Hosp": { field: "Restricao_Hosp", placeholder: "" },
+      "Cap  ": { field: "Cap", placeholder: "" },
+      "Confaz87": { field: "Confaz87", placeholder: "" },
+      "ICMS0": { field: "Icms0", placeholder: "" },
+      "Lista": { field: "Lista", placeholder: "" },
+      "Status": { field: "Status", placeholder: "" }
     },
     " Tabela ": {
-      "Tabela": { field: "tabela", placeholder: "Tabela" },
-      "Tabela Classe": { field: "tabela_classe", placeholder: "Tabela Classe" },
-      "Tabela tipo": { field: "tabela_tipo", placeholder: "Tabela tipo" },
-      "Classe JaraguaSul": { field: "classe_Jaragua_do_sul", placeholder: "Classe JaraguaSul" },
-      "Classificação tipo": { field: "classificacao_tipo", placeholder: "Classificação tipo" },
-      "Finalidade": { field: "finalidade", placeholder: "Finalidade" },
-      "Objetivo": { field: "objetivo", placeholder: "Objetivo" }
+      "Tabela": { field: "tabela", placeholder: "" },
+      "Tabela Classe": { field: "tabela_classe", placeholder: "" },
+      "Tabela tipo": { field: "tabela_tipo", placeholder: "" },
+      "Classe JaraguaSul": { field: "classe_Jaragua_do_sul", placeholder: "" },
+      "Classificação tipo": { field: "classificacao_tipo", placeholder: "" },
+      "Finalidade": { field: "finalidade", placeholder: "" },
+      "Objetivo": { field: "objetivo", placeholder: "" }
     },
     "Princípio Ativo": {
-      "Princípio_Ativo": { field: "Principio_Ativo", placeholder: "Princípio Ativo" },
-      "Princípio_Ativo_Classificado": { field: "PrincipioAtivoClassificado", placeholder: "Princípio Ativo Classificado" },
-      "FaseuGF": { field: "FaseUGF", placeholder: "Fase UGF" }
+      "Princípio_Ativo": { field: "Principio_Ativo", placeholder: "" },
+      "Princípio_Ativo_Classificado": { field: "PrincipioAtivoClassificado", placeholder: "" },
+      "FaseuGF": { field: "FaseUGF", placeholder: "" }
     },
     "Unidade Fracionamento": {
-      "Unidade_Fracionamento": { field: "Unidade_Fracionamento", placeholder: "Unidade Fracionamento" },
-      "Descricao": { field: "UnidadeFracionamentoDescricao", placeholder: "Descrição" },
-      "Divisor": { field: "Divisor", placeholder: "Divisor" }
+      "Unidade_Fracionamento": { field: "Unidade_Fracionamento", placeholder: "" },
+      "Descricao": { field: "UnidadeFracionamentoDescricao", placeholder: "" },
+      "Divisor": { field: "Divisor", placeholder: "" }
     },
     "Taxas": {
-      "ID Taxa": { field: "id_taxa", placeholder: "ID Taxa" },
-      "tipo taxa": { field: "tipo_taxa", placeholder: "Tipo taxa" },
-      "finalidade": { field: "finalidade", placeholder: "Finalidade" },
-      "Tempo infusão": { field: "tempo_infusao", placeholder: "Tempo infusão" }
+      "ID Taxa": { field: "id_taxa", placeholder: "" },
+      "tipo taxa": { field: "tipo_taxa", placeholder: "" },
+      "finalidade": { field: "finalidade", placeholder: "" },
+      "Tempo infusão": { field: "tempo_infusao", placeholder: "" }
     }
   };
 
@@ -210,6 +231,62 @@ export const DataTable = forwardRef(({
       newSet.has(rowId) ? newSet.delete(rowId) : newSet.add(rowId);
       return newSet;
     });
+  };
+
+  // Função para ordenar a tabela quando clica em um cabeçalho
+  const handleHeaderSort = (header) => {
+    // Não permitir ordenação para cabeçalhos expansíveis
+    if (expandableHeaders[header]) {
+      return;
+    }
+
+    // Mapear o cabeçalho para o nome do campo usado no backend
+    const fieldName = headerToFieldMap[header] || header.replace(/ /g, '_');
+    
+    // Chamar a função de ordenação do contexto
+    if (typeof changeSort === 'function') {
+      changeSort(fieldName);
+    }
+  };
+
+  // Renderizador de cabeçalho com ícones de ordenação
+  const renderSortableHeader = (header) => {
+    // Para cabeçalhos expansíveis, usar o comportamento original
+    if (expandableHeaders[header]) {
+      return (
+        <div
+          className="cursor-pointer text-center font-bold flex items-center justify-center gap-2"
+          onClick={() => toggleHeaderExpansion(header)}
+        >
+          <span style={{ color: expandedHeaders.has(header) ? "#f3df90" : "" }}>
+            {header}
+          </span>
+          {expandedHeaders.has(header) ? 
+            <ChevronUp size={16} style={{ color: expandedHeaders.has(header) ? "#f3df90" : "" }} /> : 
+            <ChevronDown size={16} />
+          }
+        </div>
+      );
+    }
+
+    // Para cabeçalhos normais, mostrar ícones de ordenação
+    const fieldName = headerToFieldMap[header] || header.replace(/ /g, '_');
+    const isActive = sortField === fieldName;
+
+    return (
+      <div 
+      className={`header-sort ${isActive ? 'active' : ''}`}
+        onClick={() => handleHeaderSort(header)}
+      >
+        <span>{header}</span>
+        {isActive ? (
+          // Mostra ícones apenas para a coluna ativa
+          sortOrder === 'asc' ? 
+            <ArrowUpWideNarrow size={16} style={{color: '#f3df90'}} /> : 
+            <ArrowDownWideNarrow size={16} style={{color: '#f3df90'}} />
+        ) : null}
+      </div>
+    );
   };
 
   const columnOrder = [
@@ -414,7 +491,8 @@ export const DataTable = forwardRef(({
             value={newServiceData[header] || ''}
             onChange={(e) => handleNewInputChange(e, header)}
             className="w-full p-1 border rounded mb-1"
-            placeholder={header}
+            placeholder={"..."}
+            disabled={true}
           />
           
           {/* Mostrar preview de campos relacionados se não estiver expandido */}
@@ -434,7 +512,7 @@ export const DataTable = forwardRef(({
             value={newServiceData.Cod || ''}
             onChange={(e) => handleNewInputChange(e, 'Cod')}
             className="w-full p-1 border rounded"
-            placeholder="Cod"
+            placeholder=""
           />
         );
       case "Código TUSS":
@@ -444,7 +522,7 @@ export const DataTable = forwardRef(({
             value={newServiceData.Codigo_TUSS || ''}
             onChange={(e) => handleNewInputChange(e, 'Codigo_TUSS')}
             className="w-full p-1 border rounded"
-            placeholder="Código TUSS"
+            placeholder=""
           />
         );
         
@@ -551,7 +629,7 @@ export const DataTable = forwardRef(({
             value={newServiceData.Descricao_Apresentacao || ''}
             onChange={(e) => handleNewInputChange(e, 'Descricao_Apresentacao')}
             className="w-full p-1 border rounded"
-            placeholder="Descrição de Apresentação"
+            placeholder=""
           />
         );
         
@@ -562,7 +640,7 @@ export const DataTable = forwardRef(({
             value={newServiceData.Descricao_Resumida || ''}
             onChange={(e) => handleNewInputChange(e, 'Descricao_Resumida')}
             className="w-full p-1 border rounded"
-            placeholder="Descrição Resumida"
+            placeholder=""
           />
         );
         
@@ -573,7 +651,7 @@ export const DataTable = forwardRef(({
             value={newServiceData.Descricao_Comercial || ''}
             onChange={(e) => handleNewInputChange(e, 'Descricao_Comercial')}
             className="w-full p-1 border rounded"
-            placeholder="Descrição Comercial"
+            placeholder=""
           />
         );
         
@@ -648,7 +726,7 @@ export const DataTable = forwardRef(({
             value={newServiceData.Concentracao || ''}
             onChange={(e) => handleNewInputChange(e, 'Concentracao')}
             className="w-full p-1 border rounded"
-            placeholder="Concentração"
+            placeholder=""
           />
         );
         
@@ -659,7 +737,7 @@ export const DataTable = forwardRef(({
             value={newServiceData.Fracionamento || ''}
             onChange={(e) => handleNewInputChange(e, 'Fracionamento')}
             className="w-full p-1 border rounded"
-            placeholder="Fracionamento"
+            placeholder=""
           />
         );
         
@@ -670,7 +748,7 @@ export const DataTable = forwardRef(({
             value={newServiceData.Laboratorio || ''}
             onChange={(e) => handleNewInputChange(e, 'Laboratorio')}
             className="w-full p-1 border rounded"
-            placeholder="Laboratório"
+            placeholder=""
           />
         );
         
@@ -715,7 +793,8 @@ export const DataTable = forwardRef(({
       
       // Verificar se algum campo do RegistroVisa está preenchido
       const hasAnyRegistroVisaField = header === "Registro Visa" && Object.keys(subFieldMapping["Registro Visa"])
-        .filter(key => key !== "RegistroVisa") // Excluir o próprio campo RegistroVisa 
+        .filter(
+          key => key !== "RegistroVisa") // Excluir o próprio campo RegistroVisa 
         .some(key => {
           const fieldName = subFieldMapping["Registro Visa"][key].field;
           return newServiceData[fieldName] && newServiceData[fieldName].trim() !== '';
@@ -766,7 +845,7 @@ export const DataTable = forwardRef(({
   const columns = useMemo(() => {
     let cols = [
       columnHelper.accessor('id', {
-        header: 'ID',
+        header: () => renderSortableHeader('ID'),
         cell: info => {
           // Caso especial para a linha de adição
           if (isAdding && info.row.index === 0) {
@@ -778,7 +857,7 @@ export const DataTable = forwardRef(({
         frozen: true,
       }),
       columnHelper.accessor('Cod', {
-        header: 'Cod',
+        header: () => renderSortableHeader('Cod'),
         cell: info => {
           // Linha de adição
           if (isAdding && info.row.index === 0) {
@@ -810,7 +889,7 @@ export const DataTable = forwardRef(({
         frozen: true,
       }),
       columnHelper.accessor('codigoTUSS', {
-        header: 'Código TUSS',
+        header: () => renderSortableHeader('Código TUSS'),
         cell: info => {
           // Linha de adição
           if (isAdding && info.row.index === 0) {
@@ -846,17 +925,7 @@ export const DataTable = forwardRef(({
     columnOrder.slice(3).forEach((header) => {
       if (expandableHeaders[header]) {
         cols.push({
-          header: () => (
-            <div
-              className="cursor-pointer text-center font-bold flex items-center justify-center gap-2"
-              onClick={() => toggleHeaderExpansion(header)}
-            >
-              <span style={{ color: expandedHeaders.has(header) ? "#f3df90" : "" }}>
-                {header}
-              </span>
-              {expandedHeaders.has(header) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </div>
-          ),
+          header: () => renderSortableHeader(header),
           accessorKey: header,
           size: 150,
           cell: info => {
@@ -1086,7 +1155,7 @@ export const DataTable = forwardRef(({
         }
       } else {
         cols.push({
-          header: header,
+          header: () => renderSortableHeader(header),
           accessorKey: header.replace(/ /g, '_'),
           size: 120,
           cell: info => {
@@ -1141,7 +1210,33 @@ export const DataTable = forwardRef(({
                     </div>
                   );
                   
-                // Implementar outros cases para os outros selects...
+                // Outros cases para selects
+                case "Classe_Farmaceutica":
+                  return (
+                    <div>
+                      <select
+                        value={
+                          editedData.idClasseFarmaceutica || 
+                          (editedData.Classe_Farmaceutica ? 
+                            Array.isArray(dropdownOptions?.classeFarmaceutica) && 
+                            dropdownOptions.classeFarmaceutica.find(c => c.ClasseFarmaceutica === editedData.Classe_Farmaceutica)?.id_medicamento || ''
+                            : '')
+                        }
+                        onChange={(e) => handleDropdownChange(e, 'ClasseFarmaceutica')}
+                        className="w-full p-1 border rounded mb-1"
+                      >
+                        <option value="">Selecione...</option>
+                        {Array.isArray(dropdownOptions?.classeFarmaceutica) ? 
+                          dropdownOptions.classeFarmaceutica.map((classe, index) => (
+                            <option key={`edit-classe-${classe.id_medicamento}-${index}`} value={classe.id_medicamento}>
+                              {classe.ClasseFarmaceutica}
+                            </option>
+                          )) : 
+                          <option value="">Carregando opções...</option>
+                        }
+                      </select>
+                    </div>
+                  );
                 
                 default:
                   return (
@@ -1171,7 +1266,8 @@ export const DataTable = forwardRef(({
     });
 
     return cols;
-  }, [expandedHeaders, expandedRows, editingRow, editedData, handleInputChange, handleDropdownChange, dropdownOptions, isAdding, newServiceData]);
+  }, [expandedHeaders, expandedRows, editingRow, editedData, handleInputChange, handleDropdownChange, 
+      dropdownOptions, isAdding, newServiceData, sortField, sortOrder]);
 
   // Preparar dados para incluir a linha de adição
   const tableData = useMemo(() => {
@@ -1190,114 +1286,11 @@ export const DataTable = forwardRef(({
     getCoreRowModel: getCoreRowModel(),
   });
 
-  // Dica para o usuário sobre expansão de colunas
-  {/*const renderExpansionTip = () => {
-    if (isAdding) {
-      return (
-        <div className="p-3 my-2 bg-blue-50 border border-blue-300 text-blue-800 rounded flex items-center">
-          <Info className="mr-2" size={18} />
-          <span>
-            Dica: Você pode clicar nos títulos de colunas como "Registro Visa", "Tabela", "Princípio Ativo", etc. para expandir e acessar mais campos.
-            <strong className="ml-2">Os campos relacionados serão preenchidos automaticamente ao selecionar um valor nos campos com dropdown, mas você poderá editá-los manualmente depois.</strong>
-          </span>
-        </div>
-      );
-    }
-    return null;
-  };*/}
-
-  // Informações sobre campos selecionados para selects
-  {/*const renderSelectInfo = () => {
-    if (isAdding) {
-      return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 mt-2">
-          {newServiceData.ViaAdministracao && (
-            <div className="border rounded p-2 bg-gray-50">
-              <div className="font-medium text-sm">Via de Administração:</div>
-              <div className="text-sm">{newServiceData.ViaAdministracao}</div>
-            </div>
-          )}
-          
-          {newServiceData.ClasseFarmaceutica && (
-            <div className="border rounded p-2 bg-gray-50">
-              <div className="font-medium text-sm">Classe Farmacêutica:</div>
-              <div className="text-sm">{newServiceData.ClasseFarmaceutica}</div>
-            </div>
-          )}
-          
-          {newServiceData.PrincipioAtivo && (
-            <div className="border rounded p-2 bg-gray-50">
-              <div className="font-medium text-sm">Princípio Ativo:</div>
-              <div className="text-sm">{newServiceData.PrincipioAtivo}</div>
-              {newServiceData.PrincipioAtivoClassificado && (
-                <div className="text-xs text-gray-500">Classificado: {newServiceData.PrincipioAtivoClassificado}</div>
-              )}
-              {newServiceData.FaseUGF && (
-                <div className="text-xs text-gray-500">Fase UGF: {newServiceData.FaseUGF}</div>
-              )}
-            </div>
-          )}
-          
-          {newServiceData.Armazenamento && (
-            <div className="border rounded p-2 bg-gray-50">
-              <div className="font-medium text-sm">Armazenamento:</div>
-              <div className="text-sm">{newServiceData.Armazenamento}</div>
-            </div>
-          )}
-          
-          {newServiceData.tipo_medicamento && (
-            <div className="border rounded p-2 bg-gray-50">
-              <div className="font-medium text-sm">Medicamento:</div>
-              <div className="text-sm">{newServiceData.tipo_medicamento}</div>
-            </div>
-          )}
-          
-          {newServiceData.UnidadeFracionamento && (
-            <div className="border rounded p-2 bg-gray-50">
-              <div className="font-medium text-sm">Unidade Fracionamento:</div>
-              <div className="text-sm">{newServiceData.UnidadeFracionamento}</div>
-              {newServiceData.UnidadeFracionamentoDescricao && (
-                <div className="text-xs text-gray-500">Descrição: {newServiceData.UnidadeFracionamentoDescricao}</div>
-              )}
-              {newServiceData.Divisor && (
-                <div className="text-xs text-gray-500">Divisor: {newServiceData.Divisor}</div>
-              )}
-            </div>
-          )}
-          
-          {newServiceData.Fator_Conversão && (
-            <div className="border rounded p-2 bg-gray-50">
-              <div className="font-medium text-sm">Fator de Conversão:</div>
-              <div className="text-sm">{newServiceData.Fator_Conversão}</div>
-            </div>
-          )}
-          
-          {newServiceData.TaxaFinalidade && (
-            <div className="border rounded p-2 bg-gray-50">
-              <div className="font-medium text-sm">Taxa:</div>
-              <div className="text-sm">{newServiceData.TaxaFinalidade}</div>
-              {newServiceData.tipo_taxa && (
-                <div className="text-xs text-gray-500">Tipo: {newServiceData.tipo_taxa}</div>
-              )}
-              {newServiceData.tempo_infusao && (
-                <div className="text-xs text-gray-500">Tempo infusão: {newServiceData.tempo_infusao}</div>
-              )}
-            </div>
-          )}
-        </div>
-      );
-    }
-    return null;
-  };*/}
-
   return (
     <div 
       className={`table-container data-table-container ${isAdding ? 'adding-mode' : ''}`} 
       style={{ overflowX: 'auto', maxWidth: '100%', whiteSpace: 'nowrap' }}
     >
-      {/*{renderExpansionTip()}
-      {renderSelectInfo()} */}
-      
       <table className="table-auto w-full data-table border-collapse">
         <thead>
           {table.getHeaderGroups().map(headerGroup => (
@@ -1321,7 +1314,7 @@ export const DataTable = forwardRef(({
               return (
                 <tr 
                   key={row.id}
-                  className="adding-row bg-yellow-50"
+                  className="adding-row"
                 >
                   {row.getVisibleCells().map(cell => (
                     <td key={cell.id} className="border px-4 py-2 text-center">

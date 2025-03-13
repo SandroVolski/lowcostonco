@@ -9,7 +9,7 @@ import { DropdownOptionsProvider, useDropdownOptions } from '../../components/Dr
 import '../../App.css';
 import './ServicoRelacionada.css';
 
-import { Search, Plus, Trash2, Edit, RefreshCw, X, Save } from "lucide-react";
+import { Search, Plus, Trash2, Edit, RefreshCw, X, Save, ArrowUpDown, ArrowDownWideNarrow, ArrowUpWideNarrow } from "lucide-react";
 
 export default function ServicoRelacionada() {
   // Componente principal que inclui o Provider
@@ -135,14 +135,17 @@ function ServicoRelacionadaContent() {
     }
   }, [newServiceData, isAdding, updateCounter]);
 
-  // Usando o contexto de serviços
+  // Usando o contexto de serviços com as propriedades de ordenação
   const { 
     serviceData, 
     loading, 
     error, 
     hasMore, 
     sortOrder, 
-    setSortOrder, 
+    sortField,
+    setSortOrder,
+    setSortField,
+    changeSort,
     loadMore,
     updateService,
     deleteService,
@@ -364,6 +367,8 @@ function ServicoRelacionadaContent() {
     }));
   };
   
+  // CORRECTEDFUNCTION: Função para capturar as alterações nos campos editáveis
+
   // CORRECTEDFUNCTION: Função para capturar as alterações nos campos editáveis - CORRIGIDA
   const handleInputChange = (e, field) => {
     const { value } = e.target;
@@ -817,16 +822,57 @@ function ServicoRelacionadaContent() {
     setSortOrder(e.target.value);
   };
 
+  // Função para resetar a ordenação para o padrão
+  const handleResetSort = () => {
+    setSortField('id');
+    setSortOrder('asc');
+  };
+
   const filteredData = useMemo(() => {
     if (!searchTerm.trim()) return cleanedData;
   
+    const searchTermLower = searchTerm.trim().toLowerCase();
+    
+    // Dividir o termo de pesquisa para busca parcial
+    const searchTerms = searchTermLower.split(/\s+/);
+    
     return cleanedData.filter(item => {
-      const id = item.id?.toString() ?? "";
-      const tuss = item.codigoTUSS?.toString() ?? "";
-  
-      return id.includes(searchTerm) || tuss.includes(searchTerm);
+      // Busca no campo Cod (exata)
+      const cod = (item.Cod || '').toString().toLowerCase();
+      if (cod === searchTermLower) return true;
+      
+      // Busca em todos os campos relacionados ao Princípio Ativo
+      const principioAtivo = [
+        (item.Principio_Ativo || '').toString().toLowerCase(),
+        (item.PrincipioAtivo || '').toString().toLowerCase(),
+        (item["Princípio Ativo"] || '').toString().toLowerCase(),
+        (item.PrincipioAtivoClassificado || '').toString().toLowerCase(),
+        (item["Princípio_Ativo_Classificado"] || '').toString().toLowerCase()
+      ].join(' ');
+      
+      // Verifica se todos os termos da pesquisa estão presentes no texto do princípio ativo
+      const matchesPrincipioAtivo = searchTerms.every(term => 
+        principioAtivo.includes(term)
+      );
+      
+      // Busca em campos adicionais para melhorar a precisão
+      const descricao = [
+        (item.Descricao_Apresentacao || '').toString().toLowerCase(),
+        (item.Descricao_Resumida || '').toString().toLowerCase(),
+        (item.Descricao_Comercial || '').toString().toLowerCase()
+      ].join(' ');
+      
+      // Busca parcial nos campos de descrição (menos prioritária)
+      const matchesDescricao = searchTermLower.length > 3 && descricao.includes(searchTermLower);
+      
+      // Combinando os resultados
+      return cod.includes(searchTermLower) || matchesPrincipioAtivo || matchesDescricao;
     });
   }, [searchTerm, cleanedData]);
+
+  const searchResultCount = searchTerm.trim() 
+  ? `${filteredData.length} resultados encontrados` 
+  : null;
 
   return (
     <PageTransition>
@@ -840,29 +886,58 @@ function ServicoRelacionadaContent() {
             <div className="styled-container">
               <div className="mb-6 flex justify-between items-center encimatabela">
                 <div className="organize-container">
-                  <h2 className="organize-text">Organizar por</h2>
+                  <h2 className="organize-text">Ordenação</h2>
                   <div className="custom-select">
                     <select 
                       className="select-style" 
                       value={sortOrder} 
                       onChange={handleSortChange}
                     >
-                      <option value="asc">Ordem Crescente</option>
-                      <option value="desc">Ordem Decrescente</option>
+                      <option value="asc">Crescente</option>
+                      <option value="desc">Decrescente</option>
                     </select>
                   </div>
                 </div>
                 
+                {/* Mostrar informação sobre ordenação atual */}
+                {sortField !== 'id' && (
+                  <div className="px-3 py-1 bg-blue-50 rounded-md flex items-center ordenacao">
+                    <span className="text-sm text-blue-700">
+                      Ordenado por: <strong>{sortField}</strong> ({sortOrder === 'asc' ? 'crescente' : 'decrescente'})
+                    </span>
+                    <button 
+                      className="ml-2 text-blue-600 hover:text-blue-800" 
+                      onClick={handleResetSort}
+                      title="Resetar ordenação"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+                
                 <div className="flex items-center gap-4">
-                  <div className="search-bar">
-                    <Search className="search-icon" />
-                    <input
-                      type="text"
-                      placeholder="Pesquisar"
-                      className="border pesquisa"
-                      value={searchTerm}
-                      onChange={handleChange}
-                    />
+                  <div className="flex flex-col">
+                    <div className="search-bar">
+                      <Search className="search-icon" />
+                      <input
+                        type="text"
+                        placeholder="Pesquisar por Cód. ou Princípio Ativo"
+                        className="border pesquisa"
+                        value={searchTerm}
+                        onChange={handleChange}
+                      />
+                    </div>
+                    
+                    {/* Indicador de resultados da pesquisa */}
+                    {searchTerm.trim() && (
+                      <div className="text-xs text-gray-600 mt-1 ml-2">
+                        {filteredData.length === 0 ? (
+                          <span className="text-red-500">Nenhum resultado encontrado</span>
+                        ) : (
+                          <span>{filteredData.length} resultado{filteredData.length !== 1 ? 's' : ''}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   
                   <div className="button-container">
@@ -975,6 +1050,8 @@ function ServicoRelacionadaContent() {
                     data={filteredData}
                     searchTerm={searchTerm}
                     sortOrder={sortOrder}
+                    sortField={sortField}
+                    changeSort={changeSort}
                     onSelectionChange={toggleRowSelection}
                     editingRow={editingRow}
                     editedData={editedData}

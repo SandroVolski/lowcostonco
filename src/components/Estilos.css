@@ -372,25 +372,25 @@
   font-size: 16px;
 }
 
-/* Estilizando o scrollbar */
-.data-table-container::-webkit-scrollbar {
-  width: 12px; /* Largura do scrollbar */
-}
+  /* Estilizando o scrollbar */
+  .data-table-container::-webkit-scrollbar {
+    width: 12px; /* Largura do scrollbar */
+  }
 
-.data-table-container::-webkit-scrollbar-track {
-  background: #cff0fc; /* Cor de fundo da área do scrollbar */
-  border-radius: 10px; /* Bordas arredondadas */
-}
+  .data-table-container::-webkit-scrollbar-track {
+    background: #cff0fc; /* Cor de fundo da área do scrollbar */
+    border-radius: 10px; /* Bordas arredondadas */
+  }
 
-.data-table-container::-webkit-scrollbar-thumb {
-  background: #3871c1; /* Cor do scrollbar */
-  border-radius: 10px; /* Bordas arredondadas */
-  border: 3px solid #f1f1f1; /* Espaço entre o scrollbar e a borda */
-}
+  .data-table-container::-webkit-scrollbar-thumb {
+    background: #3871c1; /* Cor do scrollbar */
+    border-radius: 10px; /* Bordas arredondadas */
+    border: 3px solid #f1f1f1; /* Espaço entre o scrollbar e a borda */
+  }
 
-.data-table-container::-webkit-scrollbar-thumb:hover {
-  background: #468ef3; /* Cor do scrollbar ao passar o mouse */
-}
+  .data-table-container::-webkit-scrollbar-thumb:hover {
+    background: #468ef3; /* Cor do scrollbar ao passar o mouse */
+  }
 
 .cursor-pointer {
   cursor: pointer;
@@ -439,3 +439,235 @@
 
 
 
+.header-sort {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px; /* equivalente a gap-1 */
+  cursor: pointer;
+  padding: 0.25rem; /* equivalente a p-1 */
+  border-radius: 0.25rem; /* equivalente a rounded */
+}
+
+.header-sort:hover {
+  background-color: transparent; /* equivalente a hover:bg-gray-100 */
+  color: #f3df90;
+}
+
+.header-sort.active {
+  font-weight: bold; /* equivalente a font-bold */
+}
+
+.header-sort.active span {
+  color: #f3df90; /* Cor do texto para o cabeçalho ativo */
+}
+
+
+
+/* ADICIONAR - Versão melhorada */
+/* Estilo para o estado de adição de novos registros */
+.data-table-container.adding-mode {
+  position: relative;
+}
+
+/* Opacidade apenas para as linhas existentes da tabela, não para o cabeçalho */
+.data-table-container.adding-mode tbody tr:not(.adding-row) {
+  opacity: 0.6; /* Deixa as outras linhas semitransparentes */
+  transition: opacity 0.9s ease;
+}
+
+/* Header permanece com opacidade total */
+.data-table-container.adding-mode thead tr {
+  opacity: 1;
+}
+
+/* Estilo para a linha de adição */
+.data-table tr.adding-row {
+  position: relative;
+  z-index: 5; /* Acima das outras linhas */
+  background-image: linear-gradient(to bottom, #eae66f, #f5fa6c) !important;
+  border: 2px solid #E8E351;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); /* Sombra suave para elevação */
+  transform: translateY(-1px); /* Ligeira elevação visual */
+  opacity: 1 !important; /* Garantir visibilidade total */
+}
+
+/* Estilizar os inputs da linha de adição */
+.adding-row input,
+.adding-row select {
+  appearance: none; /* Remove o estilo padrão do navegador */
+  text-align: center;
+  text-align-last: center;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: transparent;
+  border-color: #E8E351;
+  border-width: 1px;
+  padding: 2px;
+  font-size: 13px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) inset;
+}
+
+.adding-row select {
+  background-image: url('data:image/svg+xml;charset=UTF-8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="black"%3E%3Cpath d="M7 10l5 5 5-5z"/%3E%3C/svg%3E');
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  padding-right: 30px;
+}
+
+.adding-row select::-ms-expand {
+  display: none;
+}
+
+
+/* Efeito ao passar o mouse */
+.adding-row select:hover {
+  background: linear-gradient(180deg, #c5c148, #c3c842 100%);
+  color: white;
+  border-color: white;
+}
+
+/* Quando o Select estiver focado */
+.adding-row select:focus {
+  outline: none;
+  border-color: #3871c1;
+  box-shadow: 0 0 6px rgba(56, 113, 193, 0.5);
+}
+
+/* Estilizar a lista de opções */
+.adding-row select option {
+  background: white;
+  color: black;
+  padding: 10px;
+  text-align: center;
+}
+
+/* Cor quando passar o mouse nas opções */
+.adding-row select option:hover {
+  background: linear-gradient(90deg, #00adef 0%, #3871c1 100%);
+  color: white;
+}
+
+/*.adding-row input:focus,
+.adding-row select:focus {
+  outline: none;
+  border-color: #CCC829;
+  box-shadow: 0 0 0 3px rgba(232, 227, 81, 0.25);
+}*/
+
+/* Removido o efeito de blur que estava muito intenso */
+/* Removida a animação que poderia ser distrativa */
+
+/* Reset dos estilos para inputs expansíveis */
+.adding-row input.expandable-input {
+  background-color: transparent; /* Cor de fundo cinza claro */
+  border-color: transparent; /* Borda cinza */
+  border-width: 1px;
+  box-shadow: none; /* Remove a sombra */
+}
+
+/* Se quiser uma aparência diferente para inputs desabilitados */
+.adding-row input.expandable-input:disabled {
+  background-color: transparent;
+  color: black;
+  border-color: transparent;
+  opacity: 0.75;
+}
+
+/* Estilizando o Scrollbar dentro do Select */
+.adding-row select::-webkit-scrollbar {
+  width: 10px;
+}
+
+.adding-row select::-webkit-scrollbar-track {
+  background: #cff0fc;
+  border-radius: 10px;
+}
+
+.adding-row select::-webkit-scrollbar-thumb {
+  background: #3871c1;
+  border-radius: 10px;
+  border: 2px solid #f1f1f1;
+}
+
+.adding-row select::-webkit-scrollbar-thumb:hover {
+  background: #468ef3;
+}
+
+/* Estilizando o scrollbar geral da tabela */
+.data-table-container::-webkit-scrollbar {
+  width: 12px;
+}
+
+.data-table-container::-webkit-scrollbar-track {
+  background: #cff0fc;
+  border-radius: 10px;
+}
+
+.data-table-container::-webkit-scrollbar-thumb {
+  background: #3871c1;
+  border-radius: 10px;
+  border: 3px solid #f1f1f1;
+}
+
+.data-table-container::-webkit-scrollbar-thumb:hover {
+  background: #468ef3;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* Força máxima de visibilidade para placeholders */
+input::placeholder {
+  color: #888 !important;
+  opacity: 1 !important;
+  font-style: italic !important;
+}
+
+.adding-row input::placeholder {
+  color: #888 !important;
+  opacity: 1 !important;
+  font-style: italic !important;
+}
+
+/* Para todos os navegadores */
+input::-webkit-input-placeholder { 
+  color: #888 !important;
+  opacity: 1 !important;
+  font-style: italic !important;
+}
+
+input::-moz-placeholder { 
+  color: #888 !important;
+  opacity: 1 !important;
+  font-style: italic !important;
+}
+
+input:-ms-input-placeholder { 
+  color: #888 !important;
+  opacity: 1 !important;
+  font-style: italic !important;
+}
+
+input:-moz-placeholder { 
+  color: #888 !important;
+  opacity: 1 !important;
+  font-style: italic !important;
+}

@@ -14,7 +14,20 @@ export const ServiceProvider = ({ children }) => {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
   const [sortOrder, setSortOrder] = useState("asc");
+  const [sortField, setSortField] = useState("id"); // Novo estado para o campo de ordenação
   const [initialized, setInitialized] = useState(false);
+
+  // Função para ordenar os dados
+  const changeSort = (field) => {
+    // Se clicar no mesmo campo, inverte a direção
+    if (field === sortField) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      // Se clicar em um novo campo, configura para ordenação ascendente
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
 
   // Função para carregar os dados da API
   const loadServiceData = async (pageNum = 1, reset = false) => {
@@ -22,7 +35,7 @@ export const ServiceProvider = ({ children }) => {
       setLoading(true);
       
       const response = await fetch(
-        `http://localhost/backend-php/api/get_services.php?page=${pageNum}&limit=500&order=${sortOrder}`
+        `http://localhost/backend-php/api/get_services.php?page=${pageNum}&limit=500&order=${sortOrder}&orderBy=${sortField}`
       );
       
       if (!response.ok) {
@@ -111,8 +124,6 @@ export const ServiceProvider = ({ children }) => {
     loadServiceData(1, true);
   };
 
-
-
   // Adicione esta função ao ServiceContext.js
   const addService = async (newService) => {
     // É importante garantir que a estrutura esteja correta antes de enviar
@@ -180,41 +191,41 @@ export const ServiceProvider = ({ children }) => {
   };
 
   // Função formatServiceData corrigida para preservar os IDs
-const formatServiceData = (data) => {
-  // Cria uma cópia para não modificar o original
-  const formatted = { ...data };
-  
-  // IMPORTANTE: Primeiro, garanta que os IDs estejam definidos corretamente
-  // Campos de ID para serem mantidos
-  const idFields = [
-    'idViaAdministracao', 
-    'idClasseFarmaceutica', 
-    'idPrincipioAtivo',
-    'idArmazenamento', 
-    'idMedicamento', 
-    'idUnidadeFracionamento',
-    'idFatorConversao', 
-    'idTaxas',
-    'idTabela'
-  ];
-  
-  // Verificação de debug para os campos de ID
-  console.log("IDs antes da formatação:", idFields.map(id => ({ [id]: data[id] })));
-  
-  // Garanta que os IDs sejam números ou null
-  idFields.forEach(field => {
-    if (formatted[field] === '' || formatted[field] === undefined) {
-      formatted[field] = null;
-    } else if (typeof formatted[field] === 'string') {
-      formatted[field] = parseInt(formatted[field], 10);
-    }
-    // Verificação adicional para certificar-se que o ID é um número válido
-    if (formatted[field] !== null && isNaN(formatted[field])) {
-      console.warn(`Campo ${field} tem valor inválido:`, formatted[field]);
-      formatted[field] = null;
-    }
-  });
-  
+  const formatServiceData = (data) => {
+    // Cria uma cópia para não modificar o original
+    const formatted = { ...data };
+    
+    // IMPORTANTE: Primeiro, garanta que os IDs estejam definidos corretamente
+    // Campos de ID para serem mantidos
+    const idFields = [
+      'idViaAdministracao', 
+      'idClasseFarmaceutica', 
+      'idPrincipioAtivo',
+      'idArmazenamento', 
+      'idMedicamento', 
+      'idUnidadeFracionamento',
+      'idFatorConversao', 
+      'idTaxas',
+      'idTabela'
+    ];
+    
+    // Verificação de debug para os campos de ID
+    console.log("IDs antes da formatação:", idFields.map(id => ({ [id]: data[id] })));
+    
+    // Garanta que os IDs sejam números ou null
+    idFields.forEach(field => {
+      if (formatted[field] === '' || formatted[field] === undefined) {
+        formatted[field] = null;
+      } else if (typeof formatted[field] === 'string') {
+        formatted[field] = parseInt(formatted[field], 10);
+      }
+      // Verificação adicional para certificar-se que o ID é um número válido
+      if (formatted[field] !== null && isNaN(formatted[field])) {
+        console.warn(`Campo ${field} tem valor inválido:`, formatted[field]);
+        formatted[field] = null;
+      }
+    });
+    
     // IMPORTANTE: Verificar se temos dados de RegistroVisa
     const hasRegistroVisaData = formatted.RegistroVisa && formatted.RegistroVisa.trim() !== '';
     
@@ -325,7 +336,7 @@ const formatServiceData = (data) => {
     if (initialized) {
       resetAndLoad();
     }
-  }, [sortOrder]);
+  }, [sortField, sortOrder]);
 
   // Valores e funções a serem disponibilizados pelo contexto
   const value = {
@@ -334,8 +345,11 @@ const formatServiceData = (data) => {
     error,
     hasMore,
     sortOrder,
+    sortField,
     initialized,
     setSortOrder,
+    setSortField,
+    changeSort,
     loadMore,
     loadServiceData,
     updateService,

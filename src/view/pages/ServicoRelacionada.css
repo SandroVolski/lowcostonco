@@ -94,6 +94,44 @@
     border: 1px solid #ccc;
     border-radius: 2rem; /* Equivalente a rounded-md */
     padding-left: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .search-bar input::placeholder {
+    font-size: 0.9rem; /* Reduz o tamanho da fonte do placeholder */
+    color: #718096; /* Uma cor mais escura para melhor legibilidade */
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  
+  /* Efeito de marquee para o placeholder */
+  @keyframes marquee {
+    0% {
+      text-indent: 100%;
+    }
+    100% {
+      text-indent: -100%;
+    }
+  }
+  
+  .search-bar input:placeholder-shown {
+    text-overflow: clip;
+  }
+
+  /* Quando o campo está em foco mas vazio, aplica o efeito de marquee */
+  .search-bar input:placeholder-shown:focus::placeholder {
+    animation: marquee 8s linear infinite;
+    white-space: nowrap;
+    overflow: hidden;
+    display: inline-block;
+    width: 100%;
+  }
+  
+  /* Aplica a animação apenas quando o campo está em foco */
+  .search-bar input:focus::placeholder {
+    animation: marquee 8s linear infinite alternate;
+    overflow: hidden;
   }
   
   .search-icon {
@@ -371,4 +409,23 @@
   font-size: 0.75rem;
   color: #6b7280;
   margin-top: 4px;
+}
+
+.ordenacao {
+  
+  overflow: hidden; /* Esconde conteúdo extra */
+  text-overflow: ellipsis; /* Mostra reticências para texto truncado */
+ 
+  position: absolute; /* Retira o elemento do fluxo normal */
+  margin-top: 1.6rem;
+  margin-left: 7.5rem;
+  z-index: 5; /* Garante que fique acima dos outros elementos */
+}
+
+.ordenacao strong {
+  max-width: 100px; /* Limita o tamanho do texto do campo */
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
 }
