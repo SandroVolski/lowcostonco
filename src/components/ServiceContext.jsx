@@ -124,69 +124,89 @@ export const ServiceProvider = ({ children }) => {
     loadServiceData(1, true);
   };
 
+  const cleanServiceData = (data) => {
+  // Cria uma cópia para não modificar o objeto original
+  const cleanedData = { ...data };
+  
+  // Remove os campos que não devem ser enviados ao backend
+  // e que estão causando erro de tipo no banco de dados
+  delete cleanedData.UnidadeFracionamento;
+  delete cleanedData.Unidade_Fracionamento;
+  delete cleanedData.Descricao;
+  delete cleanedData.UnidadeFracionamentoDescricao;
+  delete cleanedData.PrincipioAtivo;
+  delete cleanedData.PrincipioAtivoClassificado;
+  delete cleanedData.TaxaFinalidade;
+  delete cleanedData.tipo_taxa;
+  delete cleanedData.tempo_infusao;
+  delete cleanedData.ViaAdministracao;
+  delete cleanedData.ClasseFarmaceutica;
+  delete cleanedData.Armazenamento;
+  delete cleanedData.tipo_medicamento;
+  delete cleanedData.Fator_Conversão;
+  delete cleanedData.tabela;
+  delete cleanedData.tabela_classe;
+  delete cleanedData.tabela_tipo;
+  delete cleanedData.finalidade;
+  delete cleanedData.objetivo;
+  
+  // Converte IDs para números inteiros
+  const idFields = [
+    'idPrincipioAtivo',
+    'idUnidadeFracionamento',
+    'idTaxas',
+    'idTabela',
+    'idViaAdministracao',
+    'idClasseFarmaceutica',
+    'idArmazenamento',
+    'idMedicamento',
+    'idFatorConversao'
+  ];
+  
+  idFields.forEach(field => {
+    if (cleanedData[field] && typeof cleanedData[field] === 'string') {
+      cleanedData[field] = parseInt(cleanedData[field], 10);
+    }
+  });
+  
+  return cleanedData;
+};
+
   // Adicione esta função ao ServiceContext.js
-  const addService = async (newService) => {
-    // É importante garantir que a estrutura esteja correta antes de enviar
-    const formattedService = formatServiceData(newService);
-    console.log("Dados formatados sendo enviados:", formattedService);
-    
+  const addService = async (serviceData) => {
     try {
-      // Chamada à API
-      const response = await fetch(`http://localhost/backend-php/api/insert_service.php`, {
+      // Log dos dados originais (para debug)
+      console.log("Dados originais:", serviceData);
+      
+      // Limpar os dados antes de enviar
+      const cleanedData = cleanServiceData(serviceData);
+      
+      // Log dos dados limpos (para debug)
+      console.log("Dados limpos para envio:", cleanedData);
+      
+      // Enviar dados limpos usando fetch em vez de api.post
+      const response = await fetch('http://localhost/backend-php/api/insert_service.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formattedService),
+        body: JSON.stringify(cleanedData)
       });
-  
-      // Captura o texto completo da resposta para depuração
-      const responseText = await response.text();
-      console.log("Resposta completa do servidor:", responseText);
       
-      // Verificar se a resposta está vazia
-      if (!responseText || responseText.trim() === '') {
-        console.error("Resposta vazia do servidor");
-        throw new Error('Resposta vazia do servidor');
-      }
+      const responseData = await response.json();
       
-      // Se a resposta não for JSON válido, irá falhar aqui
-      try {
-        // Tente converter a resposta em JSON
-        const result = JSON.parse(responseText);
-        
-        // Verificar se o resultado tem a estrutura esperada
-        if (!result || !result.id) {
-          console.warn("Resposta não contém um ID válido:", result);
-          // Se não houver ID, mas não houver erro explícito, considere sucesso parcial
-          return result.id || 0;
-        }
-        
-        // Adiciona o id retornado pelo servidor ao novo serviço
-        const serviceWithId = { 
-          ...newService, 
-          id: result.id 
-        };
-        
-        // Adiciona no início da lista
-        setServiceData(prev => [serviceWithId, ...prev]);
-        
-        return result.id;
-      } catch (parseError) {
-        console.error("Erro ao fazer parse da resposta:", parseError);
-        console.error("Conteúdo da resposta:", responseText);
-        
-        // Verificar se a resposta contém sucesso mesmo não sendo JSON válido
-        if (responseText.includes('sucesso') || responseText.includes('success')) {
-          console.log("Resposta indica sucesso, mas não é JSON válido");
-          return 0; // Retorna 0 como fallback para ID
-        }
-        
-        throw new Error('Resposta inválida do servidor: não é JSON');
+      // Resto da sua função...
+      if (responseData && responseData.id) {
+        console.log("Serviço criado com sucesso, ID:", responseData.id);
+        return responseData.id;
+      } else {
+        console.log("Resposta completa do servidor:", responseData);
+        console.log("Resposta não contém um ID válido:", responseData);
+        return null;
       }
     } catch (error) {
-      console.error("Erro ao adicionar o serviço:", error);
-      throw error;
+      console.error("Erro ao adicionar serviço:", error);
+      return null;
     }
   };
 

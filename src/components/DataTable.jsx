@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useEffect, useMemo, useImperativeHandle, forwardRef, useRef, memo } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -51,7 +51,7 @@ const ExpandedFieldsPreview = ({ header, data }) => {
   if (!hasData) return null;
 
   return (
-    <div className="bg-blue-50 p-2 my-1 rounded text-xs">
+    <div className="bg-blue-50 p-2 my-1 rounded text-xs" onClick={(e) => e.stopPropagation()}>
       <div className="font-semibold text-blue-700 mb-1">Campos preenchidos automaticamente:</div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
         {fields.map(({ label, field }) => (
@@ -70,11 +70,87 @@ const ExpandedFieldsPreview = ({ header, data }) => {
   );
 };
 
+// Componente de célula editável
+const EditableCell = ({ 
+  value: initialValue,
+  rowId,
+  columnId,
+  onUpdate,
+  dropdownOptions,
+  isDropdown,
+  dropdownType,
+  onDropdownChange, // Nova prop para lidar especificamente com dropdowns
+  isNew // Flag para indicar se é uma célula de adição ou edição
+}) => {
+  const [value, setValue] = useState(initialValue);
+  const inputRef = useRef(null);
+  
+  // Focar automaticamente quando montado
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
+  
+  const handleBlur = () => {
+    // Para inputs normais, usamos o onUpdate normal
+    if (!isDropdown) {
+      onUpdate(rowId, columnId, value);
+    }
+  };
+  
+  const handleDropdownChange = (e) => {
+    const newValue = e.target.value;
+    setValue(newValue);
+    
+    // Para dropdowns, chamamos onDropdownChange para permitir autopreenchimento
+    if (isDropdown && onDropdownChange) {
+      onDropdownChange(e, dropdownType, rowId === 'new-row');
+    }
+  };
+  
+  const handleClick = (e) => {
+    e.stopPropagation();
+  };
+  
+  if (isDropdown) {
+    return (
+      <select
+        ref={inputRef}
+        value={value || ''}
+        onChange={handleDropdownChange}
+        onBlur={handleBlur}
+        onClick={handleClick}
+        className="w-full p-1 border rounded"
+      >
+        <option value="">Selecione...</option>
+        {dropdownOptions?.map((option) => (
+          <option key={`${option.value}-${option.label}`} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
+  
+  return (
+    <input
+      ref={inputRef}
+      value={value || ''}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={handleBlur}
+      onClick={handleClick}
+      className="w-full p-1 border rounded"
+    />
+  );
+};
+
+const MemoizedEditableCell = memo(EditableCell);
+
 export const DataTable = forwardRef(({ 
   data, 
   onSelectionChange, 
-  selectedRows
-  , 
+  selectedRows, 
   editingRow, 
   editedData, 
   handleInputChange, 
@@ -91,6 +167,15 @@ export const DataTable = forwardRef(({
 }, ref) => {
   const [expandedHeaders, setExpandedHeaders] = useState(new Set());
   const [expandedRows, setExpandedRows] = useState(new Set());
+  
+  // Estado para rastrear a célula em edição
+  const [editingCell, setEditingCell] = useState({
+    rowId: null,
+    columnId: null,
+    value: null,
+    isDropdown: false,
+    dropdownType: null
+  });
 
   // Expose methods to parent component
   useImperativeHandle(ref, () => ({
@@ -131,6 +216,30 @@ export const DataTable = forwardRef(({
       console.log("Dados em edição:", editedData);
     }
   }, [editingRow, editedData]);
+
+  // Funções para controlar a edição de células
+  const startEditing = (rowId, columnId, initialValue, isDropdown = false, dropdownType = null) => {
+    setEditingCell({
+      rowId,
+      columnId,
+      value: initialValue,
+      isDropdown,
+      dropdownType
+    });
+  };
+
+  const handleCellUpdate = (rowId, columnId, newValue) => {
+    if (rowId === 'new-row') {
+      // Verifica se este campo deve ser tratado como apenas visual
+      const skipFields = ['UnidadeFracionamento', 'Unidade_Fracionamento']; 
+      if (!skipFields.includes(columnId)) {
+        handleNewInputChange({ target: { value: newValue } }, columnId);
+      }
+    } else {
+      handleInputChange({ target: { value: newValue } }, columnId);
+    }
+    setEditingCell({ rowId: null, columnId: null, value: null });
+  };
 
   // Mapeamento das colunas expansíveis
   const expandableHeaders = {
@@ -221,11 +330,30 @@ export const DataTable = forwardRef(({
     });
   };
 
-  const handleRowClick = (rowId) => {
-    onSelectionChange(rowId); // Notifica o componente pai sobre a linha selecionada
+  const handleRowClick = (rowId, e) => {
+    // Não selecionar se estamos editando uma célula
+    if (editingCell.rowId !== null) return;
+    
+    // Não selecionar se estamos clicando em um input ou select
+    if (e && (
+      e.target.tagName === 'INPUT' || 
+      e.target.tagName === 'SELECT' ||
+      e.target.closest('input') ||
+      e.target.closest('select')
+    )) {
+      e.stopPropagation();
+      return;
+    }
+    
+    // Não permitir mudança de seleção durante edição
+    if (editingRow || isAdding) return;
+    
+    onSelectionChange(rowId);
   };
 
-  const toggleRowExpansion = (rowId) => {
+  const toggleRowExpansion = (rowId, e) => {
+    if (e) e.stopPropagation();
+    
     setExpandedRows((prev) => {
       const newSet = new Set(prev);
       newSet.has(rowId) ? newSet.delete(rowId) : newSet.add(rowId);
@@ -256,7 +384,10 @@ export const DataTable = forwardRef(({
       return (
         <div
           className="cursor-pointer text-center font-bold flex items-center justify-center gap-2"
-          onClick={() => toggleHeaderExpansion(header)}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleHeaderExpansion(header);
+          }}
         >
           <span style={{ color: expandedHeaders.has(header) ? "#f3df90" : "" }}>
             {header}
@@ -275,8 +406,11 @@ export const DataTable = forwardRef(({
 
     return (
       <div 
-      className={`header-sort ${isActive ? 'active' : ''}`}
-        onClick={() => handleHeaderSort(header)}
+        className={`header-sort ${isActive ? 'active' : ''}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleHeaderSort(header);
+        }}
       >
         <span>{header}</span>
         {isActive ? (
@@ -287,6 +421,16 @@ export const DataTable = forwardRef(({
         ) : null}
       </div>
     );
+  };
+
+  // Esta função auxiliar verifica se um cabeçalho é uma subcoluna de um cabeçalho expandido
+  const isSubcolumnOfExpandedHeader = (columnName) => {
+    for (const [header, subColumns] of Object.entries(expandableHeaders)) {
+      if (expandedHeaders.has(header) && subColumns.includes(columnName)) {
+        return true;
+      }
+    }
+    return false;
   };
 
   const columnOrder = [
@@ -314,6 +458,202 @@ export const DataTable = forwardRef(({
     }
   };
 
+  // Função para criar opções de dropdown baseadas no tipo
+  const getDropdownOptions = (type) => {
+    switch(type) {
+      case 'PrincipioAtivo':
+        if (Array.isArray(dropdownOptions?.principioAtivo)) {
+          return dropdownOptions.principioAtivo.map(principio => ({
+            value: principio.idPrincipioAtivo,
+            label: principio.PrincipioAtivo
+          }));
+        }
+        break;
+      case 'UnidadeFracionamento':
+        if (Array.isArray(dropdownOptions?.unidadeFracionamento)) {
+          return dropdownOptions.unidadeFracionamento.map(un => ({
+            value: un.id_unidadefracionamento,
+            label: un.Descricao ? `${un.Descricao} (${un.UnidadeFracionamento})` : un.UnidadeFracionamento
+          }));
+        }
+        break;
+      case 'Taxas':
+        if (Array.isArray(dropdownOptions?.taxas)) {
+          return dropdownOptions.taxas.map(taxa => ({
+            value: taxa.id_taxas,
+            label: taxa.finalidade
+          }));
+        }
+        break;
+      case 'Tabela':
+        if (Array.isArray(dropdownOptions?.tabela)) {
+          return dropdownOptions.tabela.map(tab => ({
+            value: tab.id_tabela,
+            label: tab.tabela
+          }));
+        }
+        break;
+      case 'ViaAdministracao':
+        if (Array.isArray(dropdownOptions?.viaAdministracao)) {
+          return dropdownOptions.viaAdministracao.map(via => ({
+            value: via.idviaadministracao,
+            label: via.Via_administracao
+          }));
+        }
+        break;
+      case 'ClasseFarmaceutica':
+        if (Array.isArray(dropdownOptions?.classeFarmaceutica)) {
+          return dropdownOptions.classeFarmaceutica.map(classe => ({
+            value: classe.id_medicamento,
+            label: classe.ClasseFarmaceutica
+          }));
+        }
+        break;
+      case 'Armazenamento':
+        if (Array.isArray(dropdownOptions?.armazenamento)) {
+          return dropdownOptions.armazenamento.map(arm => ({
+            value: arm.idArmazenamento,
+            label: arm.Armazenamento
+          }));
+        }
+        break;
+      case 'tipo_medicamento':
+        if (Array.isArray(dropdownOptions?.tipoMedicamento)) {
+          return dropdownOptions.tipoMedicamento.map(med => ({
+            value: med.id_medicamento,
+            label: med.tipo_medicamento
+          }));
+        }
+        break;
+      case 'FatorConversao':
+        if (Array.isArray(dropdownOptions?.fatorConversao)) {
+          return dropdownOptions.fatorConversao.map(fator => ({
+            value: fator.id_fatorconversao,
+            label: fator.fator
+          }));
+        }
+        break;
+      default:
+        return [];
+    }
+    return [];
+  };
+
+  // Adaptador para handleNewDropdownChange
+  const handleDropdownValueChange = (e, dropdownType, isNewRow) => {
+    if (isNewRow) {
+      // Cria um evento sintético para manter compatibilidade
+      const event = { target: { value: e.target.value } };
+      console.log(`Chamando handleNewDropdownChange para ${dropdownType} com valor ${e.target.value}`);
+      handleNewDropdownChange(event, dropdownType);
+      
+      // Limpar campos de texto que devem ser apenas IDs no banco de dados
+      if (dropdownType === 'UnidadeFracionamento') {
+        // Garante que a visualização continue, mas o campo não seja enviado como string
+        setTimeout(() => {
+          // Remover o campo que está sendo enviado como string, mantendo apenas o ID
+          if (newServiceData.UnidadeFracionamento) {
+            const updatedData = {...newServiceData};
+            delete updatedData.UnidadeFracionamento;
+            // Aplicar somente se handleNewInputChange estiver disponível
+            if (typeof handleNewInputChange === 'function') {
+              handleNewInputChange({target: {value: ''}}, 'UnidadeFracionamento', true);
+            }
+          }
+        }, 0);
+      }
+    } else {
+      // Evento para edição
+      const event = { target: { value: e.target.value } };
+      handleDropdownChange(event, dropdownType);
+    }
+  };
+
+  // Função para renderizar célula editável para campos de adição
+  const renderEditableAddCell = (header, field, dropdownType = null) => {
+    const isCurrentEditing = editingCell.rowId === 'new-row' && 
+                             editingCell.columnId === field;
+    
+    // Verifica se este campo deve ser um dropdown
+    const isDropdownField = [
+      "Via_Administração", "Classe_Farmaceutica", "Princípio Ativo", 
+      "Armazenamento", "Medicamento", "Unidade Fracionamento", 
+      "Fator_Conversão", "Taxas", " Tabela "
+    ].includes(header);
+    
+    // Preparar opções para dropdown
+    let dropdownOpts = [];
+    let actualDropdownType = dropdownType;
+    
+    if (isDropdownField) {
+      if (!actualDropdownType) {
+        switch(header) {
+          case "Via_Administração": actualDropdownType = 'ViaAdministracao'; break;
+          case "Classe_Farmaceutica": actualDropdownType = 'ClasseFarmaceutica'; break;
+          case "Princípio Ativo": actualDropdownType = 'PrincipioAtivo'; break;
+          case "Armazenamento": actualDropdownType = 'Armazenamento'; break;
+          case "Medicamento": actualDropdownType = 'tipo_medicamento'; break;
+          case "Unidade Fracionamento": actualDropdownType = 'UnidadeFracionamento'; break;
+          case "Fator_Conversão": actualDropdownType = 'FatorConversao'; break;
+          case "Taxas": actualDropdownType = 'Taxas'; break;
+          case " Tabela ": actualDropdownType = 'Tabela'; break;
+        }
+      }
+      
+      dropdownOpts = getDropdownOptions(actualDropdownType);
+    }
+    
+    // Determinar o valor atual para exibição
+    const fieldId = {
+      'PrincipioAtivo': 'idPrincipioAtivo',
+      'UnidadeFracionamento': 'idUnidadeFracionamento',
+      'Taxas': 'idTaxas',
+      'Tabela': 'idTabela',
+      'ViaAdministracao': 'idViaAdministracao',
+      'ClasseFarmaceutica': 'idClasseFarmaceutica',
+      'Armazenamento': 'idArmazenamento',
+      'tipo_medicamento': 'idMedicamento',
+      'FatorConversao': 'idFatorConversao',
+    }[actualDropdownType];
+    
+    const cellValue = fieldId ? newServiceData[fieldId] : newServiceData[field];
+    
+    // Encontrar o label para o valor do dropdown
+    const displayValue = isDropdownField && dropdownOpts.length > 0 ? 
+      dropdownOpts.find(opt => String(opt.value) === String(cellValue))?.label || cellValue : 
+      cellValue;
+    
+    if (isCurrentEditing) {
+      return (
+        <div className="editable-cell" onClick={(e) => e.stopPropagation()}>
+          <MemoizedEditableCell
+            value={cellValue || ''}
+            rowId="new-row"
+            columnId={field}
+            onUpdate={handleCellUpdate}
+            isDropdown={isDropdownField}
+            dropdownType={actualDropdownType}
+            dropdownOptions={dropdownOpts}
+            onDropdownChange={handleDropdownValueChange}
+            isNew={true}
+          />
+        </div>
+      );
+    }
+    
+    return (
+      <div 
+        className="editable-cell-trigger p-1 min-h-[30px] hover:bg-gray-100 cursor-pointer flex items-center"
+        onClick={(e) => {
+          e.stopPropagation();
+          startEditing('new-row', field, cellValue, isDropdownField, actualDropdownType);
+        }}
+      >
+        {displayValue || <span className="text-gray-400">Selecione...</span>}
+      </div>
+    );
+  };
+
   // Função para renderizar input para célula principal em modo de adição
   const renderAddMainCell = (header) => {
     // Para colunas expansíveis que precisam de selects
@@ -321,28 +661,8 @@ export const DataTable = forwardRef(({
       // Especial para Princípio Ativo
       if (header === "Princípio Ativo") {
         return (
-          <div>
-            <select
-              value={String(newServiceData.idPrincipioAtivo || '')}
-              onChange={(e) => {
-                console.log("Select PrincipioAtivo alterado:", e.target.value);
-                handleNewDropdownChange(e, 'PrincipioAtivo');
-              }}
-              className="w-full p-1 border rounded mb-1"
-            >
-              <option value="">Selecione...</option>
-              {Array.isArray(dropdownOptions?.principioAtivo) ? 
-                dropdownOptions.principioAtivo.map((principio) => (
-                  <option 
-                    key={`principio-${principio.idPrincipioAtivo}`} 
-                    value={String(principio.idPrincipioAtivo)}
-                  >
-                    {principio.PrincipioAtivo}
-                  </option>
-                )) : 
-                <option value="">Carregando opções...</option>
-              }
-            </select>
+          <div onClick={(e) => e.stopPropagation()}>
+            {renderEditableAddCell(header, 'idPrincipioAtivo', 'PrincipioAtivo')}
             
             {/* Exibir valor selecionado abaixo do select */}
             {newServiceData.PrincipioAtivo && (
@@ -362,33 +682,13 @@ export const DataTable = forwardRef(({
       // Especial para Unidade Fracionamento
       if (header === "Unidade Fracionamento") {
         return (
-          <div>
-            <select
-              value={String(newServiceData.idUnidadeFracionamento || '')}
-              onChange={(e) => {
-                console.log("Select UnidadeFracionamento alterado:", e.target.value);
-                handleNewDropdownChange(e, 'UnidadeFracionamento');
-              }}
-              className="w-full p-1 border rounded mb-1"
-            >
-              <option value="">Selecione...</option>
-              {Array.isArray(dropdownOptions?.unidadeFracionamento) ? 
-                dropdownOptions.unidadeFracionamento.map((un) => (
-                  <option 
-                    key={`un-${un.id_unidadefracionamento}`} 
-                    value={String(un.id_unidadefracionamento)}
-                  >
-                    {un.UnidadeFracionamento}
-                  </option>
-                )) : 
-                <option value="">Carregando opções...</option>
-              }
-            </select>
+          <div onClick={(e) => e.stopPropagation()}>
+            {renderEditableAddCell(header, 'idUnidadeFracionamento', 'UnidadeFracionamento')}
             
             {/* Exibir valor selecionado abaixo do select */}
             {newServiceData.UnidadeFracionamento && (
               <div className="text-xs text-blue-600 mt-1">
-                Selecionado: {newServiceData.UnidadeFracionamento}
+                Selecionado: {newServiceData.UnidadeFracionamentoDescricao || newServiceData.Descricao || newServiceData.UnidadeFracionamento}
               </div>
             )}
             
@@ -403,28 +703,8 @@ export const DataTable = forwardRef(({
       // Especial para Taxas
       if (header === "Taxas") {
         return (
-          <div>
-            <select
-              value={String(newServiceData.idTaxas || '')}
-              onChange={(e) => {
-                console.log("Select Taxas alterado:", e.target.value);
-                handleNewDropdownChange(e, 'Taxas');
-              }}
-              className="w-full p-1 border rounded mb-1"
-            >
-              <option value="">Selecione...</option>
-              {Array.isArray(dropdownOptions?.taxas) ? 
-                dropdownOptions.taxas.map((taxa) => (
-                  <option 
-                    key={`taxa-${taxa.id_taxas}`} 
-                    value={String(taxa.id_taxas)}
-                  >
-                    {taxa.finalidade}
-                  </option>
-                )) : 
-                <option value="">Carregando opções...</option>
-              }
-            </select>
+          <div onClick={(e) => e.stopPropagation()}>
+            {renderEditableAddCell(header, 'idTaxas', 'Taxas')}
             
             {/* Exibir valor selecionado abaixo do select */}
             {newServiceData.TaxaFinalidade && (
@@ -443,28 +723,8 @@ export const DataTable = forwardRef(({
 
       if (header === " Tabela ") {
         return (
-          <div>
-            <select
-              value={String(newServiceData.idTabela || '')}
-              onChange={(e) => {
-                console.log("Select Tabela alterado:", e.target.value);
-                handleNewDropdownChange(e, 'Tabela');
-              }}
-              className="w-full p-1 border rounded mb-1"
-            >
-              <option value="">Selecione...</option>
-              {Array.isArray(dropdownOptions?.tabela) ? 
-                dropdownOptions.tabela.map((tab) => (
-                  <option 
-                    key={`tabela-${tab.id_tabela}`} 
-                    value={String(tab.id_tabela)}
-                  >
-                    {tab.tabela}
-                  </option>
-                )) : 
-                <option value="">Carregando opções...</option>
-              }
-            </select>
+          <div onClick={(e) => e.stopPropagation()}>
+            {renderEditableAddCell(header, 'idTabela', 'Tabela')}
             
             {/* Exibir valor selecionado abaixo do select */}
             {newServiceData.tabela && (
@@ -485,11 +745,15 @@ export const DataTable = forwardRef(({
     // Para outras colunas expansíveis
     if (expandableHeaders[header]) {
       return (
-        <div>
+        <div onClick={(e) => e.stopPropagation()}>
           <input
             type="text"
             value={newServiceData[header] || ''}
-            onChange={(e) => handleNewInputChange(e, header)}
+            onChange={(e) => {
+              e.stopPropagation();
+              handleNewInputChange(e, header);
+            }}
+            onClick={(e) => e.stopPropagation()}
             className="w-full p-1 border rounded mb-1"
             placeholder={"..."}
             disabled={true}
@@ -506,50 +770,13 @@ export const DataTable = forwardRef(({
     // Para colunas normais, escolhemos o input apropriado
     switch(header) {
       case "Cod":
-        return (
-          <input
-            type="text"
-            value={newServiceData.Cod || ''}
-            onChange={(e) => handleNewInputChange(e, 'Cod')}
-            className="w-full p-1 border rounded"
-            placeholder=""
-          />
-        );
+        return renderEditableAddCell(header, 'Cod');
       case "Código TUSS":
-        return (
-          <input
-            type="text"
-            value={newServiceData.Codigo_TUSS || ''}
-            onChange={(e) => handleNewInputChange(e, 'Codigo_TUSS')}
-            className="w-full p-1 border rounded"
-            placeholder=""
-          />
-        );
-        
+        return renderEditableAddCell(header, 'Codigo_TUSS');
       case "Via_Administração":
         return (
-          <div>
-            <select
-              value={String(newServiceData.idViaAdministracao || '')}
-              onChange={(e) => {
-                console.log("Select ViaAdministracao alterado:", e.target.value);
-                handleNewDropdownChange(e, 'ViaAdministracao');
-              }}
-              className="w-full p-1 border rounded"
-            >
-              <option value="">Selecione...</option>
-              {Array.isArray(dropdownOptions?.viaAdministracao) ? 
-                dropdownOptions.viaAdministracao.map((via) => (
-                  <option 
-                    key={`via-${via.idviaadministracao}`} 
-                    value={String(via.idviaadministracao)}
-                  >
-                    {via.Via_administracao}
-                  </option>
-                )) : 
-                <option value="">Carregando opções...</option>
-              }
-            </select>
+          <div onClick={(e) => e.stopPropagation()}>
+            {renderEditableAddCell(header, 'idViaAdministracao', 'ViaAdministracao')}
             {newServiceData.ViaAdministracao && (
               <div className="text-xs text-blue-600 mt-1">
                 {newServiceData.ViaAdministracao}
@@ -557,31 +784,10 @@ export const DataTable = forwardRef(({
             )}
           </div>
         );
-        
       case "Classe_Farmaceutica":
         return (
-          <div>
-            <select
-              value={String(newServiceData.idClasseFarmaceutica || '')}
-              onChange={(e) => {
-                console.log("Select ClasseFarmaceutica alterado:", e.target.value);
-                handleNewDropdownChange(e, 'ClasseFarmaceutica');
-              }}
-              className="w-full p-1 border rounded"
-            >
-              <option value="">Selecione...</option>
-              {Array.isArray(dropdownOptions?.classeFarmaceutica) ? 
-                dropdownOptions.classeFarmaceutica.map((classe) => (
-                  <option 
-                    key={`classe-${classe.id_medicamento}`} 
-                    value={String(classe.id_medicamento)}
-                  >
-                    {classe.ClasseFarmaceutica}
-                  </option>
-                )) : 
-                <option value="">Carregando opções...</option>
-              }
-            </select>
+          <div onClick={(e) => e.stopPropagation()}>
+            {renderEditableAddCell(header, 'idClasseFarmaceutica', 'ClasseFarmaceutica')}
             {newServiceData.ClasseFarmaceutica && (
               <div className="text-xs text-blue-600 mt-1">
                 {newServiceData.ClasseFarmaceutica}
@@ -589,31 +795,10 @@ export const DataTable = forwardRef(({
             )}
           </div>
         );
-        
       case "Armazenamento":
         return (
-          <div>
-            <select
-              value={String(newServiceData.idArmazenamento || '')}
-              onChange={(e) => {
-                console.log("Select Armazenamento alterado:", e.target.value);
-                handleNewDropdownChange(e, 'Armazenamento');
-              }}
-              className="w-full p-1 border rounded"
-            >
-              <option value="">Selecione...</option>
-              {Array.isArray(dropdownOptions?.armazenamento) ? 
-                dropdownOptions.armazenamento.map((arm) => (
-                  <option 
-                    key={`arm-${arm.idArmazenamento}`} 
-                    value={String(arm.idArmazenamento)}
-                  >
-                    {arm.Armazenamento}
-                  </option>
-                )) : 
-                <option value="">Carregando opções...</option>
-              }
-            </select>
+          <div onClick={(e) => e.stopPropagation()}>
+            {renderEditableAddCell(header, 'idArmazenamento', 'Armazenamento')}
             {newServiceData.Armazenamento && (
               <div className="text-xs text-blue-600 mt-1">
                 {newServiceData.Armazenamento}
@@ -621,64 +806,16 @@ export const DataTable = forwardRef(({
             )}
           </div>
         );
-        
       case "Descricao_Apresentacao":
-        return (
-          <input
-            type="text"
-            value={newServiceData.Descricao_Apresentacao || ''}
-            onChange={(e) => handleNewInputChange(e, 'Descricao_Apresentacao')}
-            className="w-full p-1 border rounded"
-            placeholder=""
-          />
-        );
-        
+        return renderEditableAddCell(header, 'Descricao_Apresentacao');
       case "Descricao_Resumida":
-        return (
-          <input
-            type="text"
-            value={newServiceData.Descricao_Resumida || ''}
-            onChange={(e) => handleNewInputChange(e, 'Descricao_Resumida')}
-            className="w-full p-1 border rounded"
-            placeholder=""
-          />
-        );
-        
+        return renderEditableAddCell(header, 'Descricao_Resumida');
       case "Descricao_Comercial":
-        return (
-          <input
-            type="text"
-            value={newServiceData.Descricao_Comercial || ''}
-            onChange={(e) => handleNewInputChange(e, 'Descricao_Comercial')}
-            className="w-full p-1 border rounded"
-            placeholder=""
-          />
-        );
-        
+        return renderEditableAddCell(header, 'Descricao_Comercial');
       case "Medicamento":
         return (
-          <div>
-            <select
-              value={String(newServiceData.idMedicamento || '')}
-              onChange={(e) => {
-                console.log("Select tipo_medicamento alterado:", e.target.value);
-                handleNewDropdownChange(e, 'tipo_medicamento');
-              }}
-              className="w-full p-1 border rounded"
-            >
-              <option value="">Selecione...</option>
-              {Array.isArray(dropdownOptions?.tipoMedicamento) ? 
-                dropdownOptions.tipoMedicamento.map((med) => (
-                  <option 
-                    key={`med-${med.id_medicamento}`} 
-                    value={String(med.id_medicamento)}
-                  >
-                    {med.tipo_medicamento}
-                  </option>
-                )) : 
-                <option value="">Carregando opções...</option>
-              }
-            </select>
+          <div onClick={(e) => e.stopPropagation()}>
+            {renderEditableAddCell(header, 'idMedicamento', 'tipo_medicamento')}
             {newServiceData.tipo_medicamento && (
               <div className="text-xs text-blue-600 mt-1">
                 {newServiceData.tipo_medicamento}
@@ -686,31 +823,10 @@ export const DataTable = forwardRef(({
             )}
           </div>
         );
-        
       case "Fator_Conversão":
         return (
-          <div>
-            <select
-              value={String(newServiceData.idFatorConversao || '')}
-              onChange={(e) => {
-                console.log("Select FatorConversao alterado:", e.target.value);
-                handleNewDropdownChange(e, 'FatorConversao');
-              }}
-              className="w-full p-1 border rounded"
-            >
-              <option value="">Selecione...</option>
-              {Array.isArray(dropdownOptions?.fatorConversao) ? 
-                dropdownOptions.fatorConversao.map((fator) => (
-                  <option 
-                    key={`fator-${fator.id_fatorconversao}`} 
-                    value={String(fator.id_fatorconversao)}
-                  >
-                    {fator.fator}
-                  </option>
-                )) : 
-                <option value="">Carregando opções...</option>
-              }
-            </select>
+          <div onClick={(e) => e.stopPropagation()}>
+            {renderEditableAddCell(header, 'idFatorConversao', 'FatorConversao')}
             {newServiceData.Fator_Conversão && (
               <div className="text-xs text-blue-600 mt-1">
                 {newServiceData.Fator_Conversão}
@@ -718,52 +834,14 @@ export const DataTable = forwardRef(({
             )}
           </div>
         );
-        
       case "Concentracao":
-        return (
-          <input
-            type="text"
-            value={newServiceData.Concentracao || ''}
-            onChange={(e) => handleNewInputChange(e, 'Concentracao')}
-            className="w-full p-1 border rounded"
-            placeholder=""
-          />
-        );
-        
+        return renderEditableAddCell(header, 'Concentracao');
       case "Fracionamento":
-        return (
-          <input
-            type="text"
-            value={newServiceData.Fracionamento || ''}
-            onChange={(e) => handleNewInputChange(e, 'Fracionamento')}
-            className="w-full p-1 border rounded"
-            placeholder=""
-          />
-        );
-        
+        return renderEditableAddCell(header, 'Fracionamento');
       case "Laboratorio":
-        return (
-          <input
-            type="text"
-            value={newServiceData.Laboratorio || ''}
-            onChange={(e) => handleNewInputChange(e, 'Laboratorio')}
-            className="w-full p-1 border rounded"
-            placeholder=""
-          />
-        );
-        
+        return renderEditableAddCell(header, 'Laboratorio');
       case "Revisado":
-        return (
-          <select
-            value={newServiceData.Revisado || '0'}
-            onChange={(e) => handleNewInputChange(e, 'Revisado')}
-            className="w-full p-1 border rounded"
-          >
-            <option value="0">Não</option>
-            <option value="1">Sim</option>
-          </select>
-        );
-        
+        return renderEditableAddCell(header, 'Revisado');
       default:
         // Para outros campos
         const fieldMapping = {
@@ -774,15 +852,7 @@ export const DataTable = forwardRef(({
         
         const field = fieldMapping[header] || header.replace(/ /g, '_');
         
-        return (
-          <input
-            type="text"
-            value={newServiceData[field] || ''}
-            onChange={(e) => handleNewInputChange(e, field)}
-            className="w-full p-1 border rounded"
-            placeholder={header}
-          />
-        );
+        return renderEditableAddCell(header, field);
     }
   };
 
@@ -808,23 +878,46 @@ export const DataTable = forwardRef(({
         (header === "Princípio Ativo" && newServiceData.idPrincipioAtivo) ||
         (header === "Unidade Fracionamento" && newServiceData.idUnidadeFracionamento) ||
         (header === "Taxas" && newServiceData.idTaxas) ||
-        (header === "Registro Visa" && newServiceData.Registro_Visa) ||
-        (header === " Tabela " && newServiceData.Tabela)
+        (header === "Registro Visa" && newServiceData.RegistroVisa) ||
+        (header === " Tabela " && newServiceData.idTabela)
       );
       
-      console.log(`Subcampo ${field} valor: ${newServiceData[field]} auto: ${wasAutoFilled}`);
+      const isCurrentEditing = editingCell.rowId === 'new-row' && 
+                               editingCell.columnId === field;
+      
+      if (isCurrentEditing) {
+        return (
+          <div className="relative editable-cell" onClick={(e) => e.stopPropagation()}>
+            <MemoizedEditableCell
+              value={newServiceData[field] || ''}
+              rowId="new-row"
+              columnId={field}
+              onUpdate={handleCellUpdate}
+              isDropdown={false}
+              isNew={true}
+            />
+            {wasAutoFilled && (
+              <div className="absolute right-0 top-0 h-full flex items-center pr-2">
+                <span className="text-xs text-blue-500">Auto</span>
+              </div>
+            )}
+          </div>
+        );
+      }
       
       return (
-        <div className="relative">
-          <input
-            type="text"
-            value={newServiceData[field] || ''}
-            onChange={(e) => handleNewInputChange(e, field)}
-            className={`w-full p-1 border rounded 
+        <div className="relative" onClick={(e) => e.stopPropagation()}>
+          <div 
+            className={`p-1 min-h-[30px] hover:bg-gray-100 cursor-pointer border rounded 
                       ${wasAutoFilled ? 'bg-blue-50' : ''} 
                       ${isRequiredField ? 'border-red-500' : ''}`}
-            placeholder={`${placeholder}${isRequiredField ? ' *' : ''}`}
-          />
+            onClick={(e) => {
+              e.stopPropagation();
+              startEditing('new-row', field, newServiceData[field] || '');
+            }}
+          >
+            {newServiceData[field] || <span className="text-gray-400">{`${placeholder}${isRequiredField ? ' *' : ''}`}</span>}
+          </div>
           {wasAutoFilled && (
             <div className="absolute right-0 top-0 h-full flex items-center pr-2">
               <span className="text-xs text-blue-500">Auto</span>
@@ -842,6 +935,76 @@ export const DataTable = forwardRef(({
     return null;
   };
 
+  // Função para renderizar célula editável para campos de edição
+  const renderEditableEditCell = (rowId, header, field, value, dropdownType = null) => {
+    const isCurrentEditing = editingCell.rowId === rowId && 
+                             editingCell.columnId === field;
+    
+    // Verifica se este campo deve ser um dropdown
+    const isDropdownField = [
+      "Via_Administração", "Classe_Farmaceutica", "Princípio Ativo", 
+      "Armazenamento", "Medicamento", "Unidade Fracionamento", 
+      "Fator_Conversão", "Taxas", " Tabela "
+    ].includes(header);
+    
+    // Preparar opções para dropdown
+    let dropdownOpts = [];
+    let actualDropdownType = dropdownType;
+    
+    if (isDropdownField) {
+      if (!actualDropdownType) {
+        switch(header) {
+          case "Via_Administração": actualDropdownType = 'ViaAdministracao'; break;
+          case "Classe_Farmaceutica": actualDropdownType = 'ClasseFarmaceutica'; break;
+          case "Princípio Ativo": actualDropdownType = 'PrincipioAtivo'; break;
+          case "Armazenamento": actualDropdownType = 'Armazenamento'; break;
+          case "Medicamento": actualDropdownType = 'tipo_medicamento'; break;
+          case "Unidade Fracionamento": actualDropdownType = 'UnidadeFracionamento'; break;
+          case "Fator_Conversão": actualDropdownType = 'FatorConversao'; break;
+          case "Taxas": actualDropdownType = 'Taxas'; break;
+          case " Tabela ": actualDropdownType = 'Tabela'; break;
+        }
+      }
+      
+      dropdownOpts = getDropdownOptions(actualDropdownType);
+    }
+    
+    // Encontrar o label para o valor do dropdown
+    const displayValue = isDropdownField && dropdownOpts.length > 0 ? 
+      dropdownOpts.find(opt => String(opt.value) === String(value))?.label || value : 
+      value;
+    
+    if (isCurrentEditing) {
+      return (
+        <div className="editable-cell" onClick={(e) => e.stopPropagation()}>
+          <MemoizedEditableCell
+            value={value || ''}
+            rowId={rowId}
+            columnId={field}
+            onUpdate={handleCellUpdate}
+            isDropdown={isDropdownField}
+            dropdownType={actualDropdownType}
+            dropdownOptions={dropdownOpts}
+            onDropdownChange={handleDropdownValueChange}
+            isNew={false}
+          />
+        </div>
+      );
+    }
+    
+    return (
+      <div 
+        className="editable-cell-trigger p-1 min-h-[30px] hover:bg-gray-100 cursor-pointer flex items-center"
+        onClick={(e) => {
+          e.stopPropagation();
+          startEditing(rowId, field, value, isDropdownField, actualDropdownType);
+        }}
+      >
+        {displayValue || <span className="text-gray-400">Selecione...</span>}
+      </div>
+    );
+  };
+
   const columns = useMemo(() => {
     let cols = [
       columnHelper.accessor('id', {
@@ -855,35 +1018,25 @@ export const DataTable = forwardRef(({
         },
         size: 80,
         frozen: true,
+        meta: { hidden: true }
       }),
       columnHelper.accessor('Cod', {
         header: () => renderSortableHeader('Cod'),
         cell: info => {
           // Linha de adição
           if (isAdding && info.row.index === 0) {
-            return (
-              <input
-                type="text"
-                value={newServiceData.Cod || ''}
-                onChange={(e) => handleNewInputChange(e, 'Cod')}
-                className="w-full p-1 border rounded"
-              />
-            );
+            return renderEditableAddCell('Cod', 'Cod');
           }
           
           // Linha normal em modo de edição
           const rowId = info.row.original.id;
           const isEditing = editingRow === rowId;
-          return isEditing ? (
-            <input
-              type="text"
-              value={editedData.Cod || ''}
-              onChange={(e) => handleInputChange(e, 'Cod')}
-              className="w-full p-1 border rounded"
-            />
-          ) : (
-            info.getValue()
-          );
+          
+          if (isEditing) {
+            return renderEditableEditCell(rowId, 'Cod', 'Cod', editedData.Cod);
+          }
+          
+          return info.getValue();
         },
         size: 100,
         frozen: true,
@@ -893,29 +1046,18 @@ export const DataTable = forwardRef(({
         cell: info => {
           // Linha de adição
           if (isAdding && info.row.index === 0) {
-            return (
-              <input
-                type="text"
-                value={newServiceData.Codigo_TUSS || ''}
-                onChange={(e) => handleNewInputChange(e, 'Codigo_TUSS')}
-                className="w-full p-1 border rounded"
-              />
-            );
+            return renderEditableAddCell('Código TUSS', 'Codigo_TUSS');
           }
           
           // Linha normal em modo de edição
           const rowId = info.row.original.id;
           const isEditing = editingRow === rowId;
-          return isEditing ? (
-            <input
-              type="text"
-              value={editedData.codigoTUSS || ''}
-              onChange={(e) => handleInputChange(e, 'codigoTUSS')}
-              className="w-full p-1 border rounded"
-            />
-          ) : (
-            info.getValue()
-          );
+          
+          if (isEditing) {
+            return renderEditableEditCell(rowId, 'Código TUSS', 'codigoTUSS', editedData.codigoTUSS);
+          }
+          
+          return info.getValue();
         },
         size: 120,
         frozen: true,
@@ -944,28 +1086,14 @@ export const DataTable = forwardRef(({
                 switch(header) {
                   case "Princípio Ativo":
                     return (
-                      <div>
-                        <select
-                          value={
-                            editedData.idPrincipioAtivo || 
-                            (editedData["Princípio Ativo"] ? 
-                              Array.isArray(dropdownOptions?.principioAtivo) && 
-                              dropdownOptions.principioAtivo.find(p => p.PrincipioAtivo === editedData["Princípio Ativo"])?.idPrincipioAtivo || ''
-                              : '')
-                          }
-                          onChange={(e) => handleDropdownChange(e, 'PrincipioAtivo')}
-                          className="w-full p-1 border rounded mb-1"
-                        >
-                          <option value="">Selecione...</option>
-                          {Array.isArray(dropdownOptions?.principioAtivo) ? 
-                            dropdownOptions.principioAtivo.map((principio, index) => (
-                              <option key={`edit-principio-${principio.idPrincipioAtivo}-${index}`} value={principio.idPrincipioAtivo}>
-                                {principio.PrincipioAtivo}
-                              </option>
-                            )) : 
-                            <option value="">Carregando opções...</option>
-                          }
-                        </select>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        {renderEditableEditCell(
+                          rowId, 
+                          header, 
+                          'idPrincipioAtivo', 
+                          editedData.idPrincipioAtivo || '', 
+                          'PrincipioAtivo'
+                        )}
                         {editedData.Principio_Ativo && !expandedHeaders.has(header) && (
                           <div className="text-xs text-blue-600 mt-1">
                             Modificado: {editedData.Principio_Ativo}
@@ -976,60 +1104,32 @@ export const DataTable = forwardRef(({
                     
                   case "Unidade Fracionamento":
                     return (
-                      <div>
-                        <select
-                          value={
-                            editedData.idUnidadeFracionamento || 
-                            (editedData.Unidade_Fracionamento ? 
-                              Array.isArray(dropdownOptions?.unidadeFracionamento) && 
-                              dropdownOptions.unidadeFracionamento.find(u => u.UnidadeFracionamento === editedData.Unidade_Fracionamento)?.id_unidadefracionamento || ''
-                              : '')
-                          }
-                          onChange={(e) => handleDropdownChange(e, 'UnidadeFracionamento')}
-                          className="w-full p-1 border rounded mb-1"
-                        >
-                          <option value="">Selecione...</option>
-                          {Array.isArray(dropdownOptions?.unidadeFracionamento) ? 
-                            dropdownOptions.unidadeFracionamento.map((un, index) => (
-                              <option key={`edit-un-${un.id_unidadefracionamento}-${index}`} value={un.id_unidadefracionamento}>
-                                {un.UnidadeFracionamento}
-                              </option>
-                            )) : 
-                            <option value="">Carregando opções...</option>
-                          }
-                        </select>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        {renderEditableEditCell(
+                          rowId, 
+                          header, 
+                          'idUnidadeFracionamento', 
+                          editedData.idUnidadeFracionamento || '', 
+                          'UnidadeFracionamento'
+                        )}
                         {editedData.Unidade_Fracionamento && !expandedHeaders.has(header) && (
                           <div className="text-xs text-blue-600 mt-1">
-                            Modificado: {editedData.Unidade_Fracionamento}
+                            Modificado: {editedData.UnidadeFracionamentoDescricao || editedData.Unidade_Fracionamento}
                           </div>
                         )}
                       </div>
                     );
-                    
+                  
                   case "Taxas":
                     return (
-                      <div>
-                        <select
-                          value={
-                            editedData.idTaxas || 
-                            (editedData.finalidade ? 
-                              Array.isArray(dropdownOptions?.taxas) && 
-                              dropdownOptions.taxas.find(t => t.finalidade === editedData.finalidade)?.id_taxas || ''
-                              : '')
-                          }
-                          onChange={(e) => handleDropdownChange(e, 'Taxas')}
-                          className="w-full p-1 border rounded mb-1"
-                        >
-                          <option value="">Selecione...</option>
-                          {Array.isArray(dropdownOptions?.taxas) ? 
-                            dropdownOptions.taxas.map((taxa, index) => (
-                              <option key={`edit-taxa-${taxa.id_taxas}-${index}`} value={taxa.id_taxas}>
-                                {taxa.finalidade}
-                              </option>
-                            )) : 
-                            <option value="">Carregando opções...</option>
-                          }
-                        </select>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        {renderEditableEditCell(
+                          rowId, 
+                          header, 
+                          'idTaxas', 
+                          editedData.idTaxas || '', 
+                          'Taxas'
+                        )}
                         {editedData.finalidade && !expandedHeaders.has(header) && (
                           <div className="text-xs text-blue-600 mt-1">
                             Modificado: {editedData.finalidade}
@@ -1038,63 +1138,41 @@ export const DataTable = forwardRef(({
                       </div>
                     );
 
-                    case " Tabela ":
-                      return (
-                        <div>
-                          <select
-                            value={
-                              editedData.idTabela || 
-                              (editedData.tabela ? 
-                                Array.isArray(dropdownOptions?.tabela) && 
-                                dropdownOptions.tabela.find(t => t.tabela === editedData.tabela)?.id_tabela || ''
-                                : '')
-                            }
-                            onChange={(e) => handleDropdownChange(e, 'Tabela')}
-                            className="w-full p-1 border rounded mb-1"
-                          >
-                            <option value="">Selecione...</option>
-                            {Array.isArray(dropdownOptions?.tabela) ? 
-                              dropdownOptions.tabela.map((tab, index) => (
-                                <option key={`edit-tabela-${tab.id_tabela}-${index}`} value={tab.id_tabela}>
-                                  {tab.tabela}
-                                </option>
-                              )) : 
-                              <option value="">Carregando opções...</option>
-                            }
-                          </select>
-                          {editedData.tabela && !expandedHeaders.has(header) && (
-                            <div className="text-xs text-blue-600 mt-1">
-                              Modificado: {editedData.tabela}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    
-                  default:
+                  case " Tabela ":
                     return (
-                      <input
-                        type="text"
-                        value={editedData[header] || ''}
-                        onChange={(e) => handleInputChange(e, header)}
-                        className="w-full p-1 border rounded"
-                      />
+                      <div onClick={(e) => e.stopPropagation()}>
+                        {renderEditableEditCell(
+                          rowId, 
+                          header, 
+                          'idTabela', 
+                          editedData.idTabela || '', 
+                          'Tabela'
+                        )}
+                        {editedData.tabela && !expandedHeaders.has(header) && (
+                          <div className="text-xs text-blue-600 mt-1">
+                            Modificado: {editedData.tabela}
+                          </div>
+                        )}
+                      </div>
                     );
+                  
+                  default:
+                    return renderEditableEditCell(rowId, header, header, editedData[header]);
                 }
               } else {
                 // Para outras colunas expansíveis em modo de edição
-                return (
-                  <input
-                    type="text"
-                    value={editedData[header] || ''}
-                    onChange={(e) => handleInputChange(e, header)}
-                    className="w-full p-1 border rounded"
-                  />
-                );
+                return renderEditableEditCell(rowId, header, header, editedData[header]);
               }
             } else {
               // Modo de visualização normal
               return (
-                <div onClick={() => toggleRowExpansion(info.row.id)} className="cursor-pointer">
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleRowExpansion(info.row.id, e);
+                  }} 
+                  className="cursor-pointer"
+                >
                   <div>{expandedRows.has(info.row.id) ? info.getValue() : '...'}</div>
                   {expandedRows.has(info.row.id) && (
                     <div className="mt-2 pl-4 border-l-2 border-primary-light">
@@ -1130,25 +1208,54 @@ export const DataTable = forwardRef(({
                 const wasAutoFilled = editedData[sub] && 
                   ((header === "Princípio Ativo" && editedData.idPrincipioAtivo) ||
                    (header === "Unidade Fracionamento" && editedData.idUnidadeFracionamento) ||
-                   (header === "Taxas" && editedData.idTaxas));
+                   (header === "Taxas" && editedData.idTaxas) ||
+                   (header === " Tabela " && editedData.idTabela));
                 
-                return isEditing ? (
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={editedData[sub] || ''}
-                      onChange={(e) => handleInputChange(e, sub)}
-                      className={`w-full p-1 border rounded ${wasAutoFilled ? 'bg-blue-50' : ''}`}
-                    />
+                if (isEditing) {
+                  const isCurrentEditing = editingCell.rowId === rowId && 
+                                          editingCell.columnId === sub;
+                  
+                  if (isCurrentEditing) {
+                    return (
+                      <div className="relative editable-cell" onClick={(e) => e.stopPropagation()}>
+                        <MemoizedEditableCell
+                          value={editedData[sub] || ''}
+                          rowId={rowId}
+                          columnId={sub}
+                          onUpdate={handleCellUpdate}
+                          isDropdown={false}
+                          isNew={false}
+                        />
+                        {wasAutoFilled && (
+                          <div className="absolute right-0 top-0 h-full flex items-center pr-2">
+                            <span className="text-xs text-blue-500">Auto</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <div className="relative" onClick={(e) => e.stopPropagation()}>
+                      <div 
+                        className={`p-1 min-h-[30px] hover:bg-gray-100 cursor-pointer border rounded ${wasAutoFilled ? 'bg-blue-50' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditing(rowId, sub, editedData[sub] || '');
+                        }}
+                      >
+                        {editedData[sub] || <span></span>}
+                      </div>
                       {wasAutoFilled && (
                         <div className="absolute right-0 top-0 h-full flex items-center pr-2">
                           <span className="text-xs text-blue-500">Auto</span>
                         </div>
                       )}
-                  </div>
-                ) : (
-                  info.getValue()
-                );
+                    </div>
+                  );
+                }
+                
+                return info.getValue();
               },
             });
           });
@@ -1180,28 +1287,14 @@ export const DataTable = forwardRef(({
               switch(header) {
                 case "Via_Administração":
                   return (
-                    <div>
-                      <select
-                        value={
-                          editedData.idViaAdministracao || 
-                          (editedData.Via_Administração ? 
-                            Array.isArray(dropdownOptions?.viaAdministracao) && 
-                            dropdownOptions.viaAdministracao.find(v => v.Via_administracao === editedData.Via_Administração)?.idviaadministracao || ''
-                            : '')
-                        }
-                        onChange={(e) => handleDropdownChange(e, 'ViaAdministracao')}
-                        className="w-full p-1 border rounded mb-1"
-                      >
-                        <option value="">Selecione...</option>
-                        {Array.isArray(dropdownOptions?.viaAdministracao) ? 
-                          dropdownOptions.viaAdministracao.map((via, index) => (
-                            <option key={`edit-via-${via.idviaadministracao}-${index}`} value={via.idviaadministracao}>
-                              {via.Via_administracao}
-                            </option>
-                          )) : 
-                          <option value="">Carregando opções...</option>
-                        }
-                      </select>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      {renderEditableEditCell(
+                        rowId, 
+                        header, 
+                        'idViaAdministracao', 
+                        editedData.idViaAdministracao || '', 
+                        'ViaAdministracao'
+                      )}
                       {editedData.Via_Administração && (
                         <div className="text-xs text-blue-600 mt-1">
                           {editedData.Via_Administração}
@@ -1210,55 +1303,41 @@ export const DataTable = forwardRef(({
                     </div>
                   );
                   
-                // Outros cases para selects
                 case "Classe_Farmaceutica":
                   return (
-                    <div>
-                      <select
-                        value={
-                          editedData.idClasseFarmaceutica || 
-                          (editedData.Classe_Farmaceutica ? 
-                            Array.isArray(dropdownOptions?.classeFarmaceutica) && 
-                            dropdownOptions.classeFarmaceutica.find(c => c.ClasseFarmaceutica === editedData.Classe_Farmaceutica)?.id_medicamento || ''
-                            : '')
-                        }
-                        onChange={(e) => handleDropdownChange(e, 'ClasseFarmaceutica')}
-                        className="w-full p-1 border rounded mb-1"
-                      >
-                        <option value="">Selecione...</option>
-                        {Array.isArray(dropdownOptions?.classeFarmaceutica) ? 
-                          dropdownOptions.classeFarmaceutica.map((classe, index) => (
-                            <option key={`edit-classe-${classe.id_medicamento}-${index}`} value={classe.id_medicamento}>
-                              {classe.ClasseFarmaceutica}
-                            </option>
-                          )) : 
-                          <option value="">Carregando opções...</option>
-                        }
-                      </select>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      {renderEditableEditCell(
+                        rowId, 
+                        header, 
+                        'idClasseFarmaceutica', 
+                        editedData.idClasseFarmaceutica || '', 
+                        'ClasseFarmaceutica'
+                      )}
+                      {editedData.Classe_Farmaceutica && (
+                        <div className="text-xs text-blue-600 mt-1">
+                          {editedData.Classe_Farmaceutica}
+                        </div>
+                      )}
                     </div>
                   );
                 
                 default:
-                  return (
-                    <input
-                      type="text"
-                      value={editedData[header.replace(/ /g, '_')] || ''}
-                      onChange={(e) => handleInputChange(e, header.replace(/ /g, '_'))}
-                      className="w-full p-1 border rounded"
-                    />
+                  return renderEditableEditCell(
+                    rowId, 
+                    header, 
+                    header.replace(/ /g, '_'), 
+                    editedData[header.replace(/ /g, '_')]
                   );
               }
-            } else {
-              return isEditing ? (
-                <input
-                  type="text"
-                  value={editedData[header.replace(/ /g, '_')] || ''}
-                  onChange={(e) => handleInputChange(e, header.replace(/ /g, '_'))}
-                  className="w-full p-1 border rounded"
-                />
-              ) : (
-                info.getValue()
+            } else if (isEditing) {
+              return renderEditableEditCell(
+                rowId, 
+                header, 
+                header.replace(/ /g, '_'), 
+                editedData[header.replace(/ /g, '_')]
               );
+            } else {
+              return info.getValue();
             }
           },
         });
@@ -1267,7 +1346,7 @@ export const DataTable = forwardRef(({
 
     return cols;
   }, [expandedHeaders, expandedRows, editingRow, editedData, handleInputChange, handleDropdownChange, 
-      dropdownOptions, isAdding, newServiceData, sortField, sortOrder]);
+      dropdownOptions, isAdding, newServiceData, sortField, sortOrder, editingCell]);
 
   // Preparar dados para incluir a linha de adição
   const tableData = useMemo(() => {
@@ -1291,36 +1370,89 @@ export const DataTable = forwardRef(({
       className={`table-container data-table-container ${isAdding ? 'adding-mode' : ''}`} 
       style={{ overflowX: 'auto', maxWidth: '100%', whiteSpace: 'nowrap' }}
     >
+      <style jsx>{`
+        .editable-cell {
+          position: relative;
+          height: 100%;
+        }
+        .editable-cell input,
+        .editable-cell select {
+          width: 100%;
+          height: 100%;
+          box-sizing: border-box;
+        }
+        .editable-cell-trigger {
+          min-height: 30px;
+        }
+        .expanded-header-cell {
+          border: 2px solid #f3df90 !important;
+          background-color: rgba(243, 223, 144, 0.1);
+        }
+        .expanded-subcolumn-cell {
+          border: 2px solid #f3df90 !important;
+          background-color: rgba(243, 223, 144, 0.05);
+        }
+      `}</style>
       <table className="table-auto w-full data-table border-collapse">
         <thead>
           {table.getHeaderGroups().map(headerGroup => (
             <tr key={headerGroup.id}>
-              {headerGroup.headers.map(header => (
-                <th
-                  key={header.id}
-                  className="border px-4 py-2 text-center"
-                  style={{ width: header.column.columnDef.size, minWidth: header.column.columnDef.size }}
-                >
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                </th>
-              ))}
+              {headerGroup.headers
+                // Filtrar colunas ocultas
+                .filter(header => !(header.column.columnDef.meta?.hidden))
+                .map(header => {
+                  // Extrair o nome da coluna do ID (remove prefixos como "accessorKey_")
+                  const columnId = header.column.id;
+                  const columnName = columnId.includes('_') 
+                    ? columnId.split('_').pop() 
+                    : columnId;
+                  
+                  // Verificar se é um cabeçalho expansível
+                  const isExpandableHeader = Object.keys(expandableHeaders).includes(columnName);
+                  const isExpanded = isExpandableHeader && expandedHeaders.has(columnName);
+                  
+                  // Verificar se é uma subcoluna de um cabeçalho expandido
+                  const isSubColumn = isSubcolumnOfExpandedHeader(columnName);
+                  
+                  // Determinar a classe do cabeçalho
+                  let thClassName = "border px-4 py-2 text-center";
+                  if (isExpanded) {
+                    thClassName += " expanded-header-cell";
+                  } else if (isSubColumn) {
+                    thClassName += " expanded-subcolumn-cell";
+                  }
+                  
+                  return (
+                    <th
+                      key={header.id}
+                      className={thClassName}
+                      style={{ 
+                        width: header.column.columnDef.size, 
+                        minWidth: header.column.columnDef.size 
+                      }}
+                    >
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
+                  );
+                })}
             </tr>
           ))}
         </thead>
         <tbody>
           {table.getRowModel().rows.map(row => {
+            // Para cada linha
             // Verificar se é a linha de adição (primeira linha quando isAdding=true)
             if (isAdding && row.original.id === 'add-new-row') {
               return (
-                <tr 
-                  key={row.id}
-                  className="adding-row"
-                >
-                  {row.getVisibleCells().map(cell => (
-                    <td key={cell.id} className="border px-4 py-2 text-center">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
+                <tr key={row.id} className="adding-row">
+                  {row.getVisibleCells()
+                    // Filtrar células ocultas
+                    .filter(cell => !(cell.column.columnDef.meta?.hidden))
+                    .map(cell => (
+                      <td key={cell.id} className="border px-4 py-2 text-center">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
                 </tr>
               );
             }
@@ -1331,17 +1463,20 @@ export const DataTable = forwardRef(({
             return (
               <tr
                 key={row.id}
-                onClick={() => handleRowClick(rowId)}
+                onClick={(e) => handleRowClick(rowId, e)}
                 className={`cursor-pointer-aqui ${isSelected ? '' : 'hover:bg-gray-300'}`}
                 style={{
                   backgroundColor: isSelected ? '#E8E351' : undefined,
                 }}
               >
-                {row.getVisibleCells().map(cell => (
-                  <td key={cell.id} className="border px-4 py-2 text-center">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
+                {row.getVisibleCells()
+                  // Filtrar células ocultas
+                  .filter(cell => !(cell.column.columnDef.meta?.hidden))
+                  .map(cell => (
+                    <td key={cell.id} className="border px-4 py-2 text-center">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
               </tr>
             );
           })}

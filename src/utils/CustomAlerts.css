@@ -1,0 +1,225 @@
+/* Estilos para sistema de alertas personalizados */
+
+/* Estilos base para todos os popups de alerta */
+.custom-alert-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+  }
+  
+  .custom-alert-overlay.active {
+    opacity: 1;
+    visibility: visible;
+  }
+  
+  .custom-alert {
+    width: 320px;
+    background-color: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transform: translateY(-20px);
+    transition: transform 0.3s;
+  }
+  
+  .custom-alert-overlay.active .custom-alert {
+    transform: translateY(0);
+  }
+  
+  .custom-alert-header {
+    padding: 15px 20px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 18px;
+    color: white;
+  }
+  
+  .custom-alert-body {
+    padding: 20px;
+    text-align: center;
+    font-size: 16px;
+    color: #333;
+  }
+  
+  .custom-alert-icon {
+    font-size: 28px;
+    margin-bottom: 10px;
+  }
+  
+  .custom-alert-message {
+    margin-bottom: 5px;
+  }
+  
+  .custom-alert-detail {
+    font-size: 14px;
+    color: #666;
+  }
+  
+  .custom-alert-close {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: #f1f1f1;
+    border: none;
+    border-top: 1px solid #ddd;
+    color: #333;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .custom-alert-close:hover {
+    background-color: #e5e5e5;
+  }
+  
+  .custom-alert-button-container {
+    display: flex;
+    border-top: 1px solid #ddd;
+  }
+  
+  .custom-alert-button-container button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: #f1f1f1;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .custom-alert-button-container button:hover {
+    background-color: #e5e5e5;
+  }
+  
+  .custom-alert-button-container button.confirm {
+    background: #f3df90;
+    color: #333;
+    font-weight: bold;
+  }
+  
+  .custom-alert-button-container button.confirm:hover {
+    background: #f0c030;
+  }
+  
+  /* Estilos específicos para cada tipo de alerta */
+  
+  /* Sucesso */
+  .custom-alert.success .custom-alert-header {
+    background: linear-gradient(90deg, #00adef 0%, #3871c1 100%);
+  }
+  
+  .custom-alert.success .custom-alert-icon {
+    color: #00adef;
+  }
+  
+  /* Erro */
+  .custom-alert.error .custom-alert-header {
+    background: linear-gradient(90deg, #e53935 0%, #c62828 100%);
+  }
+  
+  .custom-alert.error .custom-alert-icon {
+    color: #e53935;
+  }
+  
+  /* Aviso */
+  .custom-alert.warning .custom-alert-header {
+    background: linear-gradient(90deg, #f3df90 0%, #f0c030 100%);
+  }
+  
+  .custom-alert.warning .custom-alert-icon {
+    color: #f0c030;
+  }
+  
+  /* Informação */
+  .custom-alert.info .custom-alert-header {
+    background: linear-gradient(90deg, #4fc3f7 0%, #29b6f6 100%);
+  }
+  
+  .custom-alert.info .custom-alert-icon {
+    color: #29b6f6;
+  }
+  
+  /* Estilos para manter compatibilidade com popup de sucesso existente */
+  .success-popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+  }
+  
+  .success-popup-overlay.active {
+    opacity: 1;
+    visibility: visible;
+  }
+  
+  .success-popup {
+    width: 320px;
+    background-color: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transform: translateY(-20px);
+    transition: transform 0.3s;
+  }
+  
+  .success-popup-overlay.active .success-popup {
+    transform: translateY(0);
+  }
+  
+  .success-popup-header {
+    background: linear-gradient(90deg, #00adef 0%, #3871c1 100%);
+    color: white;
+    padding: 15px 20px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 18px;
+  }
+  
+  .success-popup-body {
+    padding: 20px;
+    text-align: center;
+    font-size: 16px;
+    color: #333;
+  }
+  
+  .success-popup-id {
+    font-weight: normal;
+    color: #666;
+    font-size: 20px;
+    margin-left: 5px;
+  }
+  
+  .success-popup-close {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: #f1f1f1;
+    border: none;
+    border-top: 1px solid #ddd;
+    color: #333;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .success-popup-close:hover {
+    background-color: #e5e5e5;
+  }

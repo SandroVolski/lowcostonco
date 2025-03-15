@@ -429,3 +429,104 @@
   text-overflow: ellipsis;
   vertical-align: bottom;
 }
+
+
+
+/* POPOUT ADICAO */
+/* Estilo para o overlay (fundo escurecido) */
+.success-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s, visibility 0.3s;
+}
+
+.success-popup-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Estilo para o container do popup */
+.success-popup {
+  width: 320px;
+  background-color: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  transform: translateY(-20px);
+  transition: transform 0.3s;
+}
+
+.success-popup-overlay.active .success-popup {
+  transform: translateY(0);
+}
+
+/* Estilo para o cabeçalho do popup */
+.success-popup-header {
+  background: linear-gradient(90deg, #00adef 0%, #3871c1 100%);
+  color: white;
+  padding: 15px 20px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+/* Estilo para o corpo do popup */
+.success-popup-body {
+  padding: 20px;
+  text-align: center;
+  font-size: 16px;
+  color: #333;
+}
+
+/* Estilo para o ID */
+.success-popup-id {
+  font-weight: normal;
+  color: #666;
+  font-size: 20px;
+  margin-left: 5px;
+}
+
+/* Botão de fechar (opcional) */
+.success-popup-close {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  background: #f1f1f1;
+  border: none;
+  border-top: 1px solid #ddd;
+  color: #333;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.success-popup-close:hover {
+  background-color: #e5e5e5;
+}
+
+/* Animação de entrada */
+@keyframes popup-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Classe para aplicar a animação */
+.popup-animate-in {
+  animation: popup-in 0.3s forwards;
+}

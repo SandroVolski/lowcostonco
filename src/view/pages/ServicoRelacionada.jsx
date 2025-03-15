@@ -8,8 +8,17 @@ import { DropdownOptionsProvider, useDropdownOptions } from '../../components/Dr
 
 import '../../App.css';
 import './ServicoRelacionada.css';
+import '../../utils/CustomAlerts.css'; // Importar CSS dos alertas personalizados
 
 import { Search, Plus, Trash2, Edit, RefreshCw, X, Save, ArrowUpDown, ArrowDownWideNarrow, ArrowUpWideNarrow } from "lucide-react";
+import { 
+  showSuccessAlert, 
+  showErrorAlert, 
+  showWarningAlert, 
+  showInfoAlert, 
+  showConfirmAlert,
+  showSuccessPopup 
+} from '../../utils/CustomAlerts'; // Importar funções de alerta personalizadas
 
 export default function ServicoRelacionada() {
   // Componente principal que inclui o Provider
@@ -190,7 +199,17 @@ function ServicoRelacionadaContent() {
     const selectedRowId = Array.from(selectedRows)[0];
     if (!selectedRowId) return;
 
+    // Confirmar exclusão com o usuário
+    const confirmResult = await showConfirmAlert(
+      "Tem certeza que deseja excluir este serviço?", 
+      "Esta ação não pode ser desfeita."
+    );
+    
+    if (!confirmResult) return; // Usuário cancelou a exclusão
+
     try {
+      setLocalLoading(true);
+      
       const response = await fetch(`http://localhost/backend-php/api/delete_service.php?id=${selectedRowId}`, {
         method: 'DELETE',
       });
@@ -205,19 +224,30 @@ function ServicoRelacionadaContent() {
       // Limpa a seleção
       setSelectedRows(new Set());
 
+      // Mostrar alerta de sucesso
+      showSuccessAlert("Serviço excluído com sucesso!");
       console.log("Serviço excluído com sucesso!");
     } catch (error) {
       console.error("Erro ao excluir o serviço:", error);
+      showErrorAlert("Falha ao excluir", error.message || "Erro desconhecido");
+    } finally {
+      setLocalLoading(false);
     }
   };
 
   // Função para habilitar a edição de uma linha
   const handleEdit = () => {
     const selectedRowId = Array.from(selectedRows)[0];
-    if (!selectedRowId) return;
+    if (!selectedRowId) {
+      showWarningAlert("Selecione um serviço", "Você precisa selecionar um serviço para editar.");
+      return;
+    }
   
     const rowToEdit = serviceData.find(item => item.id === selectedRowId);
-    if (!rowToEdit) return;
+    if (!rowToEdit) {
+      showErrorAlert("Serviço não encontrado", "O serviço selecionado não foi encontrado.");
+      return;
+    }
   
     console.log("Dados originais para edição:", rowToEdit);
     setEditingRow(selectedRowId);
@@ -225,7 +255,19 @@ function ServicoRelacionadaContent() {
     setIsEditing(true);
   };
   
-  const handleCancel = () => {
+  const handleCancel = async () => {
+    // Se estiver editando, confirmar com o usuário antes de cancelar
+    if (isEditing) {
+      const confirmCancel = await showConfirmAlert(
+        "Deseja cancelar a edição?", 
+        "Todas as alterações feitas serão perdidas."
+      );
+      
+      if (!confirmCancel) {
+        return; // Usuário não quer cancelar a edição
+      }
+    }
+    
     setEditingRow(null);
     setEditedData({});
     setIsEditing(false);
@@ -244,20 +286,24 @@ function ServicoRelacionadaContent() {
     setSelectedRows(new Set()); // Limpa qualquer seleção existente
   };
 
-  const handleCancelAdd = () => {
+  const handleCancelAdd = async () => {
+    // Verificar se há campos preenchidos antes de cancelar
+    const hasData = Object.entries(newServiceData).some(([key, value]) => {
+      // Ignorar campos que começam com "id" e verificar se campos de texto têm conteúdo
+      return !key.startsWith('id') && 
+             typeof value === 'string' && 
+             value.trim() !== '' && 
+             key !== 'Revisado';
+    });
+    
     setIsAdding(false);
     setNewServiceData(resetNewServiceData());
   };
 
   const handleSaveNew = async () => {
     // Validação básica
-    if (!newServiceData.Codigo_TUSS) {
-      alert('Por favor, preencha o Código TUSS.');
-      return;
-    }
-    
-    if (!newServiceData.Descricao_Apresentacao) {
-      alert('Por favor, preencha a Descrição de Apresentação.');
+    if (!newServiceData.Cod) {
+      showWarningAlert("Campo obrigatório", "Por favor, preencha o Código.");
       return;
     }
 
@@ -270,7 +316,10 @@ function ServicoRelacionadaContent() {
     
     // Se tem algum campo de RegistroVisa preenchido mas não tem o campo RegistroVisa
     if (hasRegistroVisaFields && (!newServiceData.RegistroVisa || newServiceData.RegistroVisa.trim() === '')) {
-      alert('Você preencheu campos do Registro Visa, mas o campo "RegistroVisa" é obrigatório. Por favor, preencha-o.');
+      showWarningAlert(
+        "Campo obrigatório", 
+        "Você preencheu campos do Registro Visa, mas o campo 'RegistroVisa' é obrigatório."
+      );
       
       // Destacar o campo RegistroVisa expandindo o cabeçalho, se necessário
       if (dataTableRef.current && typeof dataTableRef.current.expandHeader === 'function') {
@@ -283,11 +332,23 @@ function ServicoRelacionadaContent() {
     // Criar uma cópia dos dados para poder modificá-los
     const dataToSend = { ...newServiceData };
     
+
+    // ADICIONAR ESTES LOGS PARA DEBUGGING
+    console.group('DADOS ORIGINAIS ANTES DE FILTRAR:');
+    console.log('idUnidadeFracionamento:', dataToSend.idUnidadeFracionamento);
+    console.log('UnidadeFracionamento:', dataToSend.UnidadeFracionamento);
+    console.log('Unidade_Fracionamento:', dataToSend.Unidade_Fracionamento);
+    console.log('UnidadeFracionamentoDescricao:', dataToSend.UnidadeFracionamentoDescricao);
+    console.log('Descricao:', dataToSend.Descricao);
+    console.log('Divisor:', dataToSend.Divisor);
+    console.groupEnd();
+
     // Remover campos que podem causar conflitos de tipo
     // Estes campos de texto não devem ser enviados quando já temos os IDs
-    if (dataToSend.idUnidadeFracionamento) {
-      delete dataToSend.UnidadeFracionamento;
-      delete dataToSend.Unidade_Fracionamento;
+    if (!dataToSend.UnidadeFracionamentoDescricao && dataToSend.Descricao) {
+      dataToSend.UnidadeFracionamentoDescricao = dataToSend.Descricao;
+    } else if (dataToSend.UnidadeFracionamentoDescricao && !dataToSend.Descricao) {
+      dataToSend.Descricao = dataToSend.UnidadeFracionamentoDescricao;
     }
     
     if (dataToSend.idPrincipioAtivo) {
@@ -340,7 +401,7 @@ function ServicoRelacionadaContent() {
       handleCancelAdd();
       
       // Feedback de sucesso
-      alert(`Serviço adicionado com sucesso! ID: ${serviceId}`);
+      showSuccessPopup({ id: serviceId, cod: dataToSend.Cod }, false, 5000);  
       console.log("Serviço adicionado com sucesso!", serviceId);
       
       // Em vez de chamar resetAndLoad, use as funções que já existem no contexto
@@ -350,7 +411,10 @@ function ServicoRelacionadaContent() {
       
     } catch (error) {
       console.error("Erro ao adicionar o serviço:", error);
-      alert(`Erro ao adicionar o serviço: ${error.message || 'Erro desconhecido'}`);
+      showErrorAlert(
+        "Falha ao adicionar serviço", 
+        error.message || "Erro desconhecido"
+      );
     } finally {
       setLocalLoading(false);
     }
@@ -421,33 +485,45 @@ function ServicoRelacionadaContent() {
         }
         break;
         
-      case 'UnidadeFracionamento':
-        if (value) {
-          const selectedUnidade = dropdownOptions.unidadeFracionamento.find(
-            u => String(u.id_unidadefracionamento) === String(value)
-          );
-          
-          if (selectedUnidade) {
-            console.log("Unidade de fracionamento encontrada:", selectedUnidade);
+        case 'UnidadeFracionamento':
+          if (value) {
+            const selectedUnidade = dropdownOptions.unidadeFracionamento.find(
+              u => String(u.id_unidadefracionamento) === String(value)
+            );
             
-            // Atualizar ID
-            updatedData.idUnidadeFracionamento = selectedId;
-            
-            // Preencher campos relacionados
-            updatedData.UnidadeFracionamento = selectedUnidade.UnidadeFracionamento;
-            updatedData.Unidade_Fracionamento = selectedUnidade.UnidadeFracionamento;
-            updatedData.UnidadeFracionamentoDescricao = selectedUnidade.Descricao || '';
-            updatedData.Divisor = selectedUnidade.Divisor || '';
+            if (selectedUnidade) {
+              console.log("Unidade de fracionamento encontrada:", selectedUnidade);
+              
+              // Atualizar ID
+              updatedData.idUnidadeFracionamento = selectedId;
+              
+              // IMPORTANTE: Preencher todos os campos relacionados corretamente
+              updatedData.UnidadeFracionamento = selectedUnidade.UnidadeFracionamento;
+              updatedData.Unidade_Fracionamento = selectedUnidade.UnidadeFracionamento;
+              updatedData.UnidadeFracionamentoDescricao = selectedUnidade.Descricao || '';
+              updatedData.Descricao = selectedUnidade.Descricao || '';
+              updatedData.Divisor = selectedUnidade.Divisor || '';
+              
+              // Log detalhado para debugging
+              console.group("Campos de UnidadeFracionamento atualizados:");
+              console.log("  idUnidadeFracionamento:", updatedData.idUnidadeFracionamento);
+              console.log("  UnidadeFracionamento:", updatedData.UnidadeFracionamento);
+              console.log("  Unidade_Fracionamento:", updatedData.Unidade_Fracionamento);
+              console.log("  UnidadeFracionamentoDescricao:", updatedData.UnidadeFracionamentoDescricao);
+              console.log("  Descricao:", updatedData.Descricao);
+              console.log("  Divisor:", updatedData.Divisor);
+              console.groupEnd();
+            }
+          } else {
+            // Limpar campos se não houver seleção
+            updatedData.idUnidadeFracionamento = null;
+            updatedData.UnidadeFracionamento = '';
+            updatedData.Unidade_Fracionamento = '';
+            updatedData.UnidadeFracionamentoDescricao = '';
+            updatedData.Descricao = '';
+            updatedData.Divisor = '';
           }
-        } else {
-          // Limpar campos se não houver seleção
-          updatedData.idUnidadeFracionamento = null;
-          updatedData.UnidadeFracionamento = '';
-          updatedData.Unidade_Fracionamento = '';
-          updatedData.UnidadeFracionamentoDescricao = '';
-          updatedData.Divisor = '';
-        }
-        break;
+          break;
         
       case 'Taxas':
         if (value) {
@@ -654,6 +730,7 @@ function ServicoRelacionadaContent() {
   };
 
   // Função para lidar com alterações nos dropdowns durante a edição
+  // Substitua a função handleDropdownChange atual por esta versão completa
   const handleDropdownChange = (e, field) => {
     const value = e.target.value;
     const selectedId = value ? parseInt(value, 10) : null;
@@ -676,11 +753,13 @@ function ServicoRelacionadaContent() {
             updatedData.idViaAdministracao = selectedId;
             updatedData.Via_Administração = selectedVia.Via_administracao;
             updatedData.ViaAdministracao = selectedVia.Via_administracao;
+            updatedData.Via_administracao = selectedVia.Via_administracao;
           }
         } else {
           updatedData.idViaAdministracao = null;
           updatedData.Via_Administração = '';
           updatedData.ViaAdministracao = '';
+          updatedData.Via_administracao = '';
         }
         break;
         
@@ -712,94 +791,289 @@ function ServicoRelacionadaContent() {
             updatedData.idPrincipioAtivo = selectedId;
             updatedData["Princípio Ativo"] = selectedPrincipio.PrincipioAtivo;
             updatedData.Principio_Ativo = selectedPrincipio.PrincipioAtivo;
+            updatedData.PrincipioAtivo = selectedPrincipio.PrincipioAtivo;
             updatedData.Princípio_Ativo_Classificado = selectedPrincipio.PrincipioAtivoClassificado || selectedPrincipio.PrincipioAtivo;
+            updatedData.PrincipioAtivoClassificado = selectedPrincipio.PrincipioAtivoClassificado || selectedPrincipio.PrincipioAtivo;
             updatedData.FaseuGF = selectedPrincipio.FaseUGF || '';
+            updatedData.FaseUGF = selectedPrincipio.FaseUGF || '';
           }
         } else {
           updatedData.idPrincipioAtivo = null;
           updatedData["Princípio Ativo"] = '';
           updatedData.Principio_Ativo = '';
+          updatedData.PrincipioAtivo = '';
           updatedData.Princípio_Ativo_Classificado = '';
+          updatedData.PrincipioAtivoClassificado = '';
           updatedData.FaseuGF = '';
+          updatedData.FaseUGF = '';
         }
         break;
 
-        case 'Tabela':
-          if (value) {
-            const selectedTabela = dropdownOptions.tabela.find(
-              t => String(t.id_tabela) === String(value)
-            );
+      case 'UnidadeFracionamento':
+        if (value) {
+          const selectedUnidade = dropdownOptions.unidadeFracionamento.find(
+            u => String(u.id_unidadefracionamento) === String(value)
+          );
+          
+          if (selectedUnidade) {
+            console.log('Found matching Unidade for edit:', selectedUnidade);
             
-            if (selectedTabela) {
-              console.log('Found matching Tabela for edit:', selectedTabela);
-              
-              updatedData.idTabela = selectedId;
-              updatedData.tabela = selectedTabela.tabela;
-              updatedData.tabela_classe = selectedTabela.tabela_classe || '';
-              updatedData.tabela_tipo = selectedTabela.tabela_tipo || '';
-              updatedData.classe_Jaragua_do_sul = selectedTabela.classe_Jaragua_do_sul || '';
-              updatedData.classificacao_tipo = selectedTabela.classificacao_tipo || '';
-              updatedData.finalidade = selectedTabela.finalidade || '';
-              updatedData.objetivo = selectedTabela.objetivo || '';
-            }
-          } else {
-            updatedData.idTabela = null;
-            updatedData.tabela = '';
-            updatedData.tabela_classe = '';
-            updatedData.tabela_tipo = '';
-            updatedData.classe_Jaragua_do_sul = '';
-            updatedData.classificacao_tipo = '';
-            updatedData.finalidade = '';
-            updatedData.objetivo = '';
+            updatedData.idUnidadeFracionamento = selectedId;
+            updatedData.UnidadeFracionamento = selectedUnidade.UnidadeFracionamento;
+            updatedData.Unidade_Fracionamento = selectedUnidade.UnidadeFracionamento;
+            updatedData.UnidadeFracionamentoDescricao = selectedUnidade.Descricao || '';
+            updatedData.Descricao = selectedUnidade.Descricao || '';
+            updatedData.Divisor = selectedUnidade.Divisor || '';
           }
-          break;
-        
-      // Implemente os outros cases seguindo o mesmo padrão...
+        } else {
+          updatedData.idUnidadeFracionamento = null;
+          updatedData.UnidadeFracionamento = '';
+          updatedData.Unidade_Fracionamento = '';
+          updatedData.UnidadeFracionamentoDescricao = '';
+          updatedData.Descricao = '';
+          updatedData.Divisor = '';
+        }
+        break;
+
+      case 'Taxas':
+        if (value) {
+          const selectedTaxa = dropdownOptions.taxas.find(
+            t => String(t.id_taxas) === String(value)
+          );
+          
+          if (selectedTaxa) {
+            console.log('Found matching Taxa for edit:', selectedTaxa);
+            
+            updatedData.idTaxas = selectedId;
+            updatedData.TaxaFinalidade = selectedTaxa.finalidade;
+            updatedData.finalidade = selectedTaxa.finalidade;
+            updatedData.tipo_taxa = selectedTaxa.tipo_taxa || '';
+            updatedData["tipo taxa"] = selectedTaxa.tipo_taxa || '';
+            updatedData.tempo_infusao = selectedTaxa.tempo_infusao || '';
+            updatedData["Tempo infusão"] = selectedTaxa.tempo_infusao || '';
+            updatedData.id_taxa = selectedTaxa.id_taxas;
+            updatedData["ID Taxa"] = selectedTaxa.id_taxas;
+          }
+        } else {
+          updatedData.idTaxas = null;
+          updatedData.TaxaFinalidade = '';
+          updatedData.finalidade = '';
+          updatedData.tipo_taxa = '';
+          updatedData["tipo taxa"] = '';
+          updatedData.tempo_infusao = '';
+          updatedData["Tempo infusão"] = '';
+          updatedData.id_taxa = '';
+          updatedData["ID Taxa"] = '';
+        }
+        break;
+
+      case 'Tabela':
+        if (value) {
+          const selectedTabela = dropdownOptions.tabela.find(
+            t => String(t.id_tabela) === String(value)
+          );
+          
+          if (selectedTabela) {
+            console.log('Found matching Tabela for edit:', selectedTabela);
+            
+            updatedData.idTabela = selectedId;
+            updatedData.tabela = selectedTabela.tabela;
+            updatedData.tabela_classe = selectedTabela.tabela_classe || '';
+            updatedData.tabela_tipo = selectedTabela.tabela_tipo || '';
+            updatedData.classe_Jaragua_do_sul = selectedTabela.classe_Jaragua_do_sul || '';
+            updatedData.classificacao_tipo = selectedTabela.classificacao_tipo || '';
+            updatedData.finalidade = selectedTabela.finalidade || '';
+            updatedData.objetivo = selectedTabela.objetivo || '';
+          }
+        } else {
+          updatedData.idTabela = null;
+          updatedData.tabela = '';
+          updatedData.tabela_classe = '';
+          updatedData.tabela_tipo = '';
+          updatedData.classe_Jaragua_do_sul = '';
+          updatedData.classificacao_tipo = '';
+          updatedData.finalidade = '';
+          updatedData.objetivo = '';
+        }
+        break;
+
+      case 'Armazenamento':
+        if (value) {
+          const selectedArm = dropdownOptions.armazenamento.find(
+            a => String(a.idArmazenamento) === String(value)
+          );
+          
+          if (selectedArm) {
+            console.log('Found matching Armazenamento for edit:', selectedArm);
+            
+            updatedData.idArmazenamento = selectedId;
+            updatedData.Armazenamento = selectedArm.Armazenamento;
+          }
+        } else {
+          updatedData.idArmazenamento = null;
+          updatedData.Armazenamento = '';
+        }
+        break;
+
+      case 'tipo_medicamento':
+        if (value) {
+          const selectedMed = dropdownOptions.tipoMedicamento.find(
+            m => String(m.id_medicamento) === String(value)
+          );
+          
+          if (selectedMed) {
+            console.log('Found matching Medicamento for edit:', selectedMed);
+            
+            updatedData.idMedicamento = selectedId;
+            updatedData.tipo_medicamento = selectedMed.tipo_medicamento;
+            updatedData.Medicamento = selectedMed.tipo_medicamento;
+          }
+        } else {
+          updatedData.idMedicamento = null;
+          updatedData.tipo_medicamento = '';
+          updatedData.Medicamento = '';
+        }
+        break;
+
+      case 'FatorConversao':
+        if (value) {
+          const selectedFator = dropdownOptions.fatorConversao.find(
+            f => String(f.id_fatorconversao) === String(value)
+          );
+          
+          if (selectedFator) {
+            console.log('Found matching FatorConversao for edit:', selectedFator);
+            
+            updatedData.idFatorConversao = selectedId;
+            updatedData.Fator_Conversão = selectedFator.fator;
+            updatedData.fator = selectedFator.fator;
+          }
+        } else {
+          updatedData.idFatorConversao = null;
+          updatedData.Fator_Conversão = '';
+          updatedData.fator = '';
+        }
+        break;
       
       default:
         console.error(`Campo não reconhecido: ${field}`);
     }
     
-    // Atualizar o estado
+    // Atualizar o estado com uma força de atualização visual
+    console.log(`Atualizando dados de edição para:`, updatedData);
     setEditedData(updatedData);
-    console.log(`Campo ${field} atualizado durante edição:`, updatedData);
   };
 
+  // Substitua a função handleSave atual por esta versão melhorada
   const handleSave = async () => {
     if (!editingRow) return;
-  
+
     try {
-      console.log("Dados completos a serem enviados:", editedData);
+      setLocalLoading(true);
+      
+      // Criar uma cópia limpa dos dados para o envio
+      const cleanedData = { ...editedData };
+      
+      // Adiciona log para depuração
+      console.log("Dados originais a serem enviados:", cleanedData);
+      
+      // Certifique-se de que todos os IDs são números
+      const idFields = [
+        'idPrincipioAtivo',
+        'idUnidadeFracionamento',
+        'idTaxas',
+        'idTabela',
+        'idViaAdministracao',
+        'idClasseFarmaceutica',
+        'idArmazenamento',
+        'idMedicamento',
+        'idFatorConversao'
+      ];
+      
+      // Converte os IDs para números inteiros
+      idFields.forEach(field => {
+        if (cleanedData[field] && typeof cleanedData[field] === 'string') {
+          cleanedData[field] = parseInt(cleanedData[field], 10);
+        }
+      });
+      
+      // Remove campos que não devem ser enviados ao backend
+      const fieldsToRemove = [
+        'UnidadeFracionamento', 
+        'Unidade_Fracionamento',
+        'Descricao',
+        'PrincipioAtivo',
+        'ViaAdministracao',
+        'ClasseFarmaceutica',
+        'Armazenamento',
+        'tipo_medicamento',
+        'Fator_Conversão'
+      ];
+      
+      // Não remova os campos se eles forem necessários e não houver ID correspondente
+      for (const field of fieldsToRemove) {
+        const hasRelatedId = 
+          (field === 'PrincipioAtivo' && cleanedData.idPrincipioAtivo) ||
+          (field === 'UnidadeFracionamento' && cleanedData.idUnidadeFracionamento) ||
+          (field === 'ViaAdministracao' && cleanedData.idViaAdministracao) ||
+          (field === 'ClasseFarmaceutica' && cleanedData.idClasseFarmaceutica) ||
+          (field === 'Armazenamento' && cleanedData.idArmazenamento) ||
+          (field === 'tipo_medicamento' && cleanedData.idMedicamento) ||
+          (field === 'Fator_Conversão' && cleanedData.idFatorConversao);
+          
+        if (hasRelatedId) {
+          delete cleanedData[field];
+        }
+      }
+      
+      console.log("Dados limpos a serem enviados:", cleanedData);
 
       const response = await fetch(`http://localhost/backend-php/api/update_service.php`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(editedData),
+        body: JSON.stringify(cleanedData),
       });
 
       console.log("Resposta do servidor - Status:", response.status);
-  
-      const responseBody = await response.text();
-      console.log("Corpo da resposta:", responseBody);
+
+      // Primeiro tentar obter o corpo como texto para debug
+      const responseText = await response.text();
+      console.log("Corpo da resposta (texto):", responseText);
+      
+      // Verificar se a resposta é JSON
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (e) {
+        console.warn("Resposta não é JSON válido:", e);
+      }
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Erro ao atualizar o serviço");
+        throw new Error(responseData?.message || "Erro ao atualizar o serviço");
       }
-  
-      // Atualiza o estado global
-      updateService(editedData);
+
+      // Atualiza o estado global com os dados limpos
+      updateService(cleanedData);
 
       // Limpa a edição
       setEditingRow(null);
       setEditedData({});
       setIsEditing(false);
-  
+
+      // Mostrar confirmação de sucesso
+      showSuccessAlert("Serviço atualizado com sucesso!");
       console.log("Serviço atualizado com sucesso!");
+      
+      // Recarregar os dados para garantir atualização
+      loadServiceData(1, true);
+      
     } catch (error) {
       console.error("Erro ao atualizar o serviço:", error);
+      showErrorAlert("Falha ao atualizar", error.message || "Erro desconhecido");
+    } finally {
+      setLocalLoading(false);
     }
   };
 
