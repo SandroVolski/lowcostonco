@@ -16,6 +16,11 @@ export const ServiceProvider = ({ children }) => {
   const [sortOrder, setSortOrder] = useState("asc");
   const [sortField, setSortField] = useState("id"); // Novo estado para o campo de ordenação
   const [initialized, setInitialized] = useState(false);
+  // Novos estados para pesquisa
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchType, setSearchType] = useState("auto"); // Novo: tipo de pesquisa (auto, code, active, description, all)
+  const [totalResults, setTotalResults] = useState(0);
 
   // Função para ordenar os dados
   const changeSort = (field) => {
@@ -34,9 +39,18 @@ export const ServiceProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      const response = await fetch(
-        `http://localhost/backend-php/api/get_services.php?page=${pageNum}&limit=500&order=${sortOrder}&orderBy=${sortField}`
-      );
+      // Construir URL de base
+      let apiUrl = `http://localhost/backend-php/api/get_services.php?page=${pageNum}&limit=500&order=${sortOrder}&orderBy=${sortField}`;
+      
+      // Adicionar parâmetro de pesquisa se existir
+      if (searchTerm) {
+        apiUrl += `&search=${encodeURIComponent(searchTerm)}&searchType=${searchType}`;
+        setIsSearching(true);
+      } else {
+        setIsSearching(false);
+      }
+      
+      const response = await fetch(apiUrl);
       
       if (!response.ok) {
         throw new Error(`Erro ao carregar os dados: ${response.status}`);
@@ -101,6 +115,9 @@ export const ServiceProvider = ({ children }) => {
           "Tempo infusão": item.tempo_infusao
         }));
 
+        // Atualizar o total de resultados encontrados
+        setTotalResults(mappedData.length);
+
         if (reset) {
           setServiceData(mappedData);
         } else {
@@ -111,6 +128,200 @@ export const ServiceProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Erro ao buscar os serviços:", error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Nova função para pesquisar diretamente na API
+  // Nova função para pesquisar diretamente na API
+  const searchServiceData = async (term, type = searchType) => {
+    // Limpar resultados anteriores primeiro
+    setServiceData([]);
+    
+    // Atualizar o estado com o novo termo e tipo
+    setSearchTerm(term);
+    setSearchType(type);
+    
+    // Garantir que estamos no modo de pesquisa
+    setIsSearching(true);
+    
+    // Resetar a página e o estado "tem mais"
+    setPage(1);
+    setHasMore(true);
+    
+    // Iniciar carregamento
+    setLoading(true);
+    
+    try {
+      // Construir URL de pesquisa
+      const apiUrl = `http://localhost/backend-php/api/get_services.php?page=1&limit=500&order=${sortOrder}&orderBy=${sortField}&search=${encodeURIComponent(term)}&searchType=${type}`;
+      
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) {
+        throw new Error(`Erro ao carregar os dados: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (!Array.isArray(result)) {
+        throw new Error("Os dados recebidos não são uma lista válida");
+      }
+      
+      // Mapear os resultados usando o mesmo mapeamento da função loadServiceData
+      const mappedData = result.map(item => ({
+        id: item.id,
+        Cod: item.Cod,
+        codigoTUSS: item.Codigo_TUSS,
+        Descricao_Apresentacao: item.Descricao_Apresentacao,
+        Descricao_Resumida: item.Descricao_Resumida,
+        Descricao_Comercial: item.Descricao_Comercial,
+        Concentracao: item.Concentracao,
+        Unidade_Fracionamento: item.UnidadeFracionamento,
+        Fracionamento: item.Fracionamento,
+        "Laboratório": item.Laboratorio,
+        Revisado: item.Revisado,
+        "RegistroVisa": item.RegistroVisa,
+        "Cód GGrem": item.Cod_Ggrem,
+        Princípio_Ativo: item.PrincipioAtivo,
+        Principio_Ativo: item.Principio_Ativo,
+        Laboratorio: item.Lab,
+        "CNPJ Lab": item.cnpj_lab,
+        "Classe Terapêutica": item.Classe_Terapeutica,
+        "Tipo do Produto": item.Tipo_Porduto,
+        "Regime Preço": item.Regime_Preco,
+        "Restrição Hosp": item.Restricao_Hosp,
+        Cap: item.Cap,
+        Confaz87: item.Confaz87,
+        ICMS0: item.Icms0,
+        Lista: item.Lista,
+        Status: item.Status,
+        Tabela: item.tabela,
+        "Tabela Classe": item.tabela_classe,
+        "Tabela tipo": item.tabela_tipo,
+        "Classe JaraguaSul": item.classe_Jaragua_do_sul,
+        "Classificação tipo": item.classificacao_tipo,
+        Finalidade: item.finalidade,
+        Objetivo: item.objetivo,
+        "Via_Administração": item.Via_administracao,
+        "Classe_Farmaceutica": item.ClasseFarmaceutica,
+        "Princípio_Ativo_Classificado": item.PrincipioAtivoClassificado,
+        FaseuGF: item.FaseUGF,
+        Armazenamento: item.Armazenamento,
+        Medicamento: item.tipo_medicamento,
+        Descricao: item.UnidadeFracionamentoDescricao,
+        Divisor: item.Divisor,
+        "Fator_Conversão": item.id_fatorconversao,
+        "ID Taxa": item.id_taxas,
+        "tipo taxa": item.tipo_taxa,
+        finalidade: item.TaxaFinalidade,
+        "Tempo infusão": item.tempo_infusao
+      }));
+      
+      // Atualizar dados e estado
+      setServiceData(mappedData);
+      setTotalResults(mappedData.length);
+      setHasMore(false); // Em pesquisas, geralmente carregamos tudo de uma vez
+      
+    } catch (error) {
+      console.error("Erro na pesquisa:", error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Função para limpar a pesquisa
+  // Função para limpar a pesquisa
+  const clearSearch = async () => {
+    // Limpar estados de pesquisa
+    setSearchTerm("");
+    setSearchType("auto");
+    setIsSearching(false);
+    
+    // Resetar paginação
+    setPage(1);
+    setHasMore(true);
+    
+    // Limpar dados atuais
+    setServiceData([]);
+    
+    // Iniciar carregamento
+    setLoading(true);
+    
+    try {
+      // Construir URL para carregar dados normais
+      const apiUrl = `http://localhost/backend-php/api/get_services.php?page=1&limit=500&order=${sortOrder}&orderBy=${sortField}`;
+      
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) {
+        throw new Error(`Erro ao carregar os dados: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (!Array.isArray(result)) {
+        throw new Error("Os dados recebidos não são uma lista válida");
+      }
+      
+      // Mapear os resultados
+      const mappedData = result.map(item => ({
+        id: item.id,
+        Cod: item.Cod,
+        codigoTUSS: item.Codigo_TUSS,
+        Descricao_Apresentacao: item.Descricao_Apresentacao,
+        Descricao_Resumida: item.Descricao_Resumida,
+        Descricao_Comercial: item.Descricao_Comercial,
+        Concentracao: item.Concentracao,
+        Unidade_Fracionamento: item.UnidadeFracionamento,
+        Fracionamento: item.Fracionamento,
+        "Laboratório": item.Laboratorio,
+        Revisado: item.Revisado,
+        "RegistroVisa": item.RegistroVisa,
+        "Cód GGrem": item.Cod_Ggrem,
+        Princípio_Ativo: item.PrincipioAtivo,
+        Principio_Ativo: item.Principio_Ativo,
+        Laboratorio: item.Lab,
+        "CNPJ Lab": item.cnpj_lab,
+        "Classe Terapêutica": item.Classe_Terapeutica,
+        "Tipo do Produto": item.Tipo_Porduto,
+        "Regime Preço": item.Regime_Preco,
+        "Restrição Hosp": item.Restricao_Hosp,
+        Cap: item.Cap,
+        Confaz87: item.Confaz87,
+        ICMS0: item.Icms0,
+        Lista: item.Lista,
+        Status: item.Status,
+        Tabela: item.tabela,
+        "Tabela Classe": item.tabela_classe,
+        "Tabela tipo": item.tabela_tipo,
+        "Classe JaraguaSul": item.classe_Jaragua_do_sul,
+        "Classificação tipo": item.classificacao_tipo,
+        Finalidade: item.finalidade,
+        Objetivo: item.objetivo,
+        "Via_Administração": item.Via_administracao,
+        "Classe_Farmaceutica": item.ClasseFarmaceutica,
+        "Princípio_Ativo_Classificado": item.PrincipioAtivoClassificado,
+        FaseuGF: item.FaseUGF,
+        Armazenamento: item.Armazenamento,
+        Medicamento: item.tipo_medicamento,
+        Descricao: item.UnidadeFracionamentoDescricao,
+        Divisor: item.Divisor,
+        "Fator_Conversão": item.id_fatorconversao,
+        "ID Taxa": item.id_taxas,
+        "tipo taxa": item.tipo_taxa,
+        finalidade: item.TaxaFinalidade,
+        "Tempo infusão": item.tempo_infusao
+      }));
+      
+      // Atualizar dados
+      setServiceData(mappedData);
+      
+    } catch (error) {
+      console.error("Erro ao limpar pesquisa:", error);
       setError(error.message);
     } finally {
       setLoading(false);
@@ -367,6 +578,12 @@ export const ServiceProvider = ({ children }) => {
     sortOrder,
     sortField,
     initialized,
+    // Novos valores para pesquisa
+    searchTerm,
+    searchType,
+    isSearching,
+    totalResults,
+    // Funções existentes
     setSortOrder,
     setSortField,
     changeSort,
@@ -375,7 +592,10 @@ export const ServiceProvider = ({ children }) => {
     updateService,
     deleteService,
     addService,
-    resetAndLoad
+    resetAndLoad,
+    // Novas funções para pesquisa
+    searchServiceData,
+    clearSearch
   };
 
   return (

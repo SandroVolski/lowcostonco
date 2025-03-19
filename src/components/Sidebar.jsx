@@ -3,6 +3,7 @@ import { Database, LayoutGrid, LogOut, User } from "lucide-react";
 import { useLocation, Link } from "react-router-dom";
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
+import { showConfirmAlert } from '../utils/CustomAlerts'; // Importando a função de alerta
 
 import "./Estilos.css"; // Importa os estilos
 
@@ -11,9 +12,18 @@ export function Sidebar() {
   const { logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
+  const handleLogout = async () => {
+    // Exibe a confirmação e aguarda a resposta
+    const confirmed = await showConfirmAlert(
+      "Deseja realmente sair do sistema?", 
+      "Você será desconectado e redirecionado para a tela de login."
+    );
+    
+    // Só realiza o logout se o usuário confirmar
+    if (confirmed) {
+      logout();
+      navigate('/login');
+    }
   };
 
   const menuItems = [
@@ -25,7 +35,6 @@ export function Sidebar() {
 
   // O item de perfil usa Link, mas o LogOut usa button para chamar handleLogout
   const bottomItems = [
-    { icon: User, label: "Perfil", path: "#", isButton: false },
     { icon: LogOut, label: "Log Out", isButton: true },
   ];
 
@@ -34,7 +43,7 @@ export function Sidebar() {
       {/* Cabeçalho */}
       <div className="sidebar-header">
         <div className="sidebar-logo">
-          <img src="../src/assets/logolowcost.jpeg" alt="Logo" className="sidebar-logo" />
+          <img src="../src/assets/LCOLogoUnitarioVetorSidebar.png" alt="Logo" className="sidebar-logo" />
         </div>
         <div className="sidebar-info">
           <span className="sidebar-title">LOW COST ONCO</span>
@@ -67,7 +76,7 @@ export function Sidebar() {
               {isButton ? (
                 <button
                   onClick={handleLogout}
-                  className="sidebar-item"
+                  className="sidebar-item-logout"
                   style={{ width: '100%', textAlign: 'left', border: 'none', background: 'none', cursor: 'pointer' }}
                 >
                   <Icon size={20} />
@@ -76,7 +85,7 @@ export function Sidebar() {
               ) : (
                 <Link
                   to={path}
-                  className={`sidebar-item ${location.pathname === path ? "active" : ""}`}
+                  className={`sidebar-item-logout ${location.pathname === path ? "active" : ""}`}
                 >
                   <Icon size={20} />
                   <span>{label}</span>

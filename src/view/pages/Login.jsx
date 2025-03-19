@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { Loader2, CheckCircle } from 'lucide-react';
 import PageTransition from "../../components/PageTransition";
 import { useNavigate } from 'react-router-dom';
-import { useServiceData } from '../../components/ServiceContext'; // Importe o contexto
-import { useAuth } from '../../auth/AuthProvider'
-
+import { useServiceData } from '../../components/ServiceContext'; 
+import { useAuth } from '../../auth/AuthProvider';
 
 function Login() {
   const [code, setCode] = useState('');
@@ -20,9 +19,12 @@ function Login() {
 
   const { login } = useAuth();
 
-  // Credenciais fixas para demonstração
-  const VALID_CODE = 'ONCOGlobal';
-  const VALID_PASSWORD = 'Douglas193';
+  // Lista de credenciais válidas com nome de exibição
+  const VALID_CREDENTIALS = [
+    { code: 'LCOGlobal', password: 'Douglas193', displayName: 'Douglas' },
+    { code: 'jessica@lowcostonco.com.br', password: 'Jessica123', displayName: 'Jéssica' },
+    { code: 'ana@lowcostonco.com.br', password: 'Ana12345', displayName: 'Ana' }
+  ];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,10 +34,16 @@ function Login() {
     // Simulando uma requisição
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    if (code === VALID_CODE && password === VALID_PASSWORD) {
+    // Encontra o usuário nas credenciais válidas
+    const foundUser = VALID_CREDENTIALS.find(
+      credential => credential.code === code && credential.password === password
+    );
+    
+    if (foundUser) {
       setSuccess(true);
 
-      login();
+      // Faz login passando o nome de exibição do usuário
+      login(foundUser.displayName);
       
       // Inicia o carregamento dos dados se ainda não estiverem carregados
       if (!initialized) {
@@ -63,7 +71,7 @@ function Login() {
   return (
     <PageTransition>
       <div 
-        className="flex flex-col items-center justify-center bg-gradient-to-r from-[#00adef] to-[#3871c1]"
+        className="flex flex-col items-center justify-center bg-gradient-to-r from-[#c6d651] to-[#8cb369]"
         style={{
           position: 'fixed',
           top: 0,
@@ -79,26 +87,44 @@ function Login() {
       >
         <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 space-y-8 transform transition-all duration-300 hover:scale-[1.02]">
           <div className="flex flex-col items-center space-y-2">
-            <img src="../../src/assets/VetorizadaCerto.png" alt="Logo" className="w-30 h-20 text-[#00adef] animate-pulse" />
-            <h1 className="text-3xl font-bold text-center text-gray-800">
+          <img src="../../src/assets/LCOLogoUnitarioVetor.png" alt="Logo" className="w-28 h-18 text-[#c6d651] animate-pulse" />
+            <h1 className="text-3xl font-bold text-center text-[#575654]">
               Entrar no
             </h1>
-            <h2 className="text-2xl font-bold text-center bg-gradient-to-r from-[#00adef] to-[#3871c1] bg-clip-text text-transparent">
+            <h2 className="text-2xl font-bold text-center bg-gradient-to-r from-[#c6d651] to-[#8cb369] bg-clip-text text-transparent">
               LOW COST ONCO
             </h2>
           </div>
 
           {success ? (
             <div className="space-y-4">
-              <div className="bg-green-50 p-4 rounded-lg border border-green-100 flex items-center justify-center space-x-2 animate-fade-in">
-                <CheckCircle className="text-green-500 w-6 h-6" />
-                <span className="text-green-700 font-medium">Login realizado com sucesso!</span>
+              <div style={{ 
+                backgroundColor: "rgba(198, 214, 81, 0.1)", 
+                padding: "1rem", 
+                borderRadius: "0.5rem", 
+                border: "1px solid rgba(198, 214, 81, 0.3)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem"
+              }} className="animate-fade-in">
+                <CheckCircle style={{ color: "#c6d651", width: "1.5rem", height: "1.5rem" }} />
+                <span style={{ color: "#7a8431", fontWeight: "500" }}>Login realizado com sucesso!</span>
               </div>
-              
+                          
               {dataLoading && (
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex items-center justify-center space-x-2">
-                  <Loader2 className="text-blue-500 w-6 h-6 animate-spin" />
-                  <span className="text-blue-700 font-medium">Preparando dados do sistema...</span>
+                <div style={{ 
+                  backgroundColor: "rgba(228, 169, 79, 0.1)", 
+                  padding: "1rem", 
+                  borderRadius: "0.5rem", 
+                  border: "1px solid rgba(228, 169, 79, 0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.5rem"
+                }}>
+                  <Loader2 style={{ color: "#f26b6b", width: "1.5rem", height: "1.5rem" }} className="animate-spin" />
+                  <span style={{ color: "#f26b6b", fontWeight: "500" }}>Preparando dados do sistema...</span>
                 </div>
               )}
               
@@ -117,7 +143,7 @@ function Login() {
                   type="text"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#00adef] focus:border-transparent transition-all duration-200 outline-none"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#c6d651] focus:border-transparent transition-all duration-200 outline-none"
                   placeholder="Informar o Código"
                   required
                 />
@@ -132,7 +158,7 @@ function Login() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#00adef] focus:border-transparent transition-all duration-200 outline-none"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#c6d651] focus:border-transparent transition-all duration-200 outline-none"
                   placeholder="Digitar senha"
                   required
                 />
@@ -147,7 +173,7 @@ function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-[#00adef] to-[#3871c1] text-white font-semibold py-3 px-6 rounded-lg transform transition-all duration-200 hover:scale-[1.02] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-gradient-to-r from-[#c6d651] to-[#8cb369] text-white font-semibold py-3 px-6 rounded-lg transform transition-all duration-200 hover:scale-[1.02] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <span className="flex items-center justify-center">

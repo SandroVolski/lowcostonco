@@ -24,7 +24,7 @@
   
   .custom-alert {
     width: 320px;
-    background-color: #fff;
+    background-color: #f1f1f1;
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
@@ -41,7 +41,7 @@
     text-align: center;
     font-weight: bold;
     font-size: 18px;
-    color: white;
+    color: #f1f1f1;
   }
   
   .custom-alert-body {
@@ -71,7 +71,7 @@
     padding: 10px;
     background: #f1f1f1;
     border: none;
-    border-top: 1px solid #ddd;
+    border-top: 1px solid #f1f1f1;
     color: #333;
     font-size: 14px;
     cursor: pointer;
@@ -84,30 +84,31 @@
   
   .custom-alert-button-container {
     display: flex;
-    border-top: 1px solid #ddd;
+    border-top: 1px solid #f1f1f1;
   }
   
   .custom-alert-button-container button {
     flex: 1;
     padding: 10px;
     border: none;
-    background: #f1f1f1;
+    background: #d3d8a6;
+    color: #575654;
     cursor: pointer;
     transition: background-color 0.2s;
   }
   
   .custom-alert-button-container button:hover {
-    background-color: #e5e5e5;
+    background-color: #c6d651;
   }
   
   .custom-alert-button-container button.confirm {
-    background: #f3df90;
-    color: #333;
+    background: #e4a94f;
+    color: #f1f1f1;
     font-weight: bold;
   }
   
   .custom-alert-button-container button.confirm:hover {
-    background: #f0c030;
+    background: #e19522;
   }
   
   /* Estilos específicos para cada tipo de alerta */
@@ -132,11 +133,11 @@
   
   /* Aviso */
   .custom-alert.warning .custom-alert-header {
-    background: linear-gradient(90deg, #f3df90 0%, #f0c030 100%);
+    background: #f26b6b;
   }
   
   .custom-alert.warning .custom-alert-icon {
-    color: #f0c030;
+    color: #f26b6b;
   }
   
   /* Informação */
@@ -172,7 +173,7 @@
   
   .success-popup {
     width: 320px;
-    background-color: #fff;
+    background-color: #f1f1f1;
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
@@ -186,7 +187,7 @@
   
   .success-popup-header {
     background: linear-gradient(90deg, #00adef 0%, #3871c1 100%);
-    color: white;
+    color: #f1f1f1;
     padding: 15px 20px;
     text-align: center;
     font-weight: bold;

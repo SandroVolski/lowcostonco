@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Header } from '../../components/Header';
 import { Sidebar } from '../../components/Sidebar';
 import { DataTable } from '../../components/DataTable';
@@ -31,6 +31,7 @@ export default function ServicoRelacionada() {
 
 function ServicoRelacionadaContent() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchType, setSearchType] = useState("auto"); // 'auto', 'code', 'active', 'description', 'all'
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [editingRow, setEditingRow] = useState(null);
   const [editedData, setEditedData] = useState({});
@@ -38,9 +39,87 @@ function ServicoRelacionadaContent() {
   const [isAdding, setIsAdding] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
   const [updateCounter, setUpdateCounter] = useState(0);
+  //  const [searchDebounceTimeout, setSearchDebounceTimeout] = useState(null);
 
   // Referência para o componente DataTable para controlar expansão de colunas
   const dataTableRef = useRef(null);
+  // Ref para o input de pesquisa
+  const searchInputRef = useRef(null);
+  
+  // Função para executar a busca diretamente a partir do valor atual do input
+  // Função para executar a busca diretamente a partir do valor atual do input
+  // Função para executar a busca diretamente a partir do valor atual do input
+  const executeSearch = () => {
+    if (searchInputRef.current) {
+      const value = searchInputRef.current.value.trim();
+      console.log("Executando busca com valor:", value);
+      
+      if (value.length >= 2) {
+        // Atualizar estado local
+        setSearchTerm(value);
+        
+        // Mostrar feedback visual de que a busca está em andamento
+        setLocalLoading(true);
+        
+        // Executar a pesquisa
+        searchServiceData(value, searchType)
+          .finally(() => {
+            setLocalLoading(false);
+          });
+          
+      } else if (value.length === 0) {
+        // Limpar se o campo estiver vazio
+        setSearchTerm("");
+        setLocalLoading(true);
+        
+        clearSearch()
+          .finally(() => {
+            setLocalLoading(false);
+          });
+          
+      } else {
+        // Caso tenha menos de 2 caracteres
+        showWarningAlert("Pesquisa muito curta", "Digite pelo menos 2 caracteres para pesquisar.");
+      }
+    }
+  };
+
+  // Manipulador de evento de input básico para manter o estado sincronizado
+  const handleInput = () => {
+    if (searchInputRef.current) {
+      setSearchTerm(searchInputRef.current.value);
+      // Não configura mais o debounce aqui
+    }
+  };
+
+  // Manipulador para evento de Enter no input
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      executeSearch();
+    }
+  };
+  
+  // Função para limpar a pesquisa
+  // Função para limpar a pesquisa
+  const handleClearSearch = () => {
+    // Limpar o campo de input
+    if (searchInputRef.current) {
+      searchInputRef.current.value = '';
+    }
+    
+    // Atualizar o estado local
+    setSearchTerm("");
+    setSearchType("auto");
+    
+    // Mostrar indicador de carregamento
+    setLocalLoading(true);
+    
+    // Limpar a pesquisa no contexto de serviço
+    clearSearch()
+      .finally(() => {
+        setLocalLoading(false);
+      });
+  };
 
   const resetNewServiceData = () => {
     return {
@@ -160,7 +239,14 @@ function ServicoRelacionadaContent() {
     deleteService,
     loadServiceData,
     initialized,
-    addService
+    addService,
+    // Novos valores para pesquisa
+    searchTerm: apiSearchTerm,
+    searchType: apiSearchType,
+    isSearching,
+    totalResults,
+    searchServiceData,
+    clearSearch
   } = useServiceData();
 
   const { dropdownOptions } = useDropdownOptions();
@@ -191,7 +277,13 @@ function ServicoRelacionadaContent() {
   };
 
   const handleLoadData = () => {
-    loadServiceData(1, true);
+    // Se estiver em modo de pesquisa, limpar a pesquisa
+    if (isSearching) {
+      clearSearch();
+      setSearchTerm("");
+    } else {
+      loadServiceData(1, true);
+    }
   };
 
   // Função para excluir um serviço
@@ -259,7 +351,7 @@ function ServicoRelacionadaContent() {
     // Se estiver editando, confirmar com o usuário antes de cancelar
     if (isEditing) {
       const confirmCancel = await showConfirmAlert(
-        "Deseja cancelar a edição?", 
+        "Deseja cancelar a edição?",
         "Todas as alterações feitas serão perdidas."
       );
       
@@ -420,7 +512,7 @@ function ServicoRelacionadaContent() {
     }
   };
 
-  // CORRECTEDFUNCTION: Função para capturar as alterações nos campos do novo serviço - CORRIGIDA
+  // CORRIGIDA: Função para capturar as alterações nos campos do novo serviço
   const handleNewInputChange = (e, field) => {
     const { value } = e.target;
     
@@ -431,9 +523,7 @@ function ServicoRelacionadaContent() {
     }));
   };
   
-  // CORRECTEDFUNCTION: Função para capturar as alterações nos campos editáveis
-
-  // CORRECTEDFUNCTION: Função para capturar as alterações nos campos editáveis - CORRIGIDA
+  // CORRIGIDA: Função para capturar as alterações nos campos editáveis
   const handleInputChange = (e, field) => {
     const { value } = e.target;
     
@@ -444,7 +534,22 @@ function ServicoRelacionadaContent() {
     }));
   };
 
-  // CORRECTEDFUNCTION: Função handleNewDropdownChange corrigida
+  // Função para lidar com a alteração do tipo de pesquisa
+  const handleSearchTypeChange = (type) => {
+    // Se já existe um termo de pesquisa, refazer a pesquisa com o novo tipo
+    if (searchTerm.trim().length >= 2) {
+      setSearchType(type);
+      
+      if (searchDebounceTimeout) {
+        clearTimeout(searchDebounceTimeout);
+      }
+      
+      // Aplicar a pesquisa imediatamente com o novo tipo
+      searchServiceData(searchTerm.trim(), type);
+    }
+  };
+
+  // CORRIGIDA: Função handleNewDropdownChange
   const handleNewDropdownChange = (e, field) => {
     const value = e.target.value;
     const selectedId = value ? parseInt(value, 10) : null;
@@ -964,7 +1069,7 @@ function ServicoRelacionadaContent() {
     setEditedData(updatedData);
   };
 
-  // Substitua a função handleSave atual por esta versão melhorada
+  // Função para salvar serviço atualizado
   const handleSave = async () => {
     if (!editingRow) return;
 
@@ -1077,21 +1182,6 @@ function ServicoRelacionadaContent() {
     }
   };
 
-  // Limpa os dados nulos ou indefinidos
-  const cleanedData = useMemo(() => {
-    return serviceData.map(item => 
-      Object.fromEntries(
-        Object.entries(item).filter(([_, value]) => value !== null && value !== undefined)
-      )
-    );
-  }, [serviceData]);
-
-  const handleChange = (event) => {
-    const value = event.target.value;  
-    console.log("Digitando:", value);
-    setSearchTerm(value);
-  };
-
   const handleSortChange = (e) => {
     setSortOrder(e.target.value);
   };
@@ -1102,51 +1192,29 @@ function ServicoRelacionadaContent() {
     setSortOrder('asc');
   };
 
-  const filteredData = useMemo(() => {
-    if (!searchTerm.trim()) return cleanedData;
-  
-    const searchTermLower = searchTerm.trim().toLowerCase();
+  // Formatar o texto com resultados de pesquisa
+  const searchResultInfo = isSearching
+    ? `${serviceData.length} resultados encontrados para "${searchTerm}"`
+    : null;
     
-    // Dividir o termo de pesquisa para busca parcial
-    const searchTerms = searchTermLower.split(/\s+/);
-    
-    return cleanedData.filter(item => {
-      // Busca no campo Cod (exata)
-      const cod = (item.Cod || '').toString().toLowerCase();
-      if (cod === searchTermLower) return true;
-      
-      // Busca em todos os campos relacionados ao Princípio Ativo
-      const principioAtivo = [
-        (item.Principio_Ativo || '').toString().toLowerCase(),
-        (item.PrincipioAtivo || '').toString().toLowerCase(),
-        (item["Princípio Ativo"] || '').toString().toLowerCase(),
-        (item.PrincipioAtivoClassificado || '').toString().toLowerCase(),
-        (item["Princípio_Ativo_Classificado"] || '').toString().toLowerCase()
-      ].join(' ');
-      
-      // Verifica se todos os termos da pesquisa estão presentes no texto do princípio ativo
-      const matchesPrincipioAtivo = searchTerms.every(term => 
-        principioAtivo.includes(term)
-      );
-      
-      // Busca em campos adicionais para melhorar a precisão
-      const descricao = [
-        (item.Descricao_Apresentacao || '').toString().toLowerCase(),
-        (item.Descricao_Resumida || '').toString().toLowerCase(),
-        (item.Descricao_Comercial || '').toString().toLowerCase()
-      ].join(' ');
-      
-      // Busca parcial nos campos de descrição (menos prioritária)
-      const matchesDescricao = searchTermLower.length > 3 && descricao.includes(searchTermLower);
-      
-      // Combinando os resultados
-      return cod.includes(searchTermLower) || matchesPrincipioAtivo || matchesDescricao;
-    });
-  }, [searchTerm, cleanedData]);
-
-  const searchResultCount = searchTerm.trim() 
-  ? `${filteredData.length} resultados encontrados` 
-  : null;
+  // Função para obter o nome do tipo de pesquisa
+  const getSearchTypeName = (type) => {
+    switch(type) {
+      case 'code': return 'Código';
+      case 'active': return 'Princípio Ativo';
+      case 'active_visa': return 'P. Ativo (Registro Visa)';
+      case 'description': return 'Descrição';
+      case 'all': return 'Todos os campos';
+      case 'auto': 
+        // Em modo automático, detecta o tipo com base no conteúdo
+        if (/^[0-9.]+$/.test(searchTerm)) {
+          return 'Código (auto)';
+        } else {
+          return 'Princípio Ativo (auto)';
+        }
+      default: return 'Desconhecido';
+    }
+  };
 
   return (
     <PageTransition>
@@ -1175,9 +1243,9 @@ function ServicoRelacionadaContent() {
                 
                 {/* Mostrar informação sobre ordenação atual */}
                 {sortField !== 'id' && (
-                  <div className="px-3 py-1 bg-blue-50 rounded-md flex items-center ordenacao">
-                    <span className="text-sm text-blue-700">
-                      Ordenado por: <strong>{sortField}</strong> ({sortOrder === 'asc' ? 'crescente' : 'decrescente'})
+                  <div className="px-3 py-1 rounded-md flex items-center ordenacao" style={{color: '#575654', background: '#E4E9C0'}}>
+                    <span className="text-sm">
+                      Ordenado por: <strong style={{color: '#f26b6b'}} >{sortField}</strong> ({sortOrder === 'asc' ? 'crescente' : 'decrescente'})
                     </span>
                     <button 
                       className="ml-2 text-blue-600 hover:text-blue-800" 
@@ -1191,24 +1259,107 @@ function ServicoRelacionadaContent() {
                 
                 <div className="flex items-center gap-4">
                   <div className="flex flex-col">
-                    <div className="search-bar">
-                      <Search className="search-icon" />
-                      <input
-                        type="text"
-                        placeholder="Pesquisar por Cód. ou Princípio Ativo"
-                        className="border pesquisa"
-                        value={searchTerm}
-                        onChange={handleChange}
-                      />
+                    <div className="search-container">
+                      <div className="search-bar">
+                        <button
+                          onClick={executeSearch}
+                          className={`pesquisa-icone ${searchTerm.trim().length > 0 ? 'search-icon-blinking' : ''}`}
+                          title="Clique para pesquisar"
+                        >
+                          <Search size={18} />
+                        </button>
+                        <input
+                          ref={searchInputRef}
+                          type="text"
+                          placeholder="Pesquisar por Cód. ou Princípio Ativo"
+                          className="border pesquisa"
+                          defaultValue={searchTerm}
+                          onInput={handleInput}
+                          onKeyDown={handleKeyDown}
+                        />
+                        {isSearching && (
+                          <button 
+                            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            onClick={handleClearSearch}
+                            title="Limpar pesquisa"
+                          >
+                            <X size={16} />
+                          </button>
+                        )}
+                      </div>
+                      
+                      {/* Seletor do tipo de pesquisa - mostrar sempre que houver pesquisa */}
+                      {/* Seletor do tipo de pesquisa - mostrar sempre que houver pesquisa */}
+                      {isSearching && (
+                        <div className="search-type-selector mt-2 flex items-center">
+                          <div className="text-xs mr-2 text-gray-600">Refinar busca:</div>
+                            <div className="flex flex-wrap space-x-3">
+                            <label className={`cursor-pointer flex items-center ${searchType === 'auto' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
+                              <input
+                                type="radio"
+                                name="searchType"
+                                value="auto"
+                                checked={searchType === 'auto'}
+                                onChange={() => handleSearchTypeChange('auto')}
+                                className="mr-1 h-3 w-3"
+                              />
+                              <span className="text-xs">Auto</span>
+                            </label>
+                            
+                            <label className={`cursor-pointer flex items-center ${searchType === 'code' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
+                              <input
+                                type="radio"
+                                name="searchType"
+                                value="code"
+                                checked={searchType === 'code'}
+                                onChange={() => handleSearchTypeChange('code')}
+                                className="mr-1 h-3 w-3"
+                              />
+                              <span className="text-xs">Código</span>
+                            </label>
+                            
+                            <label className={`cursor-pointer flex items-center ${searchType === 'active' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
+                              <input
+                                type="radio"
+                                name="searchType"
+                                value="active"
+                                checked={searchType === 'active'}
+                                onChange={() => handleSearchTypeChange('active')}
+                                className="mr-1 h-3 w-3"
+                              />
+                              <span className="text-xs">Princípio Ativo</span>
+                            </label>
+
+                            {/* Nova opção para Princípio Ativo do Registro Visa */}
+                            <label className={`cursor-pointer flex items-center ${searchType === 'active_visa' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
+                              <input
+                                type="radio"
+                                name="searchType"
+                                value="active_visa"
+                                checked={searchType === 'active_visa'}
+                                onChange={() => handleSearchTypeChange('active_visa')}
+                                className="mr-1 h-3 w-3"
+                              />
+                              <span className="text-xs">P. Ativo (Registro)</span>
+                            </label>
+                            
+                          </div>
+                        </div>
+                      )}
                     </div>
                     
                     {/* Indicador de resultados da pesquisa */}
-                    {searchTerm.trim() && (
-                      <div className="text-xs text-gray-600 mt-1 ml-2">
-                        {filteredData.length === 0 ? (
-                          <span className="text-red-500">Nenhum resultado encontrado</span>
+                    {isSearching && (
+                      <div className="text-xs text-gray-600 mt-1 ml-2 pesquisatinha">
+                        {serviceData.length === 0 ? (
+                          <span className="text-red-500">Nenhum resultado encontrado. Tente refinar sua busca.</span>
                         ) : (
-                          <span>{filteredData.length} resultado{filteredData.length !== 1 ? 's' : ''}</span>
+                          <span>
+                            {searchResultInfo} 
+                            <span className={`search-type-badge search-type-${searchType}`}>
+                              {getSearchTypeName(searchType)}
+                            </span>
+                          </span>
                         )}
                       </div>
                     )}
@@ -1292,7 +1443,7 @@ function ServicoRelacionadaContent() {
               {loading ? (
                 <div className="flex justify-center items-center h-full">
                   <img
-                    src="../src/assets/loadingcorreto.gif"
+                    src="../src/assets/loadingcorreto-semfundo.gif"
                     alt="Carregando..."
                     className="w-12 h-12"
                   />
@@ -1309,19 +1460,21 @@ function ServicoRelacionadaContent() {
                 </div>
               ) : serviceData.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 gap-4">
-                  <p className="text-gray-500">Nenhum dado disponível</p>
+                  <p className="text-gray-500">
+                    {isSearching ? "Nenhum resultado encontrado para esta pesquisa" : "Nenhum dado disponível"}
+                  </p>
                   <button
                     onClick={handleLoadData}
                     className="button buttontxt flex items-center gap-2"
                   >
-                    <RefreshCw className="w-5 h-5" /> Carregar dados
+                    <RefreshCw className="w-5 h-5" /> {isSearching ? "Limpar pesquisa" : "Carregar dados"}
                   </button>
                 </div>
               ) : (
                 <div className="h-[calc(100vh-220px)] overflow-hidden">
                   <DataTable
                     ref={dataTableRef}
-                    data={filteredData}
+                    data={serviceData}
                     searchTerm={searchTerm}
                     sortOrder={sortOrder}
                     sortField={sortField}
@@ -1339,7 +1492,7 @@ function ServicoRelacionadaContent() {
                     dropdownOptions={dropdownOptions}
                     updateTrigger={updateCounter}
                   />
-                  {hasMore && (
+                  {hasMore && !isSearching && (
                     <div className="flex justify-center mt-4">
                       <button
                         onClick={loadMore}

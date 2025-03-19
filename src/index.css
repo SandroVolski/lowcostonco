@@ -4,12 +4,53 @@
 
 :root {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  /* Cores Principais */
+  --primary: #c6d651;    /* Verde lima - substitui #00adef, #cff0fc, #468ef3 */
+  --secondary: #575654;  /* Cinza escuro - substitui #252525 */
+  
+  /* Cores de Suporte */
+  --support-green: #8cb369;  /* Verde suave - substitui #3871c1, #0088FF */
+  --support-light: #f1f1f1;  /* Cinza claro - substitui white, #fff */
+  --support-amber: #e4a94f;  /* Âmbar/dourado - substitui #f3df90, #E8E351 */
+  --support-teal: #35524a;   /* Verde escuro/teal - nova cor para acentos */
+  
+  /* Cores de Destaque */
+  --accent-red: #f26b6b;     /* Vermelho coral - para alertas/erros */
+  --accent-peach: #f7c59f;   /* Pêssego - substitui #eae66f */
+  
+  /* Gradientes */
+  --gradient-primary: linear-gradient(90deg, var(--primary) 0%, var(--support-green) 100%);
+  --gradient-accent: linear-gradient(to bottom, var(--accent-peach), #f3a76d); /* substitui gradient amarelo */
+  
+  /* Cores funcionais */
+  --text-dark: var(--secondary);
+  --text-light: var(--support-light);
+  --background: var(--support-light);
+  --sidebar-bg: var(--secondary);
+  --table-header-bg: var(--gradient-primary);
+  --table-row-hover: #dedede;
+  --table-border: #ddd;
+  --input-border: var(--support-amber);
+  --scrollbar-track: var(--primary);
+  --scrollbar-thumb: var(--support-green);
+}
+
+/* Variáveis para tema escuro (para futuro uso) */
+.dark-theme {
+  --primary: #8cb369;
+  --secondary: #35524a;
+  --support-light: #252525;
+  --background: #1a1a1a;
+  --table-row-hover: #333333;
+  --table-border: #444444;
+  /* Outras cores podem ser ajustadas conforme necessário */
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background-color: #f1f1f1;
 }
 
 @keyframes shake {

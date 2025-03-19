@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { useLocation } from "react-router-dom";
-import { TypeAnimation } from "react-type-animation"; // Importe o TypeAnimation
+import { TypeAnimation } from "react-type-animation";
+import { useAuth } from "../auth/AuthProvider"; // Importando o hook useAuth
 import "../components/Estilos.css";
 
-export function Header({ userName }) {
+export function Header() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const location = useLocation();
-
+  const { userName } = useAuth(); // Obtendo o nome do usuário do contexto de autenticação
+  
   // Defina o texto do cabeçalho com base na rota
   const headerText =
     location.pathname === "/Home"
@@ -14,7 +16,7 @@ export function Header({ userName }) {
       : location.pathname === "/ServicoRelacionada"
       ? "Relação de Serviços"
       : "Página Desconhecida";
-
+      
   return (
     <header className="header header-gradient w-full p-4 fixed top-0 right-0 left-64 z-50 h-16">
       <div className="flex justify-between items-center h-full">
@@ -38,31 +40,6 @@ export function Header({ userName }) {
               className="avatar-img"
             />
           </button>
-
-          {isUploadOpen && (
-            <div className="modal-overlay">
-              <div className="modal-content">
-                <h3 className="text-lg font-medium mb-4">
-                  Alterar foto de perfil
-                </h3>
-                <input type="file" accept="image/*" className="mb-4" />
-                <div className="modal-buttons">
-                  <button
-                    onClick={() => setIsUploadOpen(false)}
-                    className="cancel-btn"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={() => setIsUploadOpen(false)}
-                    className="save-btn"
-                  >
-                    Salvar
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </header>

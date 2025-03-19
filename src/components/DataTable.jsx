@@ -5,7 +5,7 @@ import {
   flexRender,
 } from '@tanstack/react-table';
 import { createColumnHelper } from '@tanstack/react-table';
-import { ChevronDown, ChevronUp, ArrowDownWideNarrow, ArrowUpWideNarrow, Info } from 'lucide-react';
+import { ChevronDown, ChevronUp, ArrowDownWideNarrow, ArrowUpWideNarrow, Info, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const columnHelper = createColumnHelper();
 
@@ -51,19 +51,19 @@ const ExpandedFieldsPreview = ({ header, data }) => {
   if (!hasData) return null;
 
   return (
-    <div className="bg-blue-50 p-2 my-1 rounded text-xs" onClick={(e) => e.stopPropagation()}>
-      <div className="font-semibold text-blue-700 mb-1">Campos preenchidos automaticamente:</div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+    <div className="auto-filled-fields-container" onClick={(e) => e.stopPropagation()}>
+      <div className="auto-filled-fields-header">Campos preenchidos automaticamente:</div>
+      <div className="auto-filled-fields-grid">
         {fields.map(({ label, field }) => (
           data[field] ? (
-            <div key={field} className="flex">
-              <span className="font-medium text-gray-700">{label}:</span>
-              <span className="ml-1 text-gray-900">{data[field]}</span>
+            <div key={field} className="auto-filled-field-item">
+              <span className="auto-filled-field-label">{label}:</span>
+              <span className="auto-filled-field-value">{data[field]}</span>
             </div>
           ) : null
         ))}
       </div>
-      <div className="text-xs text-blue-600 mt-1 italic">
+      <div className="auto-filled-fields-note">
         Estes valores foram preenchidos automaticamente, mas podem ser editados nos campos expandidos.
       </div>
     </div>
@@ -121,11 +121,29 @@ const EditableCell = ({
         onChange={handleDropdownChange}
         onBlur={handleBlur}
         onClick={handleClick}
-        className="w-full p-1 border rounded"
+        className="select-styled w-full p-1 border rounded"
+        data-dropdown-type={dropdownType} // Adicionando atributo para identificar o tipo de dropdown
+        style={{
+          color: '#f1f1f1', 
+          zIndex: 1000,
+          backgroundColor: '#f68484',
+          border: '1px solid rgba(255, 255, 255, 0.5)',
+          borderRadius: '4px',
+          textAlign: 'left' // Garantir alinhamento à esquerda
+        }}
       >
-        <option value="">Selecione...</option>
+        <option value="" style={{ color: '#333', textAlign: 'left', paddingLeft: '5px' }}>Selecione...</option>
         {dropdownOptions?.map((option) => (
-          <option key={`${option.value}-${option.label}`} value={option.value}>
+          <option 
+            key={`${option.value}-${option.label}`} 
+            value={option.value} 
+            style={{ 
+              color: '#333', 
+              textAlign: 'left', 
+              paddingLeft: '5px',
+              backgroundColor: 'white'
+            }}
+          >
             {option.label}
           </option>
         ))}
@@ -141,11 +159,38 @@ const EditableCell = ({
       onBlur={handleBlur}
       onClick={handleClick}
       className="w-full p-1 border rounded"
+      style={{
+        backgroundColor: '#f68484',
+        color: '#f1f1f1',
+        borderColor: 'rgba(255, 255, 255, 0.5)',
+        textAlign: 'center'
+      }}
     />
   );
 };
 
 const MemoizedEditableCell = memo(EditableCell);
+
+// Estilo global para selects
+const selectStyles = `
+  select option {
+    color: #333 !important;
+    text-align: left !important;
+    padding-left: 5px;
+    background-color: white;
+  }
+
+  select {
+    text-align: left !important;
+  }
+
+  /* Estilo específico para as opções do select de Princípio Ativo */
+  select[data-dropdown-type="PrincipioAtivo"] option {
+    padding-left: 8px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+`;
 
 export const DataTable = forwardRef(({ 
   data, 
@@ -389,12 +434,12 @@ export const DataTable = forwardRef(({
             toggleHeaderExpansion(header);
           }}
         >
-          <span style={{ color: expandedHeaders.has(header) ? "#f3df90" : "" }}>
+          <span style={{ color: expandedHeaders.has(header) ? "#f1f1f1" : "" }}>
             {header}
           </span>
           {expandedHeaders.has(header) ? 
-            <ChevronUp size={16} style={{ color: expandedHeaders.has(header) ? "#f3df90" : "" }} /> : 
-            <ChevronDown size={16} />
+            <ChevronRight  size={16} style={{ color: expandedHeaders.has(header) ? "#f1f1f1" : "" }}  /> : 
+            <ChevronLeft size={16} />
           }
         </div>
       );
@@ -416,22 +461,59 @@ export const DataTable = forwardRef(({
         {isActive ? (
           // Mostra ícones apenas para a coluna ativa
           sortOrder === 'asc' ? 
-            <ArrowUpWideNarrow size={16} style={{color: '#f3df90'}} /> : 
-            <ArrowDownWideNarrow size={16} style={{color: '#f3df90'}} />
+            <ArrowUpWideNarrow size={16} style={{color: '#f26b6b'}} /> : 
+            <ArrowDownWideNarrow size={16} style={{color: '#f26b6b'}} />
         ) : null}
       </div>
     );
   };
 
   // Esta função auxiliar verifica se um cabeçalho é uma subcoluna de um cabeçalho expandido
+  // Modifique esta função para ser mais tolerante a variações de nome
   const isSubcolumnOfExpandedHeader = (columnName) => {
+    // Normaliza o nome da coluna para comparação (remove acentos, espaços, etc.)
+    const normalizeColumnName = (name) => {
+      return name
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // Remove acentos
+        .replace(/[_\s]/g, ""); // Remove espaços e sublinhados
+    };
+
+    const normalizedColumnName = normalizeColumnName(columnName);
+    
     for (const [header, subColumns] of Object.entries(expandableHeaders)) {
-      if (expandedHeaders.has(header) && subColumns.includes(columnName)) {
-        return true;
+      if (expandedHeaders.has(header)) {
+        // Verifica se alguma subcoluna corresponde à coluna atual (após normalização)
+        const found = subColumns.some(subCol => 
+          normalizeColumnName(subCol) === normalizedColumnName ||
+          // Tenta outras variações comuns
+          normalizeColumnName(subCol.replace('_', ' ')) === normalizedColumnName ||
+          columnName.includes(subCol) ||
+          subCol.includes(columnName)
+        );
+        
+        if (found) return true;
       }
     }
     return false;
   };
+
+  // Adicione este código temporariamente para depuração
+  useEffect(() => {
+    if (expandedHeaders.size > 0) {
+      console.log("Cabeçalhos expandidos:", Array.from(expandedHeaders));
+      
+      // Imprime todas as colunas da tabela com seus IDs
+      if (table.getAllColumns) {
+        const allColumns = table.getAllColumns();
+        console.log("Todas as colunas:", allColumns.map(col => ({ 
+          id: col.id, 
+          accessorKey: col.columnDef.accessorKey 
+        })));
+      }
+    }
+  }, [expandedHeaders]);
 
   const columnOrder = [
     "ID", "Cod", "Código TUSS", "Registro Visa", " Tabela ", "Via_Administração",
@@ -485,14 +567,17 @@ export const DataTable = forwardRef(({
           }));
         }
         break;
-      case 'Tabela':
-        if (Array.isArray(dropdownOptions?.tabela)) {
-          return dropdownOptions.tabela.map(tab => ({
-            value: tab.id_tabela,
-            label: tab.tabela
-          }));
-        }
-        break;
+        case 'Tabela':
+          if (Array.isArray(dropdownOptions?.tabela)) {
+            return dropdownOptions.tabela.map(tab => ({
+              value: tab.id_tabela,
+              // Modificação aqui: combina tabela + finalidade, se a finalidade existir
+              label: tab.finalidade 
+                ? `${tab.tabela} + ${tab.finalidade}` 
+                : tab.tabela
+            }));
+          }
+          break;
       case 'ViaAdministracao':
         if (Array.isArray(dropdownOptions?.viaAdministracao)) {
           return dropdownOptions.viaAdministracao.map(via => ({
@@ -643,13 +728,28 @@ export const DataTable = forwardRef(({
     
     return (
       <div 
-        className="editable-cell-trigger p-1 min-h-[30px] hover:bg-gray-100 cursor-pointer flex items-center"
+        className="editable-cell-trigger p-1 min-h-[30px] cursor-pointer flex items-center justify-center"
+        style={{
+          backgroundColor: '#f68484',
+          color: '#f1f1f1',
+          border: '1px solid rgba(255, 255, 255, 0.5)',
+          borderRadius: '4px',
+          position: 'relative',
+          paddingRight: isDropdownField ? '20px' : '8px'
+        }}
         onClick={(e) => {
           e.stopPropagation();
           startEditing('new-row', field, cellValue, isDropdownField, actualDropdownType);
         }}
       >
-        {displayValue || <span className="text-gray-400">Selecione...</span>}
+        {displayValue || <span style={{color: '#f1f1f1'}}>Selecione...</span>}
+        {isDropdownField && (
+          <span style={{
+            position: 'absolute',
+            right: '8px',
+            fontSize: '10px'
+          }}>▼</span>
+        )}
       </div>
     );
   };
@@ -666,7 +766,7 @@ export const DataTable = forwardRef(({
             
             {/* Exibir valor selecionado abaixo do select */}
             {newServiceData.PrincipioAtivo && (
-              <div className="text-xs text-blue-600 mt-1">
+              <div className="text-xs mt-1" style={{color: '#f1f1f1'}}>
                 Selecionado: {newServiceData.PrincipioAtivo}
               </div>
             )}
@@ -687,7 +787,7 @@ export const DataTable = forwardRef(({
             
             {/* Exibir valor selecionado abaixo do select */}
             {newServiceData.UnidadeFracionamento && (
-              <div className="text-xs text-blue-600 mt-1">
+              <div className="text-xs mt-1" style={{color: '#f1f1f1'}}>
                 Selecionado: {newServiceData.UnidadeFracionamentoDescricao || newServiceData.Descricao || newServiceData.UnidadeFracionamento}
               </div>
             )}
@@ -708,7 +808,7 @@ export const DataTable = forwardRef(({
             
             {/* Exibir valor selecionado abaixo do select */}
             {newServiceData.TaxaFinalidade && (
-              <div className="text-xs text-blue-600 mt-1">
+              <div className="text-xs mt-1" style={{color: '#f1f1f1'}}>
                 Selecionado: {newServiceData.TaxaFinalidade}
               </div>
             )}
@@ -726,10 +826,12 @@ export const DataTable = forwardRef(({
           <div onClick={(e) => e.stopPropagation()}>
             {renderEditableAddCell(header, 'idTabela', 'Tabela')}
             
-            {/* Exibir valor selecionado abaixo do select */}
+            {/* Exibir valor selecionado abaixo do select com finalidade */}
             {newServiceData.tabela && (
-              <div className="text-xs text-blue-600 mt-1">
-                Selecionado: {newServiceData.tabela}
+              <div className="text-xs mt-1" style={{color: '#f1f1f1'}}>
+                Selecionado: {newServiceData.finalidade 
+                  ? `${newServiceData.tabela} + ${newServiceData.finalidade}` 
+                  : newServiceData.tabela}
               </div>
             )}
             
@@ -778,7 +880,7 @@ export const DataTable = forwardRef(({
           <div onClick={(e) => e.stopPropagation()}>
             {renderEditableAddCell(header, 'idViaAdministracao', 'ViaAdministracao')}
             {newServiceData.ViaAdministracao && (
-              <div className="text-xs text-blue-600 mt-1">
+              <div className="text-xs text-gray-200 mt-1">
                 {newServiceData.ViaAdministracao}
               </div>
             )}
@@ -789,7 +891,7 @@ export const DataTable = forwardRef(({
           <div onClick={(e) => e.stopPropagation()}>
             {renderEditableAddCell(header, 'idClasseFarmaceutica', 'ClasseFarmaceutica')}
             {newServiceData.ClasseFarmaceutica && (
-              <div className="text-xs text-blue-600 mt-1">
+              <div className="text-xs text-gray-200 mt-1">
                 {newServiceData.ClasseFarmaceutica}
               </div>
             )}
@@ -800,7 +902,7 @@ export const DataTable = forwardRef(({
           <div onClick={(e) => e.stopPropagation()}>
             {renderEditableAddCell(header, 'idArmazenamento', 'Armazenamento')}
             {newServiceData.Armazenamento && (
-              <div className="text-xs text-blue-600 mt-1">
+              <div className="text-xs text-gray-200 mt-1">
                 {newServiceData.Armazenamento}
               </div>
             )}
@@ -817,7 +919,7 @@ export const DataTable = forwardRef(({
           <div onClick={(e) => e.stopPropagation()}>
             {renderEditableAddCell(header, 'idMedicamento', 'tipo_medicamento')}
             {newServiceData.tipo_medicamento && (
-              <div className="text-xs text-blue-600 mt-1">
+              <div className="text-xs text-gray-200 mt-1">
                 {newServiceData.tipo_medicamento}
               </div>
             )}
@@ -828,7 +930,7 @@ export const DataTable = forwardRef(({
           <div onClick={(e) => e.stopPropagation()}>
             {renderEditableAddCell(header, 'idFatorConversao', 'FatorConversao')}
             {newServiceData.Fator_Conversão && (
-              <div className="text-xs text-blue-600 mt-1">
+              <div className="text-xs text-gray-200 mt-1">
                 {newServiceData.Fator_Conversão}
               </div>
             )}
@@ -887,29 +989,39 @@ export const DataTable = forwardRef(({
       
       if (isCurrentEditing) {
         return (
-          <div className="relative editable-cell" onClick={(e) => e.stopPropagation()}>
-            <MemoizedEditableCell
-              value={newServiceData[field] || ''}
-              rowId="new-row"
-              columnId={field}
-              onUpdate={handleCellUpdate}
-              isDropdown={false}
-              isNew={true}
-            />
+          <>
+            <div 
+              onClick={(e) => e.stopPropagation()} 
+              className="relative editable-cell"
+            >
+              <MemoizedEditableCell
+                value={newServiceData[field] || ''}
+                rowId="new-row"
+                columnId={field}
+                onUpdate={handleCellUpdate}
+                isDropdown={false}
+                isNew={true}
+              />
+            </div>
+            
+            {/* Elemento completamente separado */}
             {wasAutoFilled && (
-              <div className="absolute right-0 top-0 h-full flex items-center pr-2">
-                <span className="text-xs text-blue-500">Auto</span>
+              <div 
+                onClick={(e) => e.stopPropagation()}
+                className="text-right py-1"
+              >
+                <span className="text-xs text-gray-200">Auto</span>
               </div>
             )}
-          </div>
+          </>
         );
       }
       
       return (
-        <div className="relative" onClick={(e) => e.stopPropagation()}>
+        <div className="field-container" onClick={(e) => e.stopPropagation()}>
           <div 
-            className={`p-1 min-h-[30px] hover:bg-gray-100 cursor-pointer border rounded 
-                      ${wasAutoFilled ? 'bg-blue-50' : ''} 
+            className={`p-1 min-h-[30px] cursor-pointer border rounded hover-disabled
+                      ${wasAutoFilled ? 'auto-filled-field' : ''} 
                       ${isRequiredField ? 'border-red-500' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
@@ -918,11 +1030,13 @@ export const DataTable = forwardRef(({
           >
             {newServiceData[field] || <span className="text-gray-400">{`${placeholder}${isRequiredField ? ' *' : ''}`}</span>}
           </div>
+          
           {wasAutoFilled && (
-            <div className="absolute right-0 top-0 h-full flex items-center pr-2">
-              <span className="text-xs text-blue-500">Auto</span>
+            <div className="auto-indicator">
+              <span>Auto</span>
             </div>
           )}
+          
           {isRequiredField && !newServiceData[field] && (
             <div className="text-xs text-red-500 mt-1">
               Este campo é obrigatório quando outros campos do Registro Visa estão preenchidos
@@ -994,13 +1108,28 @@ export const DataTable = forwardRef(({
     
     return (
       <div 
-        className="editable-cell-trigger p-1 min-h-[30px] hover:bg-gray-100 cursor-pointer flex items-center"
+        className="editable-cell-trigger p-1 min-h-[30px] cursor-pointer flex items-center justify-center"
+        style={{
+          backgroundColor: '#f68484',
+          color: '#f1f1f1',
+          border: '1px solid rgba(255, 255, 255, 0.5)',
+          borderRadius: '4px',
+          position: 'relative',
+          paddingRight: isDropdownField ? '20px' : '8px'
+        }}
         onClick={(e) => {
           e.stopPropagation();
           startEditing(rowId, field, value, isDropdownField, actualDropdownType);
         }}
       >
-        {displayValue || <span className="text-gray-400">Selecione...</span>}
+        {displayValue || <span style={{color: '#f1f1f1'}}>Selecione...</span>}
+        {isDropdownField && (
+          <span style={{
+            position: 'absolute',
+            right: '8px',
+            fontSize: '10px'
+          }}>▼</span>
+        )}
       </div>
     );
   };
@@ -1095,7 +1224,7 @@ export const DataTable = forwardRef(({
                           'PrincipioAtivo'
                         )}
                         {editedData.Principio_Ativo && !expandedHeaders.has(header) && (
-                          <div className="text-xs text-blue-600 mt-1">
+                          <div className="modified-indicator">
                             Modificado: {editedData.Principio_Ativo}
                           </div>
                         )}
@@ -1113,7 +1242,7 @@ export const DataTable = forwardRef(({
                           'UnidadeFracionamento'
                         )}
                         {editedData.Unidade_Fracionamento && !expandedHeaders.has(header) && (
-                          <div className="text-xs text-blue-600 mt-1">
+                          <div className="text-xs text-gray-200 mt-1">
                             Modificado: {editedData.UnidadeFracionamentoDescricao || editedData.Unidade_Fracionamento}
                           </div>
                         )}
@@ -1131,7 +1260,7 @@ export const DataTable = forwardRef(({
                           'Taxas'
                         )}
                         {editedData.finalidade && !expandedHeaders.has(header) && (
-                          <div className="text-xs text-blue-600 mt-1">
+                          <div className="text-xs text-gray-200 mt-1">
                             Modificado: {editedData.finalidade}
                           </div>
                         )}
@@ -1149,7 +1278,7 @@ export const DataTable = forwardRef(({
                           'Tabela'
                         )}
                         {editedData.tabela && !expandedHeaders.has(header) && (
-                          <div className="text-xs text-blue-600 mt-1">
+                          <div className="text-xs text-gray-200 mt-1">
                             Modificado: {editedData.tabela}
                           </div>
                         )}
@@ -1227,8 +1356,8 @@ export const DataTable = forwardRef(({
                           isNew={false}
                         />
                         {wasAutoFilled && (
-                          <div className="absolute right-0 top-0 h-full flex items-center pr-2">
-                            <span className="text-xs text-blue-500">Auto</span>
+                          <div className="auto-indicator">
+                            <span>Auto</span>
                           </div>
                         )}
                       </div>
@@ -1237,20 +1366,22 @@ export const DataTable = forwardRef(({
                   
                   return (
                     <div className="relative" onClick={(e) => e.stopPropagation()}>
-                      <div 
-                        className={`p-1 min-h-[30px] hover:bg-gray-100 cursor-pointer border rounded ${wasAutoFilled ? 'bg-blue-50' : ''}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startEditing(rowId, sub, editedData[sub] || '');
-                        }}
-                      >
-                        {editedData[sub] || <span></span>}
-                      </div>
-                      {wasAutoFilled && (
-                        <div className="absolute right-0 top-0 h-full flex items-center pr-2">
-                          <span className="text-xs text-blue-500">Auto</span>
+                      <div className="field-container">
+                        <div 
+                          className={`p-1 min-h-[30px] cursor-pointer border rounded hover-disabled ${wasAutoFilled ? 'auto-filled-field' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditing(rowId, sub, editedData[sub] || '');
+                          }}
+                        >
+                          {editedData[sub] || <span></span>}
                         </div>
-                      )}
+                        {wasAutoFilled && (
+                          <div className="auto-indicator">
+                            <span>Auto</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 }
@@ -1296,7 +1427,7 @@ export const DataTable = forwardRef(({
                         'ViaAdministracao'
                       )}
                       {editedData.Via_Administração && (
-                        <div className="text-xs text-blue-600 mt-1">
+                        <div className="text-xs text-gray-200 mt-1">
                           {editedData.Via_Administração}
                         </div>
                       )}
@@ -1314,7 +1445,7 @@ export const DataTable = forwardRef(({
                         'ClasseFarmaceutica'
                       )}
                       {editedData.Classe_Farmaceutica && (
-                        <div className="text-xs text-blue-600 mt-1">
+                        <div className="text-xs text-gray-200 mt-1">
                           {editedData.Classe_Farmaceutica}
                         </div>
                       )}
@@ -1385,12 +1516,13 @@ export const DataTable = forwardRef(({
           min-height: 30px;
         }
         .expanded-header-cell {
-          border: 2px solid #f3df90 !important;
-          background-color: rgba(243, 223, 144, 0.1);
+          color: #35524a !important;
+          
+          
         }
         .expanded-subcolumn-cell {
-          border: 2px solid #f3df90 !important;
-          background-color: rgba(243, 223, 144, 0.05);
+          
+          background: linear-gradient(360deg, #f7c59f 10%, #e4a94f 100%);
         }
       `}</style>
       <table className="table-auto w-full data-table border-collapse">
@@ -1466,7 +1598,8 @@ export const DataTable = forwardRef(({
                 onClick={(e) => handleRowClick(rowId, e)}
                 className={`cursor-pointer-aqui ${isSelected ? '' : 'hover:bg-gray-300'}`}
                 style={{
-                  backgroundColor: isSelected ? '#E8E351' : undefined,
+                  backgroundColor: isSelected ? '#f26b6b' : undefined,
+                  color: isSelected ? '#f1f1f1' : undefined
                 }}
               >
                 {row.getVisibleCells()

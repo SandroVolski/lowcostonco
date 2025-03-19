@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
+import CacheService from "../services/CacheService";
 
 // Criando o contexto para as opções de dropdown
 const DropdownOptionsContext = createContext();
@@ -164,6 +165,7 @@ const staticDropdownOptions = {
     export const DropdownOptionsProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [isCacheEnabled, setIsCacheEnabled] = useState(true);
     
     // Estado para armazenar todas as opções dos dropdowns
     const [dropdownOptions, setDropdownOptions] = useState({
@@ -177,6 +179,15 @@ const staticDropdownOptions = {
         taxas: [],
         tabela: []
     });
+
+    // Função para ativar/desativar o cache
+    const toggleCache = (enabled = true) => {
+      setIsCacheEnabled(enabled);
+      if (!enabled) {
+        // Se estiver desativando o cache, limpa os dados em cache
+        CacheService.removeCache(CacheService.CACHE_KEYS.DROPDOWN_OPTIONS);
+      }
+    };
 
     // Função auxiliar para buscar dados com tratamento de erro
     const fetchDataSafely = async (url, defaultData) => {
@@ -244,6 +255,17 @@ const staticDropdownOptions = {
     const fetchDropdownOptions = async () => {
       try {
         setLoading(true);
+
+        // Verifica se podemos usar dados em cache
+        if (isCacheEnabled) {
+          const cachedOptions = CacheService.getCachedDropdownOptions();
+          if (cachedOptions) {
+            console.log("Usando opções de dropdown em cache");
+            setDropdownOptions(cachedOptions.data);
+            setLoading(false);
+            return; // Retorna cedo pois usamos o cache
+          }
+        }
         
         // Definir os dados iniciais com os valores estáticos processados
         const fetchedData = {
@@ -348,6 +370,11 @@ const staticDropdownOptions = {
         
         // Atualizar o estado com os dados obtidos
         setDropdownOptions(fetchedData);
+
+        // Armazenar em cache se o cache estiver ativado
+        if (isCacheEnabled) {
+          CacheService.cacheDropdownOptions(fetchedData);
+        }
         
       } catch (error) {
         console.error("Erro ao carregar opções dos dropdowns:", error);
@@ -361,13 +388,22 @@ const staticDropdownOptions = {
     };
     
     fetchDropdownOptions();
-  }, []);
+  }, [isCacheEnabled]);
+
+  // Nova função para limpar o cache manualmente
+  const clearCache = () => {
+    CacheService.removeCache(CacheService.CACHE_KEYS.DROPDOWN_OPTIONS);
+    console.log("Cache de dropdowns limpo manualmente");
+  };
 
   // Valores a serem disponibilizados pelo contexto
   const value = {
     dropdownOptions,
     loading,
     error,
+    isCacheEnabled,
+    toggleCache,
+    clearCache,
     // Adicionar dados estáticos para teste/fallback
     staticOptions: staticDropdownOptions
   };

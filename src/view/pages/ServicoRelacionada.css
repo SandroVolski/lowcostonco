@@ -20,7 +20,7 @@
 .container {
     display: flex;
     min-height: 100vh;
-    background-color: #fff; /* bg-gray-100 */
+    background-color: #f1f1f1 !important;
   }
   
   .main-content {
@@ -46,26 +46,50 @@
   .organize-text {
     font-size: 18px;
     font-weight: 500;
-    color: #252525;
+    color: #35524a;
     margin: 0;
+    margin-left: 0.5rem;
   }
   
   .custom-select {
     position: relative;
     display: inline-block;
     width: 100%;
+    overflow: hidden; /* Importante: esconde qualquer elemento que ultrapasse */
   }
   
   .select-style {
-    appearance: none;
+    margin-top: 0; /* Removido o margin-top: 100px que estava marcado como "TIRAR" */
+    appearance: none !important; /* Força a remoção da seta nativa */
+    -webkit-appearance: none !important; /* Para Safari/Chrome */
+    -moz-appearance: none !important; /* Para Firefox */
     background-color: transparent;
     border: none;
     padding: 8px 24px 8px 0px;
     font-size: 14px;
-    color: #3871c1;
+    color: #8cb369;
     cursor: pointer;
     outline: none;
     width: 100%;
+  }
+
+  /* Estiliza as opções dentro do select */
+  .select-style option {
+      background-color: white; /* Fundo padrão */
+      color: black; /* Cor padrão do texto */
+  }
+
+  /* Quando a opção estiver selecionada */
+  .select-style option:checked {
+      background-color: #8cb369;
+      color: white;
+  }
+
+  @-moz-document url-prefix() {
+    .select-style option:hover {
+      background-color: #8cb369 !important;
+      color: white !important;
+    }
   }
   
   .custom-select::after {
@@ -78,7 +102,7 @@
     height: 0;
     border-left: 6px solid transparent;
     border-right: 6px solid transparent;
-    border-top: 6px solid #3871c1;
+    border-top: 6px solid #8cb369;
     pointer-events: none;
   }
 
@@ -91,7 +115,7 @@
   .search-bar input {
     width: 100%;
     padding: 0.5rem 2.5rem 0.5rem 1rem;
-    border: 1px solid #ccc;
+    border: 2px solid #c6d651;
     border-radius: 2rem; /* Equivalente a rounded-md */
     padding-left: 1rem;
     white-space: nowrap;
@@ -133,6 +157,51 @@
     animation: marquee 8s linear infinite alternate;
     overflow: hidden;
   }
+
+  .pesquisa-icone {
+    color: #c6d651 !important;
+    position: absolute;       /* Fixa o elemento na tela */
+    margin-left: 14.7rem ;           /* Distância da direita (ajuste conforme necessário) */
+    margin-bottom: 0.1rem;
+            /* Valor alto para garantir que fique sobre outros elementos */
+    cursor: pointer;       /* Muda o cursor para indicar que é clicável */
+  }
+
+  /* Estilo para fazer a lupa piscar quando houver texto */
+@keyframes blink {
+  0% { 
+    transform: scale(1);
+    opacity: 1;
+    color: #575654;
+  }
+  50% { 
+    transform: scale(1.2);
+    opacity: 0.7;
+    color: #fff;
+  }
+  100% { 
+    transform: scale(1);
+    opacity: 1;
+    color: #575654;
+  }
+}
+
+.search-icon-blinking {
+  animation: blink 1.5s infinite;
+  background-color: #E4E9C0;
+  border-radius: 50%;
+  padding: 4px;
+}
+
+.pesquisa-icone {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.pesquisa-icone:hover {
+  transform: scale(1.1);
+  color: #f26b6b;
+}
   
   .search-icon {
     position: absolute;
@@ -147,8 +216,8 @@
   
   .button {
     font-family: 'CodecProExtraBold';
-    background: linear-gradient(90deg, #00adef 0%, #3871c1 100%);
-    color: white;
+    background-color:#8cb369 !important;
+    color: #f1f1f1;
     padding: 0.5rem 1rem;
     border-radius: 0.375rem;
     display: flex;
@@ -157,7 +226,7 @@
   }
   
   .button:hover {
-    background-color: #3871c1;
+    background-color: #c6d651 !important;
   }
 
   .pesquisa{
@@ -174,7 +243,7 @@
 }
 
   .buttontxt {
-    color: white; /* Cor do texto */
+    color: #f1f1f1; /* Cor do texto */
     border: none;
     border-radius: 8px; /* Bordas arredondadas */
     padding: 5px 20px; /* Aumentei o padding para deixar o botão maior */
@@ -189,7 +258,7 @@
   }
   
   .buttontxt:hover {
-    background-color: #0056b3; /* Cor de fundo ao passar o mouse */
+    background-color: #8cb369; /* Cor de fundo ao passar o mouse */
   }
   
 
@@ -201,7 +270,7 @@
 
 /* Estilo do contêiner estilizado */
 .styled-container {
-    background-color: white;
+    background-color: #f1f1f1; /* Atras (background da tabela) */
     border-radius: 20px;
     box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
     padding: 2rem; /* Mantém o padding em todas as direções */
@@ -235,7 +304,7 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: white;
+  background: #f1f1f1;
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -278,12 +347,12 @@
 }
 
 .btn-primary {
-  background-color: #3871c1;
-  color: white;
+  background-color: #8cb369;
+  color: #f1f1f1;
 }
 
 .btn-primary:hover {
-  background-color: #2a5a9e;
+  background-color: #35524a;
 }
 
 
@@ -298,7 +367,7 @@
 }
 
 .mini-table th, .mini-table td {
-  border: 1px solid #ddd;
+  border: 1px solid #f1f1f1;
   padding: 8px;
   text-align: center;
 }
@@ -306,7 +375,7 @@
 .mini-table input {
   width: 100%;
   padding: 5px;
-  border: 1px solid #ddd;
+  border: 1px solid #f1f1f1;
 }
 
 
@@ -316,12 +385,13 @@
   text-align: left;
   font-size: 14px;
   border-collapse: collapse;
+  color: #575654;
 }
 
 /* Cabeçalho da tabela */
 .data-table thead {
-  background: linear-gradient(90deg, #00adef 0%, #3871c1 100%) !important;
-  color: white;
+  background: linear-gradient(360deg, #c6d651 10%, #8cb369 100%) !important;
+  color: #f1f1f1;
   text-transform: uppercase;
   font-size: 12px;
   font-weight: 600;
@@ -334,19 +404,20 @@
 .data-table thead th {
   padding: 12px 16px;
   white-space: nowrap;
+  color: #f1f1f1;
 }
 
 /* Células congeladas no cabeçalho */
 .data-table thead th.frozen {
   position: sticky;
   left: 0;
-  background-color: #00adef;
+  background-color: #c6d651;
   z-index: 10;
 }
 
 /* Corpo da tabela */
 .data-table tbody {
-  background-color: #f9f9f9;
+  background-color: #f1f1f1;
 }
 
 /* Células do corpo da tabela */
@@ -393,7 +464,7 @@
 }
 
 .adding-row {
-  background-color: #FFFDE7 !important;
+  background-color: #f1f1f1 !important;
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
   position: relative;
   z-index: 10;
@@ -458,7 +529,7 @@
 /* Estilo para o container do popup */
 .success-popup {
   width: 320px;
-  background-color: #fff;
+  background-color: #f1f1f1;
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
@@ -472,8 +543,8 @@
 
 /* Estilo para o cabeçalho do popup */
 .success-popup-header {
-  background: linear-gradient(90deg, #00adef 0%, #3871c1 100%);
-  color: white;
+  background: linear-gradient(90deg, #c6d651 10%, #8cb369 100%);
+  color: #f1f1f1;
   padding: 15px 20px;
   text-align: center;
   font-weight: bold;
@@ -529,4 +600,215 @@
 /* Classe para aplicar a animação */
 .popup-animate-in {
   animation: popup-in 0.3s forwards;
+}
+
+
+/* Adicione estes estilos ao seu arquivo CSS existente */
+
+.search-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.search-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 300px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  color: #666;
+  width: 18px;
+  height: 18px;
+}
+
+.pesquisa {
+  padding: 8px 8px 8px 35px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  width: 100%;
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pesquisatinha{
+  position: relative;
+  align-items: center;
+  margin-right: 2rem;
+
+}
+
+.pesquisa:focus {
+  outline: none;
+  border-color: #c6d651;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.search-type-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  background-color: #f1f1f1;
+  padding: 0px 0px;
+  border-radius: 5px;
+  border: 1px solid #f1f1f1;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Estilização dos botões de rádio */
+.search-type-selector input[type="radio"] {
+  accent-color: #8cb369; /* Cor azul para botões selecionados */
+}
+
+.search-type-selector label:hover {
+  color: #8cb369 !important;
+}
+
+/* Animação sutil para transição de cores ao passar o mouse */
+.search-type-selector label {
+  transition: color 0.2s ease;
+}
+
+/* Estilo para resultados da pesquisa */
+.search-results-info {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: #4b5563;
+}
+
+/* Estilo para badge de tipo de pesquisa */
+.search-type-badge {
+  display: inline-block;
+  background-color: #e5e7eb;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  margin-left: 5px;
+  font-weight: 600;
+}
+
+/* Estilos para diferentes tipos de pesquisa */
+.search-type-code {
+  background-color: #E4E9C0;
+  color: #f26b6b;
+}
+
+.search-type-active {
+  background-color: #E4E9C0;
+  color: #f26b6b;
+}
+
+.search-type-description {
+  background-color: #E4E9C0;
+  color: #f26b6b;
+}
+
+.search-type-all {
+  background-color: #E4E9C0;
+  color: #f26b6b;
+}
+
+.search-type-auto {
+  background-color: #E4E9C0;
+  color: #f26b6b;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* Adicione este CSS ao seu arquivo ServicoRelacionada.css */
+
+/* Estilos para o badge de tipo de busca */
+.search-type-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  margin-left: 5px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+/* Cores específicas para cada tipo de busca */
+.search-type-auto {
+  background-color: #e2e8f0; /* Cinza claro */
+  color: #4a5568;
+}
+
+.search-type-code {
+  background-color: #ebf8ff; /* Azul claro */
+  color: #2c5282;
+}
+
+.search-type-active {
+  background-color: #e6fffa; /* Verde azulado claro */
+  color: #2c7a7b;
+}
+
+.search-type-active_registro {
+  background-color: #faf5ff; /* Roxo claro */
+  color: #6b46c1;
+  border: 1px dashed #9f7aea;
+}
+
+.search-type-description {
+  background-color: #fffaf0; /* Amarelo claro */
+  color: #c05621;
+}
+
+.search-type-all {
+  background-color: #f0fff4; /* Verde claro */
+  color: #276749;
+}
+
+/* Estilo para a pesquisa ativa */
+.pesquisa.searching {
+  border-color: #4299e1;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.15);
+}
+
+/* Estilizar radio buttons com cores que combinam com os badges */
+.search-type-selector input[type="radio"]:checked + span {
+  font-weight: 600;
+}
+
+/* Radio button de P. Ativo (Registro) */
+.search-type-selector input[type="radio"][value="active_registro"]:checked + span {
+  color: #6b46c1;
+}
+
+/* Adicionar um tooltip ao passar o mouse na opção de P. Ativo (Registro) */
+.search-type-selector label {
+  position: relative;
+}
+
+.search-type-selector label[title]:hover:after {
+  content: attr(title);
+  position: absolute;
+  bottom: -25px;
+  left: 0;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  z-index: 10;
 }

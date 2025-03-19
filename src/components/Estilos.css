@@ -48,7 +48,8 @@
     font-size: 1.5rem;
     font-weight: 600;
     margin-left: 1.5rem;
-    color: white;
+    color: #35524a;
+    opacity: 0.8;
   }
   
   /* Estilo para o container da foto do usuário e nome */
@@ -65,7 +66,7 @@
   
   /* Estilo para o nome do usuário */
   .user-info span {
-    color: white;
+    color: #f1f1f1;
   }
   
   /* Estilo do botão de avatar */
@@ -73,7 +74,7 @@
     width: 2.5rem;
     height: 2.5rem;
     border-radius: 50%;
-    background-color: white;
+    background-color: #f1f1f1;
     overflow: hidden;
     cursor: pointer;
     transition: opacity 0.3s;
@@ -105,7 +106,7 @@
   
   /* Estilo para o conteúdo do modal */
   .modal-content {
-    background-color: white;
+    background-color: #f1f1f1;
     padding: 1.5rem;
     border-radius: 0.5rem;
   }
@@ -122,18 +123,12 @@
   }
   
   .modal-buttons .cancel-btn {
-    color: #4a4a4a;
+    color: #f1f1f1;
   }
-  
-  .modal-buttons .save-btn {
-    background-color: #3498db;
-    color: white;
-    border-radius: 0.5rem;
-    background-color: #2980b9;
-  }
+
   
   .header-gradient {
-    background: linear-gradient(90deg, #00adef 0%, #3871c1 100%);
+    background: linear-gradient(90deg, #c6d651 10%, #8cb369 100%) !important;
   }
 
 
@@ -156,7 +151,7 @@
   /* Estilo principal da Sidebar */
 .sidebar {
     width: 16rem;
-    background-color: #252525;
+    background-color: #35524a;
     min-height: 100vh;
     position: fixed;
     left: 0;
@@ -168,7 +163,7 @@
 /* Cabeçalho da Sidebar */
 .sidebar-header {
     padding: 2rem;
-    border-bottom: 1px solid #252525;
+    border-bottom: 1px solid #35524a;
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -178,7 +173,7 @@
 .sidebar-logo {
     width: 2.5rem;
     height: 2.5rem;
-    background-color: #0088FF;
+    background-color: #35524a;
     border-radius: 50%;
 }
 
@@ -190,12 +185,12 @@
 
 .sidebar-title {
     font-weight: 600;
-    color: white;
+    color: #f1f1f1;
 }
 
 .sidebar-subtitle {
     font-size: 0.875rem;
-    color: #999;
+    color: #dbdbdb;
 }
 
 /* Menu principal */
@@ -214,21 +209,66 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
-    border-radius: 0.375rem;
+    border-radius: 0.5rem;
     text-decoration: none;
     color: #ccc;
     transition: 0.3s;
 }
 
 .sidebar-item:hover {
-    background-color: #444;
-    color: white;
+    background-color: #a6b344;
+    color: #f1f1f1;
+    border-radius: 0.5rem;
 }
 
 /* Item ativo */
 .sidebar-item.active {
-    background-color: #0088FF;
-    color: white;
+    background-color: #c6d651;
+    color: #35524a;
+    font-family: 'CodecPro';
+}
+
+/* Primeiro, defina a animação keyframes para o efeito de tremida */
+@keyframes shake {
+  0% { transform: translateX(0); }
+  10% { transform: translateX(-2px); }
+  20% { transform: translateX(2px); }
+  30% { transform: translateX(-2px); }
+  40% { transform: translateX(2px); }
+  50% { transform: translateX(-2px); }
+  60% { transform: translateX(2px); }
+  70% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+  90% { transform: translateX(-1px); }
+  100% { transform: translateX(0); }
+}
+
+/* Agora, modifique o :hover para aplicar a animação */
+.sidebar-item-logout {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: 0.3s;
+  color: #f1f1f1;
+  border-radius: 0.5rem;
+}
+
+.sidebar-item-logout:hover {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: 0.3s;
+
+  background-color: #f26b6b !important;
+  color: #f1f1f1;
+  border-radius: 0.5rem;
+  animation: shake 0.4s ease-in-out;
 }
 
 
@@ -236,7 +276,7 @@
 .sidebar-bottom {
     margin-top: auto;
     padding: 1rem;
-    border-top: 1px solid #444;
+    border-top: 1px solid #527e72;
 }
 
 .sidebar-bottom ul {
@@ -269,6 +309,7 @@
   border-radius: 8px;
   height: 100%;
   margin-top: 0rem;
+  background-color: #f1f1f1 !important;
 }
 
 /* Estilização da tabela */
@@ -277,12 +318,13 @@
   text-align: left;
   font-size: 14px;
   border-collapse: collapse;
+  background-color: #f1f1f1 !important;
 }
 
 /* Cabeçalho da tabela */
 .data-table thead {
-  background: linear-gradient(90deg, #00adef 0%, #3871c1 100%) !important;
-  color: white;
+  background: linear-gradient(90deg, #c6d651 10%, #8cb369 100%) !important;
+  color: #f1f1f1;
   text-transform: uppercase;
   font-size: 12px;
   font-weight: 600;
@@ -302,7 +344,7 @@
   position: sticky;
   left: 0;
   z-index: 30;
-  background:  #00adef ;
+  background:  #c6d651 ;
 }
 
 /* Corpo da tabela */
@@ -313,13 +355,14 @@
 
 /* Linhas do corpo da tabela */
 .data-table tbody tr {
-  background-color: white;
+  background-color: #f1f1f1;
   border-bottom: 1px solid #ddd;
   transition: background-color 0.3s ease;
 }
 
 .data-table tbody tr:hover {
-  background-color: #dedede;
+  background-color: #E4E9C0;
+  color: #35524a;
 }
 
 /* Células do corpo da tabela */
@@ -331,14 +374,14 @@
 .data-table tbody td.frozen {
   position: sticky;
   left: 0;
-  background-color: white;
+  background-color: #f1f1f1;
   z-index: 10;
 }
 
 /* Botão de expandir */
 .expand-button {
   font-size: 12px;
-  color: white;
+  color: #f1f1f1;
   cursor: pointer;
   transition: color 0.3s ease;
 }
@@ -351,7 +394,7 @@
 .expanded-info {
   margin-top: 8px;
   padding-left: 16px;
-  border-left: 2px solid #0088FF;
+  border-left: 2px solid #c6d651;
 }
 
 .expanded-info div {
@@ -378,26 +421,36 @@
   }
 
   .data-table-container::-webkit-scrollbar-track {
-    background: #cff0fc; /* Cor de fundo da área do scrollbar */
+    background: #d5dab3; /* Cor de fundo da área do scrollbar */
     border-radius: 10px; /* Bordas arredondadas */
   }
 
   .data-table-container::-webkit-scrollbar-thumb {
-    background: #3871c1; /* Cor do scrollbar */
+    background: #8cb369; /* Cor do scrollbar */
     border-radius: 10px; /* Bordas arredondadas */
     border: 3px solid #f1f1f1; /* Espaço entre o scrollbar e a borda */
   }
 
   .data-table-container::-webkit-scrollbar-thumb:hover {
-    background: #468ef3; /* Cor do scrollbar ao passar o mouse */
+    background: #c6d651; /* Cor do scrollbar ao passar o mouse */
   }
+
+  /* Estiliza o canto da barra de rolagem (Chrome, Safari, Edge) */
+::-webkit-scrollbar-corner {
+  background-color: #f1f1f1;
+}
+
+/* Para Firefox */
+* {
+  scrollbar-color: auto #f1f1f1;
+}
 
 .cursor-pointer {
   cursor: pointer;
 }
 
 .cursor-pointer:hover {
-  color: #f3df90;
+  color: #575654;
 }
 
 .cursor-pointer-aqui {
@@ -422,8 +475,8 @@
 
 .pagination-controls button {
   padding: 5px 10px;
-  background-color: #3871c1;
-  color: white;
+  background-color: #8cb369;
+  color: #f1f1f1;
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -447,11 +500,12 @@
   cursor: pointer;
   padding: 0.25rem; /* equivalente a p-1 */
   border-radius: 0.25rem; /* equivalente a rounded */
+  color: #f1f1f1;
 }
 
 .header-sort:hover {
   background-color: transparent; /* equivalente a hover:bg-gray-100 */
-  color: #f3df90;
+  color: #575654;
 }
 
 .header-sort.active {
@@ -459,7 +513,11 @@
 }
 
 .header-sort.active span {
-  color: #f3df90; /* Cor do texto para o cabeçalho ativo */
+  color: #f26b6b !important; /* Cor do texto para o cabeçalho ativo */
+}
+
+.header-sort.active:hover {
+  color: #575654 !important; /* Cor do texto para o cabeçalho ativo */
 }
 
 
@@ -485,8 +543,8 @@
 .data-table tr.adding-row {
   position: relative;
   z-index: 5; /* Acima das outras linhas */
-  background-image: linear-gradient(to bottom, #eae66f, #f5fa6c) !important;
-  border: 2px solid #E8E351;
+  background-color: #f26b6b !important;
+  border: 2px solid #f7c59f !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); /* Sombra suave para elevação */
   transform: translateY(-1px); /* Ligeira elevação visual */
   opacity: 1 !important; /* Garantir visibilidade total */
@@ -501,7 +559,7 @@
   -webkit-appearance: none;
   -moz-appearance: none;
   background-color: transparent;
-  border-color: #E8E351;
+  border-color: #f7c59f;
   border-width: 1px;
   padding: 2px;
   font-size: 13px;
@@ -526,7 +584,7 @@
 
 /* Efeito ao passar o mouse */
 .adding-row select:hover {
-  background: linear-gradient(180deg, #c5c148, #c3c842 100%);
+  background: linear-gradient(180deg, #c6d651, #8cb369 100%);
   color: white;
   border-color: white;
 }
@@ -534,13 +592,13 @@
 /* Quando o Select estiver focado */
 .adding-row select:focus {
   outline: none;
-  border-color: #3871c1;
+  border-color: #8cb369;
   box-shadow: 0 0 6px rgba(56, 113, 193, 0.5);
 }
 
 /* Estilizar a lista de opções */
 .adding-row select option {
-  background: white;
+  background: #f1f1f1;
   color: black;
   padding: 10px;
   text-align: center;
@@ -548,8 +606,8 @@
 
 /* Cor quando passar o mouse nas opções */
 .adding-row select option:hover {
-  background: linear-gradient(90deg, #00adef 0%, #3871c1 100%);
-  color: white;
+  background: linear-gradient(90deg, #c6d651 10%, #8cb369 100%);
+  color: #f1f1f1;
 }
 
 /*.adding-row input:focus,
@@ -584,18 +642,18 @@
 }
 
 .adding-row select::-webkit-scrollbar-track {
-  background: #cff0fc !important;
+  background: #d5dab3 !important;
   border-radius: 10px;
 }
 
 .adding-row select::-webkit-scrollbar-thumb {
-  background: #3871c1 !important;
+  background: #8cb369 !important;
   border-radius: 10px;
   border: 2px solid #f1f1f1 !important;
 }
 
 .adding-row select::-webkit-scrollbar-thumb:hover {
-  background: #468ef3 !important;
+  background: #c6d651 !important;
 }
 
 /* Estilizando o scrollbar geral da tabela */
@@ -604,18 +662,18 @@
 }
 
 .data-table-container::-webkit-scrollbar-track {
-  background: #cff0fc !important;
+  background: #e7edc2 !important;
   border-radius: 10px !important;
 }
 
 .data-table-container::-webkit-scrollbar-thumb {
-  background: #3871c1 !important;
+  background: #8cb369 !important;
   border-radius: 10px !important;
   border: 3px solid #f1f1f1 !important;
 }
 
 .data-table-container::-webkit-scrollbar-thumb:hover {
-  background: #468ef3 !important;
+  background: #c6d651 !important;
 }
 
 
@@ -702,22 +760,26 @@ input:-moz-placeholder {
 .data-table input:hover,
 .data-table select:hover {
   background: transparent !important;
-  color: black !important;
-  border-color: #E8E351 !important;
+  color: #575654 !important;
+  border-color: #8cb369 !important;
+}
+
+.data-table input{
+  background-color: #f26b6b !important;
 }
 
 /* Remover gradiente em hover */
 .adding-row select:hover {
   background: transparent !important;
   color: black !important;
-  border-color: #E8E351 !important;
+  border-color: #8cb369 !important;
 }
 
 /* Manter bordas mais suaves no foco */
 .adding-row select:focus,
 .adding-row input:focus {
   outline: none;
-  border-color: #3871c1;
+  border-color: #8cb369;
   box-shadow: 0 0 6px rgba(56, 113, 193, 0.5);
   background: transparent !important;
   color: black !important;
@@ -743,6 +805,245 @@ input:-moz-placeholder {
 
 /* Garantir que os selects não mudam no hover */
 .adding-row select option:hover {
-  background: white !important;
+  background: #f1f1f1 !important;
   color: black !important;
+}
+
+
+
+
+/* Adicione estes estilos ao seu arquivo CSS */
+
+/* 1. Estilização para os indicadores "Auto" */
+.auto-indicator {
+  color: #f1f1f1 !important;
+  align-items: center !important;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  display: flex;
+  justify-content: center; /* Alterado de flex-end para center */
+  background-color: transparent !important;
+  width: 100%; /* Garante que o container ocupa toda a largura disponível */
+  text-align: center; /* Alinhamento adicional para garantir centralização */
+}
+
+/* 2. Estilização para os textos "Modificado: ..." */
+.modified-indicator {
+  color: #f1f1f1 !important;
+  margin-top: 4px;
+  font-size: 0.75rem;
+}
+
+/* 3. Ajustes para selects e z-index */
+.editable-cell select {
+  position: relative;
+  z-index: 50;
+  color: #333 !important; /* Texto escuro para contraste */
+  background-color: #f68484 !important;
+}
+
+/* 4. Fundo para campos preenchidos automaticamente */
+.auto-filled-field {
+  background-color: #f68484 !important;
+  color: #f1f1f1 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.auto-filled-field:hover {
+  color: #575654 !important;
+}
+
+/* 5. Desabilitar mudança de cor no hover */
+.hover-disabled:hover {
+  background-color: inherit !important;
+}
+
+/* 6. Melhorar a aparência dos selects quando abertos */
+select {
+  text-align: center !important;
+  text-align-last: center !important;
+  -webkit-appearance: menulist !important; /* Restaura a aparência nativa */
+  -moz-appearance: menulist !important;
+  appearance: menulist !important;
+}
+
+select:focus {
+  z-index: 1000 !important;
+}
+
+/* Força que o selector sempre fique acima com alto z-index quando aberto */
+select:focus-within {
+  position: relative;
+  z-index: 9999 !important;
+}
+
+/* Assegura que os itens "Auto" estão abaixo do campo */
+.field-container {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Remove o background-color no hover de todos os campos */
+.data-table tbody tr td div:hover,
+.editable-cell-trigger:hover,
+.cursor-pointer:hover,
+input:hover,
+select:hover {
+  background-color: transparent !important;
+}
+
+
+
+
+
+
+
+
+
+
+/* Melhorias para os selects na DataTable */
+
+/* 1. Tornar todos os selects mais visíveis mesmo quando não estão em foco */
+
+.editable-cell select,
+.editable-cell-trigger {
+  background-color: #f68484 !important; /* Fundo consistente */
+  border: 1px solid rgba(255, 255, 255, 0.5) !important; /* Borda visível sempre */
+  border-radius: 4px !important;
+  min-height: 28px !important;
+  text-align: center !important;
+  text-align-last: center !important;
+  appearance: menulist !important; /* Restaura a aparência nativa do select */
+  -webkit-appearance: menulist !important;
+  -moz-appearance: menulist !important;
+  z-index: 50;
+  color: #f1f1f1 !important;
+  padding: 2px 8px !important;
+}
+
+/* 2. Melhorar a visibilidade do dropdown quando aberto */
+select:focus,
+.editable-cell select:focus {
+  z-index: 1000 !important;
+  outline: none !important;
+  border-color: #f1f1f1 !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3) !important;
+}
+
+/* 3. Melhorar o estilo do texto "Selecione..." para parecer mais com um select */
+.editable-cell-trigger {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  position: relative !important;
+  cursor: pointer !important;
+  padding-right: 20px !important; /* Espaço para o ícone de dropdown */
+}
+
+/* 4. Adicionar um indicador visual de dropdown para o "Selecione..." */
+.editable-cell-trigger::after { 
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  pointer-events: none;
+}
+
+/* 5. Melhorar a apresentação das opções dentro do select */
+select option {
+  background-color: #f1f1f1 !important;
+  color: #35524a !important;
+  padding: 8px !important;
+}
+
+/* 6. Garantir consistência quando o select está dentro de campos autilizados */
+.auto-filled-field select,
+.auto-filled-field .editable-cell-trigger {
+  background-color: #f68484 !important;
+  color: #f1f1f1 !important;
+}
+
+/* 7. Corrigir a altura e alinhamento dos inputs e selects */
+.editable-cell input,
+.editable-cell select {
+  width: 100% !important;
+  height: 28px !important; /* Altura consistente */
+  box-sizing: border-box !important;
+  vertical-align: middle !important;
+}
+
+/* 8. Garantir melhor visibilidade para selects em diferentes estados */
+.adding-row select,
+.adding-row .editable-cell-trigger {
+  appearance: menulist !important;
+  -webkit-appearance: menulist !important;
+  -moz-appearance: menulist !important;
+  background-color: #f68484 !important;
+  color: #f1f1f1 !important;
+}
+
+
+
+
+
+
+
+
+
+
+.auto-filled-fields-container {
+  background-color: #E4E9C0; /* bg-blue-50 */
+  padding: 0.5rem; /* p-2 */
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem; /* my-1 */
+  border-radius: 0.25rem; /* rounded */
+  font-size: 0.75rem; /* text-xs */
+  pointer-events: none;
+}
+
+.auto-filled-fields-container:hover {
+  background-color: #E4E9C0 !important; /* Força a mesma cor de fundo no hover */
+  transform: none !important; /* Previne qualquer animação ou transformação */
+  box-shadow: none !important; /* Remove qualquer sombra que possa aparecer */
+  cursor: default !important; /* Mantém o cursor padrão */
+}
+
+.auto-filled-fields-header {
+  font-weight: 600; /* font-semibold */
+  color: #35524a; /* text-blue-700 */
+  margin-bottom: 0.25rem; /* mb-1 */
+}
+
+.auto-filled-fields-grid {
+  display: grid;
+  grid-template-columns: 1fr; /* grid-cols-1 */
+  gap: 0.25rem; /* gap-1 */
+}
+
+@media (min-width: 640px) {
+  .auto-filled-fields-grid {
+    grid-template-columns: 1fr 1fr; /* sm:grid-cols-2 */
+  }
+}
+
+.auto-filled-field-item {
+  display: flex; /* flex */
+}
+
+.auto-filled-field-label {
+  font-weight: 500; /* font-medium */
+  color: #f26b6b; /* text-gray-700 */
+}
+
+.auto-filled-field-value {
+  margin-left: 0.25rem; /* ml-1 */
+  color: #575654; /* text-gray-900 */
+}
+
+.auto-filled-fields-note {
+  font-size: 0.75rem; /* text-xs */
+  color: #575654; /* text-blue-600 */
+  margin-top: 0.25rem; /* mt-1 */
+  font-style: italic; /* italic */
 }

@@ -18,16 +18,16 @@ function CardContent({ item }) {
     <>
       <div 
         className="flex items-center justify-center text-center mb-4 p-4 rounded-lg"
-        style={{ background: "linear-gradient(90deg, #00adef 0%, #3871c1 100%)" }}
+        style={{ background: "linear-gradient(90deg, #c6d651 30%, #8cb369 100%)" }}
         >
-        <Icon className="w-6 h-6 text-white mr-2" />
-        <h3 className="text-xl font-semibold text-white">{item.title}</h3>
+        <Icon className="w-6 h-6 mr-2" style={{ color: "#f1f1f1" }} />
+        <h3 className="text-xl font-semibold" style={{ color: "#f1f1f1" }}>{item.title}</h3>
       </div>
       <div className="mt-[-10px]">
-        <p className="text-sm text-[#3871c1] mb-2">Principais Colunas:</p>
+        <p className="text-sm text-[#e4a94f] mb-2">Principais Colunas:</p>
         <ul className="space-y-1">
           {item.columns.map((column, index) => (
-            <li key={index} className="text-gray-700">{column}</li>
+            <li key={index} style={{ color: "#35524a" }}>{column}</li>
           ))}
         </ul>
       </div>
@@ -70,7 +70,7 @@ export default function Home() {
         <div className="main-layout">
             <div className="max-w-7xl mx-auto">
                 <section className="mb-12">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-6">BANCOS DE DADOS</h2>
+                    <h2 className="text-2xl font-bold mb-6" style={{ color: "#35524a" }}>BANCOS DE DADOS</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {databases.map((item, index) => (
                         <motion.div
@@ -92,8 +92,11 @@ export default function Home() {
                             boxShadow: "0 10px 20px rgba(0, 0, 0, 0.2)", // Adiciona sombra no hover
                         }}
 
-                        style={{ boxShadow: "0 0 12px rgba(0, 0, 0, 0.3)" }}
-                        className={`bg-white rounded-lg shadow-md p-0 transition-all duration-500 hover:shadow-[10px_-10px_15px_rgba(0.2,0,0,0.2)] hover:-translate-y-1 ${
+                        style={{ 
+                          boxShadow: "0 0 12px rgba(0, 0, 0, 0.3)",
+                          backgroundColor: "#f1f1f1"
+                        }}
+                        className={`rounded-lg shadow-md p-0 transition-all duration-500 hover:shadow-[10px_-10px_15px_rgba(0.2,0,0,0.2)] hover:-translate-y-1 ${
                             item.isClickable ? 'cursor-pointer' : 'opacity-30'
                           }`}
                         >
@@ -110,7 +113,7 @@ export default function Home() {
                 </section>
 
                 <section>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-6">ANÁLISE DE DADOS</h2>
+                    <h2 className="text-2xl font-bold mb-6" style={{ color: "#35524a" }}>ANÁLISE DE DADOS</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {databases.map((item, index) => (
                         <motion.div
@@ -131,13 +134,17 @@ export default function Home() {
                             scale: 1, // Aumenta o card levemente no hover
                             boxShadow: "0 10px 20px rgba(0, 0, 0, 0.2)", // Adiciona sombra no hover
                         }}
-                        className={`bg-white rounded-lg shadow-md p-6 transition-all duration-500 hover:shadow-lg hover:-translate-y-1 ${
+                        style={{ backgroundColor: "#f1f1f1" }}
+                        className={`rounded-lg shadow-md p-6 transition-all duration-500 hover:shadow-lg hover:-translate-y-1 ${
                             item.isClickable ? 'opacity-30' : 'opacity-30'
                         }`}
                         >
                         <h3 
-                        className="text-xl font-semibold text-white p-2 rounded-lg" 
-                        style={{ background: "linear-gradient(90deg, #00adef 0%, #3871c1 100%)" }}
+                        className="text-xl font-semibold p-2 rounded-lg" 
+                        style={{ 
+                          background: "linear-gradient(90deg, #c6d651 30%, #8cb369 100%)",
+                          color: "#f1f1f1"
+                        }}
                         >
                         {item.title}
                         </h3>
