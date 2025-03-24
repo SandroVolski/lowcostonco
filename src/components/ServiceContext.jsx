@@ -50,10 +50,23 @@ export const ServiceProvider = ({ children }) => {
         setIsSearching(false);
       }
       
-      const response = await fetch(apiUrl);
+      console.log("Fazendo requisição para:", apiUrl);
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        },
+        mode: 'cors'
+      });
+      
+      // Logging detalhado da resposta
+      console.log("Status da resposta:", response.status);
       
       if (!response.ok) {
-        throw new Error(`Erro ao carregar os dados: ${response.status}`);
+        const errorText = await response.text();
+        console.error("Detalhes do erro:", errorText);
+        throw new Error(`Erro ao carregar os dados: ${response.status} - ${response.statusText}`);
       }
   
       const result = await response.json();
