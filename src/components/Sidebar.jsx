@@ -43,7 +43,7 @@ export function Sidebar() {
       {/* Cabeçalho */}
       <div className="sidebar-header">
         <div className="sidebar-logo">
-          <img src="../src/assets/LCOLogoUnitarioVetorSidebar.png" alt="Logo" className="sidebar-logo" />
+        <img src="/images/LCOLogoUnitarioVetorSidebar.png" alt="Logo" className="sidebar-logo" />
         </div>
         <div className="sidebar-info">
           <span className="sidebar-title">LOW COST ONCO</span>

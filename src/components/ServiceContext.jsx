@@ -22,6 +22,8 @@ export const ServiceProvider = ({ children }) => {
   const [searchType, setSearchType] = useState("auto"); // Novo: tipo de pesquisa (auto, code, active, description, all)
   const [totalResults, setTotalResults] = useState(0);
 
+  const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api";
+
   // Função para ordenar os dados
   const changeSort = (field) => {
     // Se clicar no mesmo campo, inverte a direção
@@ -40,7 +42,7 @@ export const ServiceProvider = ({ children }) => {
       setLoading(true);
       
       // Construir URL de base
-      let apiUrl = `http://localhost/backend-php/api/get_services.php?page=${pageNum}&limit=500&order=${sortOrder}&orderBy=${sortField}`;
+      let apiUrl = `${API_BASE_URL}/get_services.php?page=${pageNum}&limit=150&order=${sortOrder}&orderBy=${sortField}`;
       
       // Adicionar parâmetro de pesquisa se existir
       if (searchTerm) {
@@ -90,11 +92,14 @@ export const ServiceProvider = ({ children }) => {
           Unidade_Fracionamento: item.UnidadeFracionamento,
           Fracionamento: item.Fracionamento,
           "Laboratório": item.Laboratorio,
-          Revisado: item.Revisado,
+          Revisado_Farma: item.Revisado_Farma,
+          
+          // Campos de dRegistro_anvisa
           "RegistroVisa": item.RegistroVisa,
           "Cód GGrem": item.Cod_Ggrem,
-          Princípio_Ativo: item.PrincipioAtivo,
-          Principio_Ativo: item.Principio_Ativo,
+          // Importante: Esclarecer a origem do PrincipioAtivo
+          "Princípio_Ativo_RegistroVisa": item.PrincipioAtivo, // Do dRegistro_anvisa
+          Principio_Ativo_RegistroVisa: item.PrincipioAtivo,   // Do dRegistro_anvisa
           Laboratorio: item.Lab,
           "CNPJ Lab": item.cnpj_lab,
           "Classe Terapêutica": item.Classe_Terapeutica,
@@ -106,6 +111,8 @@ export const ServiceProvider = ({ children }) => {
           ICMS0: item.Icms0,
           Lista: item.Lista,
           Status: item.Status,
+          
+          // Campos de dTabela
           Tabela: item.tabela,
           "Tabela Classe": item.tabela_classe,
           "Tabela tipo": item.tabela_tipo,
@@ -113,10 +120,22 @@ export const ServiceProvider = ({ children }) => {
           "Classificação tipo": item.classificacao_tipo,
           Finalidade: item.finalidade,
           Objetivo: item.objetivo,
+          
+          // Campos de dViaadministracao
           "Via_Administração": item.Via_administracao,
+          
+          // Campos de dClasseFarmaceutica
           "Classe_Farmaceutica": item.ClasseFarmaceutica,
+          
+          // Campos de dPrincipioativo - Verificar se estes campos estão vindo do backend
+          Princípio_Ativo: item.PrincipioAtivo,              // Do dPrincipioativo
+          PrincipioAtivo: item.PrincipioAtivo,               // Do dPrincipioativo
           "Princípio_Ativo_Classificado": item.PrincipioAtivoClassificado,
+          PrincipioAtivoClassificado: item.PrincipioAtivoClassificado,
           FaseuGF: item.FaseUGF,
+          FaseUGF: item.FaseUGF,
+          
+          // Outros campos
           Armazenamento: item.Armazenamento,
           Medicamento: item.tipo_medicamento,
           Descricao: item.UnidadeFracionamentoDescricao,
@@ -125,7 +144,19 @@ export const ServiceProvider = ({ children }) => {
           "ID Taxa": item.id_taxas,
           "tipo taxa": item.tipo_taxa,
           finalidade: item.TaxaFinalidade,
-          "Tempo infusão": item.tempo_infusao
+          "Tempo infusão": item.tempo_infusao,
+          
+          // IDs para relacionamentos
+          idPrincipioAtivo: item.idPrincipioAtivo,
+          idRegistroVisa: item.idRegistroVisa,
+          idViaAdministracao: item.idViaAdministracao,
+          idClasseFarmaceutica: item.idClasseFarmaceutica,
+          idArmazenamento: item.idArmazenamento,
+          idMedicamento: item.idMedicamento,
+          idUnidadeFracionamento: item.idUnidadeFracionamento,
+          idFatorConversao: item.idFatorConversao,
+          idTaxas: item.idTaxas,
+          idTabela: item.idTabela
         }));
 
         // Atualizar o total de resultados encontrados
@@ -169,7 +200,7 @@ export const ServiceProvider = ({ children }) => {
     
     try {
       // Construir URL de pesquisa
-      const apiUrl = `http://localhost/backend-php/api/get_services.php?page=1&limit=500&order=${sortOrder}&orderBy=${sortField}&search=${encodeURIComponent(term)}&searchType=${type}`;
+      const apiUrl = `${API_BASE_URL}/get_services.php?page=1&limit=150&order=${sortOrder}&orderBy=${sortField}&search=${encodeURIComponent(term)}&searchType=${type}`;
       
       const response = await fetch(apiUrl);
       
@@ -195,11 +226,14 @@ export const ServiceProvider = ({ children }) => {
         Unidade_Fracionamento: item.UnidadeFracionamento,
         Fracionamento: item.Fracionamento,
         "Laboratório": item.Laboratorio,
-        Revisado: item.Revisado,
+        Revisado_Farma: item.Revisado_Farma,
+        
+        // Campos de dRegistro_anvisa
         "RegistroVisa": item.RegistroVisa,
         "Cód GGrem": item.Cod_Ggrem,
-        Princípio_Ativo: item.PrincipioAtivo,
-        Principio_Ativo: item.Principio_Ativo,
+        // Importante: Esclarecer a origem do PrincipioAtivo
+        "Princípio_Ativo_RegistroVisa": item.PrincipioAtivo, // Do dRegistro_anvisa
+        Principio_Ativo_RegistroVisa: item.PrincipioAtivo,   // Do dRegistro_anvisa
         Laboratorio: item.Lab,
         "CNPJ Lab": item.cnpj_lab,
         "Classe Terapêutica": item.Classe_Terapeutica,
@@ -211,6 +245,8 @@ export const ServiceProvider = ({ children }) => {
         ICMS0: item.Icms0,
         Lista: item.Lista,
         Status: item.Status,
+        
+        // Campos de dTabela
         Tabela: item.tabela,
         "Tabela Classe": item.tabela_classe,
         "Tabela tipo": item.tabela_tipo,
@@ -218,10 +254,22 @@ export const ServiceProvider = ({ children }) => {
         "Classificação tipo": item.classificacao_tipo,
         Finalidade: item.finalidade,
         Objetivo: item.objetivo,
+        
+        // Campos de dViaadministracao
         "Via_Administração": item.Via_administracao,
+        
+        // Campos de dClasseFarmaceutica
         "Classe_Farmaceutica": item.ClasseFarmaceutica,
+        
+        // Campos de dPrincipioativo - Verificar se estes campos estão vindo do backend
+        Princípio_Ativo: item.PrincipioAtivo,              // Do dPrincipioativo
+        PrincipioAtivo: item.PrincipioAtivo,               // Do dPrincipioativo
         "Princípio_Ativo_Classificado": item.PrincipioAtivoClassificado,
+        PrincipioAtivoClassificado: item.PrincipioAtivoClassificado,
         FaseuGF: item.FaseUGF,
+        FaseUGF: item.FaseUGF,
+        
+        // Outros campos
         Armazenamento: item.Armazenamento,
         Medicamento: item.tipo_medicamento,
         Descricao: item.UnidadeFracionamentoDescricao,
@@ -230,7 +278,19 @@ export const ServiceProvider = ({ children }) => {
         "ID Taxa": item.id_taxas,
         "tipo taxa": item.tipo_taxa,
         finalidade: item.TaxaFinalidade,
-        "Tempo infusão": item.tempo_infusao
+        "Tempo infusão": item.tempo_infusao,
+        
+        // IDs para relacionamentos
+        idPrincipioAtivo: item.idPrincipioAtivo,
+        idRegistroVisa: item.idRegistroVisa,
+        idViaAdministracao: item.idViaAdministracao,
+        idClasseFarmaceutica: item.idClasseFarmaceutica,
+        idArmazenamento: item.idArmazenamento,
+        idMedicamento: item.idMedicamento,
+        idUnidadeFracionamento: item.idUnidadeFracionamento,
+        idFatorConversao: item.idFatorConversao,
+        idTaxas: item.idTaxas,
+        idTabela: item.idTabela
       }));
       
       // Atualizar dados e estado
@@ -266,7 +326,7 @@ export const ServiceProvider = ({ children }) => {
     
     try {
       // Construir URL para carregar dados normais
-      const apiUrl = `http://localhost/backend-php/api/get_services.php?page=1&limit=500&order=${sortOrder}&orderBy=${sortField}`;
+      const apiUrl = `${API_BASE_URL}/get_services.php?page=1&limit=150&order=${sortOrder}&orderBy=${sortField}`;
       
       const response = await fetch(apiUrl);
       
@@ -292,11 +352,14 @@ export const ServiceProvider = ({ children }) => {
         Unidade_Fracionamento: item.UnidadeFracionamento,
         Fracionamento: item.Fracionamento,
         "Laboratório": item.Laboratorio,
-        Revisado: item.Revisado,
+        Revisado_Farma: item.Revisado_Farma,
+        
+        // Campos de dRegistro_anvisa
         "RegistroVisa": item.RegistroVisa,
         "Cód GGrem": item.Cod_Ggrem,
-        Princípio_Ativo: item.PrincipioAtivo,
-        Principio_Ativo: item.Principio_Ativo,
+        // Importante: Esclarecer a origem do PrincipioAtivo
+        "Princípio_Ativo_RegistroVisa": item.PrincipioAtivo, // Do dRegistro_anvisa
+        Principio_Ativo_RegistroVisa: item.PrincipioAtivo,   // Do dRegistro_anvisa
         Laboratorio: item.Lab,
         "CNPJ Lab": item.cnpj_lab,
         "Classe Terapêutica": item.Classe_Terapeutica,
@@ -308,6 +371,8 @@ export const ServiceProvider = ({ children }) => {
         ICMS0: item.Icms0,
         Lista: item.Lista,
         Status: item.Status,
+        
+        // Campos de dTabela
         Tabela: item.tabela,
         "Tabela Classe": item.tabela_classe,
         "Tabela tipo": item.tabela_tipo,
@@ -315,10 +380,22 @@ export const ServiceProvider = ({ children }) => {
         "Classificação tipo": item.classificacao_tipo,
         Finalidade: item.finalidade,
         Objetivo: item.objetivo,
+        
+        // Campos de dViaadministracao
         "Via_Administração": item.Via_administracao,
+        
+        // Campos de dClasseFarmaceutica
         "Classe_Farmaceutica": item.ClasseFarmaceutica,
+        
+        // Campos de dPrincipioativo - Verificar se estes campos estão vindo do backend
+        Princípio_Ativo: item.PrincipioAtivo,              // Do dPrincipioativo
+        PrincipioAtivo: item.PrincipioAtivo,               // Do dPrincipioativo
         "Princípio_Ativo_Classificado": item.PrincipioAtivoClassificado,
+        PrincipioAtivoClassificado: item.PrincipioAtivoClassificado,
         FaseuGF: item.FaseUGF,
+        FaseUGF: item.FaseUGF,
+        
+        // Outros campos
         Armazenamento: item.Armazenamento,
         Medicamento: item.tipo_medicamento,
         Descricao: item.UnidadeFracionamentoDescricao,
@@ -327,7 +404,19 @@ export const ServiceProvider = ({ children }) => {
         "ID Taxa": item.id_taxas,
         "tipo taxa": item.tipo_taxa,
         finalidade: item.TaxaFinalidade,
-        "Tempo infusão": item.tempo_infusao
+        "Tempo infusão": item.tempo_infusao,
+        
+        // IDs para relacionamentos
+        idPrincipioAtivo: item.idPrincipioAtivo,
+        idRegistroVisa: item.idRegistroVisa,
+        idViaAdministracao: item.idViaAdministracao,
+        idClasseFarmaceutica: item.idClasseFarmaceutica,
+        idArmazenamento: item.idArmazenamento,
+        idMedicamento: item.idMedicamento,
+        idUnidadeFracionamento: item.idUnidadeFracionamento,
+        idFatorConversao: item.idFatorConversao,
+        idTaxas: item.idTaxas,
+        idTabela: item.idTabela
       }));
       
       // Atualizar dados
@@ -409,7 +498,7 @@ export const ServiceProvider = ({ children }) => {
       console.log("Dados limpos para envio:", cleanedData);
       
       // Enviar dados limpos usando fetch em vez de api.post
-      const response = await fetch('http://localhost/backend-php/api/insert_service.php', {
+      const response = await fetch(`${API_BASE_URL}/insert_service.php`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -530,7 +619,7 @@ export const ServiceProvider = ({ children }) => {
     formatted.Cod = formatted.Cod || '';
     formatted.Codigo_TUSS = formatted.Codigo_TUSS || '';
     formatted.Descricao_Apresentacao = formatted.Descricao_Apresentacao || '';
-    formatted.Revisado = formatted.Revisado || 0;
+    formatted.Revisado_Farma = formatted.Revisado_Farma || 0;
     
     // Limpar campos desnecessários ou temporários
     const fieldsToDelete = [

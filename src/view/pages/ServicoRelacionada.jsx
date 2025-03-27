@@ -39,6 +39,8 @@ function ServicoRelacionadaContent() {
   const [isAdding, setIsAdding] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
   const [updateCounter, setUpdateCounter] = useState(0);
+
+  const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api";
   //  const [searchDebounceTimeout, setSearchDebounceTimeout] = useState(null);
 
   // Referência para o componente DataTable para controlar expansão de colunas
@@ -131,7 +133,7 @@ function ServicoRelacionadaContent() {
       Concentracao: '',
       Fracionamento: '',
       Laboratorio: '',
-      Revisado: 0,
+      Revisado_Farma: 0,
       
       // Campos de RegistroVisa
       RegistroVisa: '',
@@ -302,7 +304,7 @@ function ServicoRelacionadaContent() {
     try {
       setLocalLoading(true);
       
-      const response = await fetch(`http://localhost/backend-php/api/delete_service.php?id=${selectedRowId}`, {
+      const response = await fetch(`${API_BASE_URL}/delete_service.php?id=${selectedRowId}`, {
         method: 'DELETE',
       });
 
@@ -385,7 +387,7 @@ function ServicoRelacionadaContent() {
       return !key.startsWith('id') && 
              typeof value === 'string' && 
              value.trim() !== '' && 
-             key !== 'Revisado';
+             key !== 'Revisado_Farma';
     });
     
     setIsAdding(false);
@@ -562,32 +564,45 @@ function ServicoRelacionadaContent() {
     // Dependendo do campo, atualize diferentes campos relacionados
     switch(field) {
       case 'PrincipioAtivo':
-        if (value) {
-          // Encontrar o objeto do princípio ativo selecionado
-          const selectedPrincipio = dropdownOptions.principioAtivo.find(
-            p => String(p.idPrincipioAtivo) === String(value)
-          );
+      if (value) {
+        // Encontrar o objeto do princípio ativo selecionado
+        const selectedPrincipio = dropdownOptions.principioAtivo.find(
+          p => String(p.idPrincipioAtivo) === String(value)
+        );
+        
+        if (selectedPrincipio) {
+          console.log("Princípio ativo encontrado:", selectedPrincipio);
           
-          if (selectedPrincipio) {
-            console.log("Princípio ativo encontrado:", selectedPrincipio);
-            
-            // Atualizar ID
-            updatedData.idPrincipioAtivo = selectedId;
-            
-            // Preencher campos relacionados
-            updatedData.PrincipioAtivo = selectedPrincipio.PrincipioAtivo;
-            updatedData.Principio_Ativo = selectedPrincipio.PrincipioAtivo;
-            updatedData.PrincipioAtivoClassificado = selectedPrincipio.PrincipioAtivoClassificado || selectedPrincipio.PrincipioAtivo;
-            updatedData.FaseUGF = selectedPrincipio.FaseUGF || '';
-          }
-        } else {
-          // Limpar campos se não houver seleção
-          updatedData.idPrincipioAtivo = null;
-          updatedData.PrincipioAtivo = '';
-          updatedData.Principio_Ativo = '';
-          updatedData.PrincipioAtivoClassificado = '';
-          updatedData.FaseUGF = '';
+          // Atualizar ID
+          updatedData.idPrincipioAtivo = selectedId;
+          
+          // Preencher campos relacionados - Agora com nomes corretos
+          updatedData.PrincipioAtivo = selectedPrincipio.PrincipioAtivo;
+          updatedData.Principio_Ativo = selectedPrincipio.PrincipioAtivo;
+          updatedData.PrincipioAtivoClassificado = selectedPrincipio.PrincipioAtivoClassificado || selectedPrincipio.PrincipioAtivo;
+          updatedData.Princípio_Ativo_Classificado = selectedPrincipio.PrincipioAtivoClassificado || selectedPrincipio.PrincipioAtivo;
+          updatedData.FaseUGF = selectedPrincipio.FaseUGF || '';
+          updatedData.FaseuGF = selectedPrincipio.FaseUGF || '';
+          
+          // Log detalhado para debugging
+          console.group("Campos de PrincipioAtivo atualizados:");
+          console.log("  idPrincipioAtivo:", updatedData.idPrincipioAtivo);
+          console.log("  PrincipioAtivo:", updatedData.PrincipioAtivo);
+          console.log("  Principio_Ativo:", updatedData.Principio_Ativo);
+          console.log("  PrincipioAtivoClassificado:", updatedData.PrincipioAtivoClassificado);
+          console.log("  FaseUGF:", updatedData.FaseUGF);
+          console.groupEnd();
         }
+      } else {
+        // Limpar campos se não houver seleção
+        updatedData.idPrincipioAtivo = null;
+        updatedData.PrincipioAtivo = '';
+        updatedData.Principio_Ativo = '';
+        updatedData.PrincipioAtivoClassificado = '';
+        updatedData.Princípio_Ativo_Classificado = '';
+        updatedData.FaseUGF = '';
+        updatedData.FaseuGF = '';
+      }
         break;
         
         case 'UnidadeFracionamento':
@@ -1133,7 +1148,7 @@ function ServicoRelacionadaContent() {
       
       console.log("Dados limpos a serem enviados:", cleanedData);
 
-      const response = await fetch(`http://localhost/backend-php/api/update_service.php`, {
+      const response = await fetch(`${API_BASE_URL}/update_service.php`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1442,11 +1457,7 @@ function ServicoRelacionadaContent() {
 
               {loading ? (
                 <div className="flex justify-center items-center h-full">
-                  <img
-                    src="../src/assets/loadingcorreto-semfundo.gif"
-                    alt="Carregando..."
-                    className="w-12 h-12"
-                  />
+                  <img src="/images/loadingcorreto-semfundo.gif" alt="Carregando..." className="w-12 h-12" />
                 </div>
               ) : error ? (
                 <div className="flex flex-col items-center justify-center h-64 gap-4">

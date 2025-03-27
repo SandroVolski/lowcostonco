@@ -87,7 +87,7 @@ function Login() {
       >
         <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 space-y-8 transform transition-all duration-300 hover:scale-[1.02]">
           <div className="flex flex-col items-center space-y-2">
-          <img src="../../src/assets/LCOLogoUnitarioVetor.png" alt="Logo" className="w-28 h-18 text-[#c6d651] animate-pulse" />
+          <img src="/images/LCOLogoUnitarioVetor.png" alt="Logo" className="w-28 h-18 text-[#c6d651] animate-pulse" />
             <h1 className="text-3xl font-bold text-center text-[#575654]">
               Entrar no
             </h1>

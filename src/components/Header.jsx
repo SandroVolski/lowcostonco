@@ -34,11 +34,7 @@ export function Header() {
             onClick={() => setIsUploadOpen(true)}
             className="avatar-button"
           >
-            <img
-              src="../src/assets/avatargif.gif"
-              alt="User avatar"
-              className="avatar-img"
-            />
+            <img src="/images/avatargif.gif" alt="User avatar" className="avatar-img" />
           </button>
         </div>
       </div>

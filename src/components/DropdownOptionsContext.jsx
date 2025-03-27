@@ -7,6 +7,9 @@ const DropdownOptionsContext = createContext();
 // Hook personalizado para facilitar o uso do contexto
 export const useDropdownOptions = () => useContext(DropdownOptionsContext);
 
+
+const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api";
+
 // Define dados estáticos para desenvolvimento enquanto as APIs não estão prontas
 const staticDropdownOptions = {
   viaAdministracao: [
@@ -282,7 +285,7 @@ const staticDropdownOptions = {
   
         // Via Administração
         const viaResult = await fetchDataSafely(
-          'http://localhost/backend-php/api/get_via_administracao.php',
+          `${API_BASE_URL}/get_via_administracao.php`,
           processedStaticOptions.viaAdministracao
         );
         if (viaResult.success) {
@@ -292,7 +295,7 @@ const staticDropdownOptions = {
         
         // Classe Farmacêutica
         const classeResult = await fetchDataSafely(
-          'http://localhost/backend-php/api/get_classe_farmaceutica.php',
+          `${API_BASE_URL}/get_classe_farmaceutica.php`,
           processedStaticOptions.classeFarmaceutica
         );
         if (classeResult.success) {
@@ -302,7 +305,7 @@ const staticDropdownOptions = {
         
         // Princípio Ativo
         const principioResult = await fetchDataSafely(
-          'http://localhost/backend-php/api/get_principio_ativo.php',
+          `${API_BASE_URL}/get_principio_ativo.php`,
           processedStaticOptions.principioAtivo
         );
         if (principioResult.success) {
@@ -312,7 +315,7 @@ const staticDropdownOptions = {
         
         // Armazenamento
         const armazenamentoResult = await fetchDataSafely(
-          'http://localhost/backend-php/api/get_armazenamento.php',
+          `${API_BASE_URL}/get_armazenamento.php`,
           processedStaticOptions.armazenamento
         );
         if (armazenamentoResult.success) {
@@ -322,7 +325,7 @@ const staticDropdownOptions = {
         
         // Tipo Medicamento
         const medicamentoResult = await fetchDataSafely(
-          'http://localhost/backend-php/api/get_tipo_medicamento.php',
+          `${API_BASE_URL}/get_tipo_medicamento.php`,
           processedStaticOptions.tipoMedicamento
         );
         if (medicamentoResult.success) {
@@ -332,7 +335,7 @@ const staticDropdownOptions = {
         
         // Unidade Fracionamento
         const unidadeResult = await fetchDataSafely(
-          'http://localhost/backend-php/api/get_unidade_fracionamento.php',
+          `${API_BASE_URL}/get_unidade_fracionamento.php`,
           processedStaticOptions.unidadeFracionamento
         );
         if (unidadeResult.success) {
@@ -342,7 +345,7 @@ const staticDropdownOptions = {
         
         // Fator Conversão
         const fatorResult = await fetchDataSafely(
-          'http://localhost/backend-php/api/get_fator_conversao.php',
+          `${API_BASE_URL}/get_fator_conversao.php`,
           processedStaticOptions.fatorConversao
         );
         if (fatorResult.success) {
@@ -352,7 +355,7 @@ const staticDropdownOptions = {
         
         // Taxas
         const taxasResult = await fetchDataSafely(
-          'http://localhost/backend-php/api/get_taxas.php',
+          `${API_BASE_URL}/get_taxas.php`,
           processedStaticOptions.taxas
         );
         if (taxasResult.success) {
@@ -361,7 +364,7 @@ const staticDropdownOptions = {
         }
 
         const tabelaResult = await fetchDataSafely(
-            'http://localhost/backend-php/api/get_tabela.php',
+            `${API_BASE_URL}/get_tabela.php`,
             processedStaticOptions.tabela
           );
           if (tabelaResult.success) {

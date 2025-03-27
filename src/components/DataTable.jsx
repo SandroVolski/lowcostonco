@@ -289,9 +289,9 @@ export const DataTable = forwardRef(({
   // Mapeamento das colunas expansíveis
   const expandableHeaders = {
     "Registro Visa": [
-      "RegistroVisa", "Cód GGrem", "Principio_Ativo", "Laboratório", "CNPJ Lab",
+      "RegistroVisa", "Cód GGrem", "Principio_Ativo_RegistroVisa", "Laboratório", "CNPJ Lab",
       "Classe Terapêutica", "Tipo do Produto", "Regime Preço",
-      "Restrição Hosp", "Cap  ", "Confaz87", "ICMS0", "Lista", "Status"
+      "Restrição Hosp", "Cap", "Confaz87", "ICMS0", "Lista", "Status"
     ],
     " Tabela ": ["Tabela", "Tabela Classe", "Tabela tipo", "Classe JaraguaSul", "Classificação tipo", "Finalidade", "Objetivo"],
     "Princípio Ativo": ["Princípio_Ativo", "Princípio_Ativo_Classificado", "FaseuGF"],
@@ -313,7 +313,7 @@ export const DataTable = forwardRef(({
     'Concentracao': 'Concentracao',
     'Fracionamento': 'Fracionamento',
     'Laboratorio': 'Laboratorio',
-    'Revisado': 'Revisado',
+    'Revisado_Farma': 'Revisado_Farma',
     'Via_Administração': 'Via_administracao',
     'Classe_Farmaceutica': 'ClasseFarmaceutica',
     'Medicamento': 'tipo_medicamento',
@@ -327,7 +327,7 @@ export const DataTable = forwardRef(({
     "Registro Visa": {
       "RegistroVisa": { field: "RegistroVisa", placeholder: "", required: true },
       "Cód GGrem": { field: "Cod_Ggrem", placeholder: "" },
-      "Principio_Ativo": { field: "Principio_Ativo", placeholder: "" },
+      "Principio_Ativo_RegistroVisa": { field: "PrincipioAtivo", placeholder: "" },
       "Laboratório": { field: "Lab", placeholder: "" },
       "CNPJ Lab": { field: "cnpj_lab", placeholder: "" },
       "Classe Terapêutica": { field: "Classe_Terapeutica", placeholder: "" },
@@ -350,7 +350,7 @@ export const DataTable = forwardRef(({
       "Objetivo": { field: "objetivo", placeholder: "" }
     },
     "Princípio Ativo": {
-      "Princípio_Ativo": { field: "Principio_Ativo", placeholder: "" },
+      "Princípio_Ativo": { field: "PrincipioAtivo", placeholder: "" },
       "Princípio_Ativo_Classificado": { field: "PrincipioAtivoClassificado", placeholder: "" },
       "FaseuGF": { field: "FaseUGF", placeholder: "" }
     },
@@ -519,7 +519,7 @@ export const DataTable = forwardRef(({
     "ID", "Cod", "Código TUSS", "Registro Visa", " Tabela ", "Via_Administração",
     "Classe_Farmaceutica", "Princípio Ativo", "Armazenamento", "Descricao_Apresentacao",
     "Descricao_Resumida", "Descricao_Comercial", "Medicamento", "Unidade Fracionamento",
-    "Fator_Conversão", "Concentracao", "Fracionamento", "Laboratorio", "Taxas", "Revisado"
+    "Fator_Conversão", "Concentracao", "Fracionamento", "Laboratorio", "Taxas", "Revisado_Farma"
   ];
 
   // Verificador de campos preenchidos para mostrar preview
@@ -942,8 +942,8 @@ export const DataTable = forwardRef(({
         return renderEditableAddCell(header, 'Fracionamento');
       case "Laboratorio":
         return renderEditableAddCell(header, 'Laboratorio');
-      case "Revisado":
-        return renderEditableAddCell(header, 'Revisado');
+      case "Revisado_Farma":
+        return renderEditableAddCell(header, 'Revisado_Farma');
       default:
         // Para outros campos
         const fieldMapping = {
