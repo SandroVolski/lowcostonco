@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Loader2, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Loader2, CheckCircle, Clock } from 'lucide-react';
 import PageTransition from "../../components/PageTransition";
 import { useNavigate } from 'react-router-dom';
 import { useServiceData } from '../../components/ServiceContext'; 
@@ -17,7 +17,14 @@ function Login() {
   // Usando o contexto de serviços
   const { loadServiceData, initialized } = useServiceData();
 
-  const { login } = useAuth();
+  const { login, authenticated } = useAuth();
+
+  // Verificar se já está autenticado ao carregar
+  useEffect(() => {
+    if (authenticated) {
+      navigate('/Home');
+    }
+  }, [authenticated, navigate]);
 
   // Lista de credenciais válidas com nome de exibição
   const VALID_CREDENTIALS = [
@@ -110,6 +117,20 @@ function Login() {
               }} className="animate-fade-in">
                 <CheckCircle style={{ color: "#c6d651", width: "1.5rem", height: "1.5rem" }} />
                 <span style={{ color: "#7a8431", fontWeight: "500" }}>Login realizado com sucesso!</span>
+              </div>
+              
+              <div style={{ 
+                backgroundColor: "rgba(133, 145, 55, 0.1)", 
+                padding: "1rem", 
+                borderRadius: "0.5rem", 
+                border: "1px solid rgba(133, 145, 55, 0.3)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem"
+              }} className="animate-fade-in">
+                <Clock style={{ color: "#859137", width: "1.5rem", height: "1.5rem" }} />
+                <span style={{ color: "#859137", fontWeight: "500" }}>Sessão válida por 1 hora</span>
               </div>
                           
               {dataLoading && (

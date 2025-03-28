@@ -4,14 +4,14 @@ import React, { createContext, useState, useContext, useEffect, useCallback } fr
 const ServiceContext = createContext();
 import CacheService from "../services/CacheService";
 
-// Tempo de expiração do cache em ms (2 horas)
-const CACHE_EXPIRY = 2 * 60 * 60 * 1000;
+// Tempo de expiração do cache em ms (30 minutos - reduzido para evitar dados obsoletos)
+const CACHE_EXPIRY = 30 * 60 * 1000;
 
 // Tempo mínimo entre atualizações automáticas (em milissegundos)
-const AUTO_REFRESH_COOLDOWN = 10 * 60 * 1000; // 10 minutos
+const AUTO_REFRESH_COOLDOWN = 3 * 60 * 1000; // 3 minutos (reduzido para detectar mudanças mais rápido)
 
 // Tempo máximo que o cache deve ser considerado válido sem verificação (em milissegundos)
-const CACHE_MAX_AGE_WITHOUT_VALIDATION = 60 * 60 * 1000; // 1 hora
+const CACHE_MAX_AGE_WITHOUT_VALIDATION = 10 * 60 * 1000; // 10 minutos (reduzido)
 
 // Hook personalizado para facilitar o uso do contexto
 export const useServiceData = () => useContext(ServiceContext);
@@ -24,7 +24,7 @@ export const ServiceProvider = ({ children }) => {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
   const [sortOrder, setSortOrder] = useState("asc");
-  const [sortField, setSortField] = useState("id"); // Novo estado para o campo de ordenação
+  const [sortField, setSortField] = useState("id"); // Estado para o campo de ordenação
   const [initialized, setInitialized] = useState(false);
   
   // Estados para pesquisa
@@ -38,6 +38,7 @@ export const ServiceProvider = ({ children }) => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [dataSource, setDataSource] = useState(''); // 'cache' ou 'server'
   const [lastRefreshTime, setLastRefreshTime] = useState(0);
+  const [needsRevalidation, setNeedsRevalidation] = useState(false);
   
   // Política de atualização automática
   const [autoRefreshPolicy, setAutoRefreshPolicy] = useState({
@@ -65,8 +66,8 @@ export const ServiceProvider = ({ children }) => {
 
   // Função para limpar o cache manualmente
   const clearCache = () => {
-    CacheService.clearAllCache();
-    console.log("Cache limpo manualmente");
+    CacheService.clearServiceDataOnly();
+    console.log("Cache de serviços limpo manualmente");
   };
 
   // Função para carregar todos os dados (usado no gerenciador de cache)
@@ -91,6 +92,12 @@ export const ServiceProvider = ({ children }) => {
     // Verificar se o cache é muito antigo e precisa ser validado
     if (timeSinceLastRefresh > autoRefreshPolicy.maxAge) {
       console.log(`Cache muito antigo (${Math.round(timeSinceLastRefresh / 60000)}min), forçando validação`);
+      return true;
+    }
+    
+    // Verificar se temos uma flag de revalidação necessária
+    if (needsRevalidation) {
+      console.log("Revalidação solicitada, atualizando dados");
       return true;
     }
     
@@ -120,7 +127,7 @@ export const ServiceProvider = ({ children }) => {
     return () => {
       window.removeEventListener('focus', handleFocus);
     };
-  }, [lastRefreshTime, autoRefreshPolicy]);
+  }, [lastRefreshTime, autoRefreshPolicy, needsRevalidation]);
 
   // Função para ordenar os dados
   const changeSort = (field) => {
@@ -149,8 +156,11 @@ export const ServiceProvider = ({ children }) => {
       // Gerar uma chave única para este conjunto específico de parâmetros
       const cacheKey = generateCacheKey(requestParams);
       
+      // NOVA VERIFICAÇÃO: Se o cache foi marcado para revalidação, forçamos uma nova requisição
+      const forceRevalidation = needsRevalidation;
+      
       // Verificar se temos dados em cache e se o cache está habilitado
-      if (isCacheEnabled && !searchTerm) {
+      if (isCacheEnabled && !searchTerm && !forceRevalidation) {
         // Verificar se temos dados em cache para esta requisição específica
         const cachedData = CacheService.getCache(cacheKey);
         
@@ -159,6 +169,9 @@ export const ServiceProvider = ({ children }) => {
           
           // Usar os dados do cache
           const result = cachedData.data;
+          
+          // Verificar se o cache está marcado como "obsoleto" (stale)
+          const isStale = cachedData.isStale;
           
           // Mapear e processar os dados como você fazia antes
           const mappedData = mapApiDataToServiceData(result);
@@ -181,6 +194,19 @@ export const ServiceProvider = ({ children }) => {
             window.dispatchEvent(event);
           }
           
+          // NOVA LÓGICA: Se o cache está marcado como obsoleto, disparar uma atualização em segundo plano
+          if (isStale) {
+            console.log("Cache está obsoleto, atualizando em segundo plano...");
+            setTimeout(() => {
+              backgroundRefresh(requestParams);
+            }, 100);
+          }
+          
+          // Limpar flag de necessidade de revalidação
+          if (needsRevalidation) {
+            setNeedsRevalidation(false);
+          }
+          
           // Retornar para encerrar a função aqui
           return;
         }
@@ -192,7 +218,7 @@ export const ServiceProvider = ({ children }) => {
       }
       
       // Construir URL de base
-      let apiUrl = `${API_BASE_URL}/get_services.php?page=${pageNum}&limit=150&order=${sortOrder}&orderBy=${sortField}`;
+      let apiUrl = `${API_BASE_URL}/get_services.php?page=${pageNum}&limit=150&order=${sortOrder}&orderBy=${sortField}&_t=${Date.now()}`;
       
       // Adicionar parâmetro de pesquisa se existir
       if (searchTerm) {
@@ -208,6 +234,9 @@ export const ServiceProvider = ({ children }) => {
         method: 'GET',
         headers: {
           'Accept': 'application/json'
+          // Removidos os headers problemáticos:
+          // 'Cache-Control': 'no-cache',
+          // 'Pragma': 'no-cache'
         },
         mode: 'cors'
       });
@@ -256,6 +285,11 @@ export const ServiceProvider = ({ children }) => {
         // Atualizar o timestamp da última atualização
         setLastRefreshTime(Date.now());
         
+        // Limpar flag de necessidade de revalidação
+        if (needsRevalidation) {
+          setNeedsRevalidation(false);
+        }
+        
         // Disparar evento personalizado para indicar fonte dos dados
         if (typeof window.dispatchEvent === 'function') {
           const event = new CustomEvent('data-source-changed', { detail: { source: 'server' } });
@@ -269,6 +303,70 @@ export const ServiceProvider = ({ children }) => {
       if (showLoading) {
         setLoading(false);
       }
+    }
+  };
+
+  // Função para atualização em segundo plano
+  const backgroundRefresh = async (requestParams) => {
+    try {
+      // Construir URL de base
+      let apiUrl = `${API_BASE_URL}/get_services.php?page=${requestParams.page}&limit=${requestParams.limit}&order=${requestParams.order}&orderBy=${requestParams.orderBy}&_t=${Date.now()}`;
+
+      if (requestParams.search) {
+        apiUrl += `&search=${encodeURIComponent(requestParams.search)}&searchType=${requestParams.searchType}`;
+      }
+      
+      console.log("Atualizando dados em segundo plano:", apiUrl);
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+          // Removidos os headers problemáticos
+        },
+        mode: 'cors'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erro ao atualizar dados em segundo plano: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (!Array.isArray(result)) {
+        throw new Error("Os dados recebidos não são válidos");
+      }
+      
+      // Gerar chave de cache para esta requisição
+      const cacheKey = generateCacheKey(requestParams);
+      
+      // Atualizar o cache com os novos dados
+      if (isCacheEnabled) {
+        CacheService.setCache(cacheKey, result, { requestParams }, CACHE_EXPIRY);
+      }
+      
+      // Mapear dados
+      const mappedData = mapApiDataToServiceData(result);
+      
+      // Atualizar dados na interface (se não for uma pesquisa diferente)
+      if (
+        requestParams.search === searchTerm && 
+        requestParams.searchType === searchType &&
+        requestParams.orderBy === sortField &&
+        requestParams.order === sortOrder
+      ) {
+        setServiceData(mappedData);
+        setTotalResults(mappedData.length);
+      }
+      
+      // Atualizar timestamp
+      setLastRefreshTime(Date.now());
+      
+      console.log("Atualização em segundo plano concluída com sucesso");
+      return true;
+    } catch (error) {
+      console.error("Erro na atualização em segundo plano:", error);
+      return false;
     }
   };
 
@@ -390,8 +488,11 @@ export const ServiceProvider = ({ children }) => {
       // Gerar uma chave única para esta pesquisa
       const cacheKey = generateCacheKey(requestParams);
       
+      // NOVA VERIFICAÇÃO: Se o cache foi marcado para revalidação, forçamos uma nova requisição
+      const forceRevalidation = needsRevalidation;
+      
       // Verificar se temos esta pesquisa em cache
-      if (isCacheEnabled) {
+      if (isCacheEnabled && !forceRevalidation) {
         const cachedSearch = CacheService.getCache(cacheKey);
         
         if (cachedSearch) {
@@ -410,15 +511,29 @@ export const ServiceProvider = ({ children }) => {
           // Definir a fonte de dados como cache
           setDataSource('cache');
           
+          // Verificar se o cache está marcado como "obsoleto" (stale)
+          if (cachedSearch.isStale) {
+            console.log("Resultados de pesquisa em cache estão obsoletos, atualizando em segundo plano...");
+            setTimeout(() => {
+              backgroundRefresh(requestParams);
+            }, 100);
+          }
+          
           setLoading(false);
           return;
         }
       }
       
       // Se não tiver cache, continua com a requisição
-      const apiUrl = `${API_BASE_URL}/get_services.php?page=1&limit=150&order=${sortOrder}&orderBy=${sortField}&search=${encodeURIComponent(term)}&searchType=${type}`;
-      
-      const response = await fetch(apiUrl);
+      const apiUrl = `${API_BASE_URL}/get_services.php?page=1&limit=150&order=${sortOrder}&orderBy=${sortField}&search=${encodeURIComponent(term)}&searchType=${type}&_t=${Date.now()}`;
+
+      const response = await fetch(apiUrl, {
+        // Sem headers extras além dos padrão
+        // headers: {
+        //   'Cache-Control': 'no-cache',
+        //   'Pragma': 'no-cache'
+        // }
+      });
       
       if (!response.ok) {
         throw new Error(`Erro ao carregar os dados: ${response.status}`);
@@ -443,6 +558,11 @@ export const ServiceProvider = ({ children }) => {
       
       // Atualizar o timestamp da última atualização
       setLastRefreshTime(Date.now());
+      
+      // Limpar flag de necessidade de revalidação
+      if (needsRevalidation) {
+        setNeedsRevalidation(false);
+      }
       
       // Armazenar a pesquisa em cache se o cache estiver ativado
       if (isCacheEnabled) {
@@ -504,6 +624,14 @@ export const ServiceProvider = ({ children }) => {
           // Definir a fonte de dados como cache
           setDataSource('cache');
           
+          // Verificar se o cache está marcado como "obsoleto" (stale)
+          if (cachedData.isStale) {
+            console.log("Cache está obsoleto, atualizando em segundo plano...");
+            setTimeout(() => {
+              backgroundRefresh(requestParams);
+            }, 100);
+          }
+          
           setLoading(false);
           return;
         }
@@ -512,7 +640,12 @@ export const ServiceProvider = ({ children }) => {
       // Se não tiver cache, fazer requisição normal
       const apiUrl = `${API_BASE_URL}/get_services.php?page=1&limit=150&order=${sortOrder}&orderBy=${sortField}`;
       
-      const response = await fetch(apiUrl);
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       
       if (!response.ok) {
         throw new Error(`Erro ao carregar os dados: ${response.status}`);
@@ -535,6 +668,11 @@ export const ServiceProvider = ({ children }) => {
       
       // Atualizar o timestamp da última atualização
       setLastRefreshTime(Date.now());
+      
+      // Limpar flag de necessidade de revalidação
+      if (needsRevalidation) {
+        setNeedsRevalidation(false);
+      }
       
       // Armazenar em cache se ativado
       if (isCacheEnabled) {
@@ -640,17 +778,10 @@ export const ServiceProvider = ({ children }) => {
       if (responseData && responseData.id) {
         console.log("Serviço criado com sucesso, ID:", responseData.id);
         
-        // IMPORTANTE: Invalidar o cache existente após adição
-        if (isCacheEnabled && autoRefreshPolicy.refreshAfterCRUD) {
-          // Método 1: Abordagem simples - invalidar todo o cache para operações de adição
-          clearCache();
-          
-          // Método 2 (Opcional): Adicionar o item ao cache
-          // const newService = { ...cleanedData, id: responseData.id };
-          // CacheService.addServiceToCache(newService);
-          
-          console.log("Cache invalidado após adição do serviço");
-        }
+        // IMPORTANTE: Marcar cache para revalidação após adição
+        // Em vez de invalidar completamente, marcamos para atualização
+        CacheService.updateWriteTimestamp(); // Atualiza o timestamp de escrita
+        setNeedsRevalidation(true);  // Marca para revalidação
         
         return responseData.id;
       } else {
@@ -802,16 +933,17 @@ export const ServiceProvider = ({ children }) => {
         )
       );
       
-      // IMPORTANTE: Invalidar o cache existente após atualização
-      if (isCacheEnabled && autoRefreshPolicy.refreshAfterCRUD) {
-        // Método 1: Abordagem simples - invalidar todo o cache para operações de atualização
-        clearCache();
+      // NOVA LÓGICA: Atualizar seletivamente no cache
+      if (isCacheEnabled) {
+        // Atualizar no cache usando a função melhorada
+        CacheService.updateServiceInAllCaches(updatedService);
         
-        // Método 2 (Opcional, mais avançado): Atualizar o item diretamente no cache
-        // Isso requer mais implementação, mas é mais eficiente
-        // CacheService.updateServiceInCache(updatedService);
+        // Marcar cache como potencialmente desatualizado
+        CacheService.updateWriteTimestamp();
         
-        console.log("Cache invalidado após atualização do serviço");
+        // Não precisamos mais de revalidação total - temos atualização seletiva
+        // Mas ainda atualizamos o timestamp para outras instâncias saberem
+        console.log("Serviço atualizado no cache");
       }
       
       return true;
@@ -830,14 +962,14 @@ export const ServiceProvider = ({ children }) => {
       setServiceData(prev => prev.filter(item => item.id !== serviceId));
       
       // IMPORTANTE: Invalidar o cache existente após exclusão
-      if (isCacheEnabled && autoRefreshPolicy.refreshAfterCRUD) {
-        // Método 1: Abordagem simples - invalidar todo o cache para operações de exclusão
-        clearCache();
+      if (isCacheEnabled) {
+        // Marcar todos os caches como obsoletos
+        CacheService.updateWriteTimestamp();
         
-        // Método 2 (Opcional): Remover o item específico do cache
-        // CacheService.deleteServiceFromCache(serviceId);
+        // Marcar para revalidação na próxima oportunidade
+        setNeedsRevalidation(true);
         
-        console.log("Cache invalidado após exclusão do serviço");
+        console.log("Cache marcado como obsoleto após exclusão do serviço");
       }
       
       return true;
@@ -845,6 +977,12 @@ export const ServiceProvider = ({ children }) => {
       console.error("Erro ao excluir serviço:", error);
       return false;
     }
+  };
+
+  // Marcar o cache para revalidação forçada
+  const forceRevalidation = () => {
+    setNeedsRevalidation(true);
+    console.log("Cache marcado para revalidação forçada");
   };
 
   // Adicione esta função para alterar a política de atualização automática
@@ -878,6 +1016,8 @@ export const ServiceProvider = ({ children }) => {
     totalRecords,
     reloadAllData,
     dataSource,
+    forceRevalidation,
+    needsRevalidation,
     // Política de atualização automática
     autoRefreshPolicy,
     updateAutoRefreshPolicy,

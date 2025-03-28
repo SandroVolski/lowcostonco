@@ -6,6 +6,7 @@ import PageTransition from "../../components/PageTransition";
 import { useServiceData } from '../../components/ServiceContext'; // Importe o contexto
 import { DropdownOptionsProvider, useDropdownOptions } from '../../components/DropdownOptionsContext';
 import CacheControl from '../../components/CacheControl'; // Adicione esta importação
+import DataRefreshButton from '../../components/DataRefreshButton';
 
 import '../../App.css';
 import './ServicoRelacionada.css';
@@ -1109,7 +1110,7 @@ function ServicoRelacionadaContent() {
     setTimeout(() => setCacheRefreshed(false), 3000);
   };
 
-  // Função para forçar uma atualização dos dados
+  /* Função para forçar uma atualização dos dados
   const forceRefreshData = async () => {
     try {
       setRefreshingData(true);
@@ -1132,7 +1133,7 @@ function ServicoRelacionadaContent() {
     } finally {
       setRefreshingData(false);
     }
-  };
+  };*/
 
   // Função para salvar serviço atualizado
   const handleSave = async () => {
@@ -1327,8 +1328,27 @@ function ServicoRelacionadaContent() {
                     </button>
                   </div>
                 )}
-
-                <div className="flex items-center gap-4">
+                
+                {/* Indicador da fonte de dados */}
+                {initialized && (
+                  <div className={`flex items-center px-3 py-1 rounded-md text-sm ${
+                    dataSource === 'cache' 
+                      ? 'bg-green-50 text-green-700 border border-green-200' 
+                      : 'bg-blue-50 text-blue-700 border border-blue-200'
+                  }`}>
+                    <span className="mr-1">Dados carregados de:</span>
+                    <span className="font-medium">
+                      {dataSource === 'cache' ? 'Cache local' : 'Servidor'}
+                    </span>
+                    
+                    {/* Botão de atualização pequeno inline */}
+                    <div className="ml-2">
+                      <DataRefreshButton showText={false} size={14} />
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex items-center gap-3">
                   {/* Botão para controle de cache */}
                   <button
                     onClick={() => setShowCacheControl(true)}
@@ -1339,20 +1359,8 @@ function ServicoRelacionadaContent() {
                     <span className="text-xs text-gray-600">Cache</span>
                   </button>
                   
-                  
-                
-                  
-                  
-                  <div className="flex flex-col">
-                    {/* Seu campo de pesquisa existente */}
-                    <div className="search-container">
-                      {/* ... código existente ... */}
-                    </div>
-                  </div>
-                  
-                  <div className="button-container">
-                    {/* ... seus botões existentes ... */}
-                  </div>
+                  {/* Botão de atualização de dados */}
+                  <DataRefreshButton />
                 </div>
                 
                 <div className="flex items-center gap-4">
@@ -1387,11 +1395,10 @@ function ServicoRelacionadaContent() {
                       </div>
                       
                       {/* Seletor do tipo de pesquisa - mostrar sempre que houver pesquisa */}
-                      {/* Seletor do tipo de pesquisa - mostrar sempre que houver pesquisa */}
                       {isSearching && (
                         <div className="search-type-selector mt-2 flex items-center">
                           <div className="text-xs mr-2 text-gray-600">Refinar busca:</div>
-                            <div className="flex flex-wrap space-x-3">
+                          <div className="flex flex-wrap space-x-3">
                             <label className={`cursor-pointer flex items-center ${searchType === 'auto' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
                               <input
                                 type="radio"
@@ -1427,7 +1434,7 @@ function ServicoRelacionadaContent() {
                               />
                               <span className="text-xs">Princípio Ativo</span>
                             </label>
-
+                            
                             {/* Nova opção para Princípio Ativo do Registro Visa */}
                             <label className={`cursor-pointer flex items-center ${searchType === 'active_visa' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
                               <input
@@ -1440,7 +1447,6 @@ function ServicoRelacionadaContent() {
                               />
                               <span className="text-xs">P. Ativo (Registro)</span>
                             </label>
-                            
                           </div>
                         </div>
                       )}
@@ -1464,80 +1470,80 @@ function ServicoRelacionadaContent() {
                   </div>
                   
                   <div className="button-container">
-                  {selectedRows.size > 0 ? (
-                    <>
-                      {isEditing ? (
-                        <button 
-                          className="btn btn-danger" 
-                          onClick={handleCancel}
-                          disabled={localLoading}
-                        >
-                          Cancelar
-                        </button>
-                      ) : (
-                        <button 
-                          className="btn btn-danger" 
-                          onClick={handleDelete}
-                          disabled={localLoading}
-                        >
-                          <Trash2 className="w-5 h-5" /> Excluir
-                        </button>
-                      )}
-                      {isEditing ? (
-                        <button 
-                          className="btn btn-success" 
-                          onClick={handleSave}
-                          disabled={localLoading}
-                        >
-                          {localLoading ? 'Salvando...' : 'Salvar'}
-                        </button>
-                      ) : (
-                        <button 
-                          className="btn btn-warning" 
-                          onClick={handleEdit}
-                          disabled={localLoading}
-                        >
-                          <Edit className="w-5 h-5" /> Alterar
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    isAdding ? (
+                    {selectedRows.size > 0 ? (
                       <>
-                        <button 
-                          className="btn btn-danger" 
-                          onClick={handleCancelAdd}
-                          disabled={localLoading}
-                        >
-                          Cancelar
-                        </button>
-                        <button 
-                          className="btn btn-success" 
-                          onClick={handleSaveNew}
-                          disabled={localLoading}
-                        >
-                          {localLoading ? (
-                            <>
-                              <span className="animate-spin mr-2 h-4 w-4 border-b-2 border-white rounded-full"></span>
-                              Salvando...
-                            </>
-                          ) : 'Salvar'}
-                        </button>
+                        {isEditing ? (
+                          <button 
+                            className="btn btn-danger" 
+                            onClick={handleCancel}
+                            disabled={localLoading}
+                          >
+                            Cancelar
+                          </button>
+                        ) : (
+                          <button 
+                            className="btn btn-danger" 
+                            onClick={handleDelete}
+                            disabled={localLoading}
+                          >
+                            <Trash2 className="w-5 h-5" /> Excluir
+                          </button>
+                        )}
+                        {isEditing ? (
+                          <button 
+                            className="btn btn-success" 
+                            onClick={handleSave}
+                            disabled={localLoading}
+                          >
+                            {localLoading ? 'Salvando...' : 'Salvar'}
+                          </button>
+                        ) : (
+                          <button 
+                            className="btn btn-warning" 
+                            onClick={handleEdit}
+                            disabled={localLoading}
+                          >
+                            <Edit className="w-5 h-5" /> Alterar
+                          </button>
+                        )}
                       </>
                     ) : (
-                      <button 
-                        className="button buttontxt btn-primary" 
-                        onClick={handleAdd}
-                        disabled={localLoading}
-                      >
-                        <Plus /> Adicionar
-                      </button>
-                    )
+                      isAdding ? (
+                        <>
+                          <button 
+                            className="btn btn-danger" 
+                            onClick={handleCancelAdd}
+                            disabled={localLoading}
+                          >
+                            Cancelar
+                          </button>
+                          <button 
+                            className="btn btn-success" 
+                            onClick={handleSaveNew}
+                            disabled={localLoading}
+                          >
+                            {localLoading ? (
+                              <>
+                                <span className="animate-spin mr-2 h-4 w-4 border-b-2 border-white rounded-full"></span>
+                                Salvando...
+                              </>
+                            ) : 'Salvar'}
+                          </button>
+                        </>
+                      ) : (
+                        <button 
+                          className="button buttontxt btn-primary" 
+                          onClick={handleAdd}
+                          disabled={localLoading}
+                        >
+                          <Plus /> Adicionar
+                        </button>
+                      )
                     )}
                   </div>
                 </div>
               </div>
-
+              
               {loading ? (
                 <div className="flex justify-center items-center h-full">
                   <img src="/images/loadingcorreto-semfundo.gif" alt="Carregando..." className="w-12 h-12" />
@@ -1545,24 +1551,42 @@ function ServicoRelacionadaContent() {
               ) : error ? (
                 <div className="flex flex-col items-center justify-center h-64 gap-4">
                   <p className="text-red-500">Erro: {error}</p>
-                  <button
-                    onClick={handleLoadData}
-                    className="button buttontxt flex items-center gap-2"
-                  >
-                    <RefreshCw className="w-5 h-5" /> Tentar novamente
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleLoadData}
+                      className="button buttontxt flex items-center gap-2"
+                    >
+                      <RefreshCw className="w-5 h-5" /> Tentar novamente
+                    </button>
+                    
+                    {/* Botão de limpeza de cache para casos de problemas persistentes */}
+                    <button
+                      onClick={clearCache}
+                      className="px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-2"
+                    >
+                      <RotateCcw size={16} />
+                      Limpar cache
+                    </button>
+                  </div>
                 </div>
               ) : serviceData.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 gap-4">
                   <p className="text-gray-500">
                     {isSearching ? "Nenhum resultado encontrado para esta pesquisa" : "Nenhum dado disponível"}
                   </p>
-                  <button
-                    onClick={handleLoadData}
-                    className="button buttontxt flex items-center gap-2"
-                  >
-                    <RefreshCw className="w-5 h-5" /> {isSearching ? "Limpar pesquisa" : "Carregar dados"}
-                  </button>
+                  <div className="flex gap-3">
+                    {isSearching && (
+                      <button
+                        onClick={handleClearSearch}
+                        className="button buttontxt flex items-center gap-2"
+                      >
+                        <X className="w-5 h-5" /> Limpar pesquisa
+                      </button>
+                    )}
+                    
+                    {/* Botão de atualização também disponível quando não há dados */}
+                    <DataRefreshButton />
+                  </div>
                 </div>
               ) : (
                 <div className="h-[calc(100vh-220px)] overflow-hidden">
@@ -1610,12 +1634,13 @@ function ServicoRelacionadaContent() {
           </main>
         </div>
       </div>
+      
       {/* Modal de controle de cache */}
       {showCacheControl && (
         <CacheControl onClose={() => setShowCacheControl(false)} />
       )}
       
-      {/* NOVO: Indicador de atualização de cache */}
+      {/* Indicador de atualização de cache */}
       {cacheRefreshed && (
         <div className="fixed bottom-4 right-4 bg-green-100 text-green-800 px-4 py-2 rounded-lg shadow-lg flex items-center animate-fade-in">
           <RefreshCw size={16} className="mr-2" />
