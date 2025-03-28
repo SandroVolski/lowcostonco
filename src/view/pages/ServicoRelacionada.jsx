@@ -5,12 +5,13 @@ import { DataTable } from '../../components/DataTable';
 import PageTransition from "../../components/PageTransition";
 import { useServiceData } from '../../components/ServiceContext'; // Importe o contexto
 import { DropdownOptionsProvider, useDropdownOptions } from '../../components/DropdownOptionsContext';
+import CacheControl from '../../components/CacheControl'; // Adicione esta importação
 
 import '../../App.css';
 import './ServicoRelacionada.css';
 import '../../utils/CustomAlerts.css'; // Importar CSS dos alertas personalizados
 
-import { Search, Plus, Trash2, Edit, RefreshCw, X, Save, ArrowUpDown, ArrowDownWideNarrow, ArrowUpWideNarrow } from "lucide-react";
+import { Search, Plus, Trash2, Edit, RefreshCw, X, Save, ArrowUpDown, ArrowDownWideNarrow, ArrowUpWideNarrow, Database } from "lucide-react";
 import { 
   showSuccessAlert, 
   showErrorAlert, 
@@ -39,6 +40,11 @@ function ServicoRelacionadaContent() {
   const [isAdding, setIsAdding] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
   const [updateCounter, setUpdateCounter] = useState(0);
+
+  const [showCacheControl, setShowCacheControl] = useState(false);
+  const [cacheRefreshed, setCacheRefreshed] = useState(false);
+  const [refreshingData, setRefreshingData] = useState(false);
+  const [dataSource, setDataSource] = useState(''); // 'cache' ou 'server'
 
   const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api";
   //  const [searchDebounceTimeout, setSearchDebounceTimeout] = useState(null);
@@ -242,6 +248,9 @@ function ServicoRelacionadaContent() {
     loadServiceData,
     initialized,
     addService,
+    // Estados e funções do cache
+    isCacheEnabled,
+    clearCache: clearServicesCache,
     // Novos valores para pesquisa
     searchTerm: apiSearchTerm,
     searchType: apiSearchType,
@@ -321,6 +330,10 @@ function ServicoRelacionadaContent() {
       // Mostrar alerta de sucesso
       showSuccessAlert("Serviço excluído com sucesso!");
       console.log("Serviço excluído com sucesso!");
+
+      // NOVO: Mostrar indicador de atualização do cache
+      showCacheRefreshIndicator();
+      setDataSource('server');
     } catch (error) {
       console.error("Erro ao excluir o serviço:", error);
       showErrorAlert("Falha ao excluir", error.message || "Erro desconhecido");
@@ -498,10 +511,15 @@ function ServicoRelacionadaContent() {
       showSuccessPopup({ id: serviceId, cod: dataToSend.Cod }, false, 5000);  
       console.log("Serviço adicionado com sucesso!", serviceId);
       
-      // Em vez de chamar resetAndLoad, use as funções que já existem no contexto
-      if (typeof loadServiceData === 'function') {
-        loadServiceData(1, true);
-      }
+
+      // NOVO: Mostrar indicador de atualização do cache
+      showCacheRefreshIndicator();
+      setDataSource('server');
+      
+      // Recarregar os dados para exibir o novo item
+      loadServiceData(1, true);
+
+      
       
     } catch (error) {
       console.error("Erro ao adicionar o serviço:", error);
@@ -1084,10 +1102,42 @@ function ServicoRelacionadaContent() {
     setEditedData(updatedData);
   };
 
+  // Função para mostrar o indicador de atualização do cache
+  const showCacheRefreshIndicator = () => {
+    setCacheRefreshed(true);
+    // Esconder após 3 segundos
+    setTimeout(() => setCacheRefreshed(false), 3000);
+  };
+
+  // Função para forçar uma atualização dos dados
+  const forceRefreshData = async () => {
+    try {
+      setRefreshingData(true);
+      
+      // Limpar o cache apenas para os serviços
+      clearServicesCache();
+      
+      // Recarregar os dados do zero
+      await loadServiceData(1, true);
+      
+      // Definir explicitamente a fonte como servidor
+      setDataSource('server');
+      
+      // Indicar sucesso
+      showCacheRefreshIndicator();
+      showSuccessAlert("Dados atualizados com sucesso!", "", false, 2000);
+    } catch (error) {
+      console.error("Erro ao atualizar dados:", error);
+      showErrorAlert("Falha ao atualizar dados", error.message);
+    } finally {
+      setRefreshingData(false);
+    }
+  };
+
   // Função para salvar serviço atualizado
   const handleSave = async () => {
     if (!editingRow) return;
-
+  
     try {
       setLocalLoading(true);
       
@@ -1117,37 +1167,8 @@ function ServicoRelacionadaContent() {
         }
       });
       
-      // Remove campos que não devem ser enviados ao backend
-      const fieldsToRemove = [
-        'UnidadeFracionamento', 
-        'Unidade_Fracionamento',
-        'Descricao',
-        'PrincipioAtivo',
-        'ViaAdministracao',
-        'ClasseFarmaceutica',
-        'Armazenamento',
-        'tipo_medicamento',
-        'Fator_Conversão'
-      ];
-      
-      // Não remova os campos se eles forem necessários e não houver ID correspondente
-      for (const field of fieldsToRemove) {
-        const hasRelatedId = 
-          (field === 'PrincipioAtivo' && cleanedData.idPrincipioAtivo) ||
-          (field === 'UnidadeFracionamento' && cleanedData.idUnidadeFracionamento) ||
-          (field === 'ViaAdministracao' && cleanedData.idViaAdministracao) ||
-          (field === 'ClasseFarmaceutica' && cleanedData.idClasseFarmaceutica) ||
-          (field === 'Armazenamento' && cleanedData.idArmazenamento) ||
-          (field === 'tipo_medicamento' && cleanedData.idMedicamento) ||
-          (field === 'Fator_Conversão' && cleanedData.idFatorConversao);
-          
-        if (hasRelatedId) {
-          delete cleanedData[field];
-        }
-      }
-      
       console.log("Dados limpos a serem enviados:", cleanedData);
-
+  
       const response = await fetch(`${API_BASE_URL}/update_service.php`, {
         method: 'PUT',
         headers: {
@@ -1155,9 +1176,9 @@ function ServicoRelacionadaContent() {
         },
         body: JSON.stringify(cleanedData),
       });
-
+  
       console.log("Resposta do servidor - Status:", response.status);
-
+  
       // Primeiro tentar obter o corpo como texto para debug
       const responseText = await response.text();
       console.log("Corpo da resposta (texto):", responseText);
@@ -1169,25 +1190,60 @@ function ServicoRelacionadaContent() {
       } catch (e) {
         console.warn("Resposta não é JSON válido:", e);
       }
-
+  
       if (!response.ok) {
         throw new Error(responseData?.message || "Erro ao atualizar o serviço");
       }
-
-      // Atualiza o estado global com os dados limpos
+  
+      // MODIFICAÇÃO PRINCIPAL: Atualizar apenas a linha editada no estado local
+      // em vez de recarregar todos os dados
       updateService(cleanedData);
-
+      
+      // Atualizar seletivamente o cache, se estiver usando
+      if (isCacheEnabled) {
+        // Encontrar todas as chaves de cache que podem conter este serviço
+        // e atualizar apenas o serviço específico em cada cache
+        try {
+          const cacheKeys = Object.keys(localStorage).filter(key => 
+            key.startsWith('services_') && !key.includes('_search_')
+          );
+          
+          for (const key of cacheKeys) {
+            const cachedData = JSON.parse(localStorage.getItem(key));
+            
+            // Verificar se este cache ainda é válido
+            if (cachedData && cachedData.data && Array.isArray(cachedData.data)) {
+              // Atualizar o serviço no array de dados em cache
+              const updatedCacheData = cachedData.data.map(item => 
+                item.id === cleanedData.id ? { ...item, ...cleanedData } : item
+              );
+              
+              // Salvar o cache atualizado
+              cachedData.data = updatedCacheData;
+              localStorage.setItem(key, JSON.stringify(cachedData));
+              console.log(`Cache atualizado seletivamente para a chave ${key}`);
+            }
+          }
+          
+          // Mostrar o indicador de atualização de cache
+          if (typeof showCacheRefreshIndicator === 'function') {
+            showCacheRefreshIndicator();
+          }
+        } catch (cacheError) {
+          console.warn("Erro ao atualizar cache seletivamente:", cacheError);
+          // Se falhar a atualização seletiva, limpa o cache por segurança
+          clearServicesCache();
+        }
+      }
+  
       // Limpa a edição
       setEditingRow(null);
       setEditedData({});
       setIsEditing(false);
-
+  
       // Mostrar confirmação de sucesso
       showSuccessAlert("Serviço atualizado com sucesso!");
       console.log("Serviço atualizado com sucesso!");
-      
-      // Recarregar os dados para garantir atualização
-      loadServiceData(1, true);
       
     } catch (error) {
       console.error("Erro ao atualizar o serviço:", error);
@@ -1271,6 +1327,33 @@ function ServicoRelacionadaContent() {
                     </button>
                   </div>
                 )}
+
+                <div className="flex items-center gap-4">
+                  {/* Botão para controle de cache */}
+                  <button
+                    onClick={() => setShowCacheControl(true)}
+                    className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center"
+                    title="Gerenciar Cache"
+                  >
+                    <Database size={16} className="text-gray-600 mr-1" />
+                    <span className="text-xs text-gray-600">Cache</span>
+                  </button>
+                  
+                  
+                
+                  
+                  
+                  <div className="flex flex-col">
+                    {/* Seu campo de pesquisa existente */}
+                    <div className="search-container">
+                      {/* ... código existente ... */}
+                    </div>
+                  </div>
+                  
+                  <div className="button-container">
+                    {/* ... seus botões existentes ... */}
+                  </div>
+                </div>
                 
                 <div className="flex items-center gap-4">
                   <div className="flex flex-col">
@@ -1527,6 +1610,18 @@ function ServicoRelacionadaContent() {
           </main>
         </div>
       </div>
+      {/* Modal de controle de cache */}
+      {showCacheControl && (
+        <CacheControl onClose={() => setShowCacheControl(false)} />
+      )}
+      
+      {/* NOVO: Indicador de atualização de cache */}
+      {cacheRefreshed && (
+        <div className="fixed bottom-4 right-4 bg-green-100 text-green-800 px-4 py-2 rounded-lg shadow-lg flex items-center animate-fade-in">
+          <RefreshCw size={16} className="mr-2" />
+          <span>Cache atualizado com sucesso</span>
+        </div>
+      )}
     </PageTransition>
   );
 }

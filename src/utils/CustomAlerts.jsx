@@ -113,7 +113,10 @@ const ALERT_ICONS = {
       
       // Remover o elemento após a animação de saída
       setTimeout(() => {
-        document.body.removeChild(overlay);
+        // Verificar se o overlay ainda existe no DOM antes de tentar removê-lo
+        if (document.body.contains(overlay)) {
+          document.body.removeChild(overlay);
+        }
       }, 300);
     }
     
@@ -268,7 +271,9 @@ const ALERT_ICONS = {
         
         // Remover o elemento após a animação de saída
         setTimeout(() => {
-          document.body.removeChild(overlay);
+          if (document.body.contains(overlay)) {
+            document.body.removeChild(overlay);
+          }
           resolve(result);
         }, 300);
       }

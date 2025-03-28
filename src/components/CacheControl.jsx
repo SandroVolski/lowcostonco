@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useServiceData } from '../components/ServiceContext';
-import { useDropdownOptions } from '../components/DropdownOptionsContext';
+import { useServiceData } from './ServiceContext';
+import { useDropdownOptions } from './DropdownOptionsContext';
 import { Database, RotateCcw, RefreshCw, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import CacheService from '../services/CacheService';
 
 // Componente para exibir e gerenciar o cache do sistema
 const CacheControl = ({ onClose }) => {
+  // Removi a declaração de showCacheControl daqui, pois estava causando o erro
+  // Esse estado deve ficar apenas em ServicoRelacionada.jsx
+  
   const { 
     isCacheEnabled: servicesCacheEnabled, 
     toggleCache: toggleServicesCache, 

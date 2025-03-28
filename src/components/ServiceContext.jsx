@@ -2,6 +2,16 @@ import React, { createContext, useState, useContext, useEffect, useCallback } fr
 
 // Criando o contexto
 const ServiceContext = createContext();
+import CacheService from "../services/CacheService";
+
+// Tempo de expiração do cache em ms (2 horas)
+const CACHE_EXPIRY = 2 * 60 * 60 * 1000;
+
+// Tempo mínimo entre atualizações automáticas (em milissegundos)
+const AUTO_REFRESH_COOLDOWN = 10 * 60 * 1000; // 10 minutos
+
+// Tempo máximo que o cache deve ser considerado válido sem verificação (em milissegundos)
+const CACHE_MAX_AGE_WITHOUT_VALIDATION = 60 * 60 * 1000; // 1 hora
 
 // Hook personalizado para facilitar o uso do contexto
 export const useServiceData = () => useContext(ServiceContext);
@@ -16,13 +26,101 @@ export const ServiceProvider = ({ children }) => {
   const [sortOrder, setSortOrder] = useState("asc");
   const [sortField, setSortField] = useState("id"); // Novo estado para o campo de ordenação
   const [initialized, setInitialized] = useState(false);
-  // Novos estados para pesquisa
+  
+  // Estados para pesquisa
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchType, setSearchType] = useState("auto"); // Novo: tipo de pesquisa (auto, code, active, description, all)
+  const [searchType, setSearchType] = useState("auto"); // Tipo de pesquisa (auto, code, active, description, all)
   const [totalResults, setTotalResults] = useState(0);
 
+  // Estados para cache
+  const [isCacheEnabled, setIsCacheEnabled] = useState(true);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [dataSource, setDataSource] = useState(''); // 'cache' ou 'server'
+  const [lastRefreshTime, setLastRefreshTime] = useState(0);
+  
+  // Política de atualização automática
+  const [autoRefreshPolicy, setAutoRefreshPolicy] = useState({
+    enabled: true,              // Se a atualização automática está habilitada
+    validateOnFocus: true,      // Verificar dados quando a aba receber foco
+    refreshAfterCRUD: true,     // Atualizar após operações de criação/edição/exclusão
+    maxAge: CACHE_MAX_AGE_WITHOUT_VALIDATION    // Idade máxima do cache
+  });
+
   const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api";
+
+  // Inicializar o cache
+  useEffect(() => {
+    CacheService.init();
+  }, []);
+
+  // Função para alternar o cache
+  const toggleCache = (enabled = true) => {
+    setIsCacheEnabled(enabled);
+    if (!enabled) {
+      // Se estiver desativando o cache, limpa os dados em cache
+      CacheService.clearAllCache();
+    }
+  };
+
+  // Função para limpar o cache manualmente
+  const clearCache = () => {
+    CacheService.clearAllCache();
+    console.log("Cache limpo manualmente");
+  };
+
+  // Função para carregar todos os dados (usado no gerenciador de cache)
+  const reloadAllData = async () => {
+    return loadServiceData(1, true);
+  };
+
+  // Função para determinar se devemos atualizar os dados
+  const shouldRefreshData = () => {
+    // Se a atualização automática estiver desabilitada, nunca atualizar automaticamente
+    if (!autoRefreshPolicy.enabled) return false;
+    
+    const now = Date.now();
+    
+    // Verificar se passou tempo suficiente desde a última atualização
+    const timeSinceLastRefresh = now - lastRefreshTime;
+    if (timeSinceLastRefresh < AUTO_REFRESH_COOLDOWN) {
+      console.log(`Atualização automática em cooldown (${Math.round((AUTO_REFRESH_COOLDOWN - timeSinceLastRefresh) / 1000)}s restantes)`);
+      return false;
+    }
+    
+    // Verificar se o cache é muito antigo e precisa ser validado
+    if (timeSinceLastRefresh > autoRefreshPolicy.maxAge) {
+      console.log(`Cache muito antigo (${Math.round(timeSinceLastRefresh / 60000)}min), forçando validação`);
+      return true;
+    }
+    
+    return false;
+  };
+
+  // Função para verificar se devemos atualizar os dados quando a aba recebe foco
+  const handleAppFocus = () => {
+    if (!autoRefreshPolicy.validateOnFocus) return;
+    
+    if (shouldRefreshData()) {
+      console.log("Validando dados ao voltar para a aba");
+      
+      // Atualizar os dados em segundo plano
+      loadServiceData(1, true, false); // O terceiro parâmetro indica que não deve mostrar loading
+    }
+  };
+
+  // Registrar o evento de foco da janela
+  useEffect(() => {
+    const handleFocus = () => {
+      handleAppFocus();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [lastRefreshTime, autoRefreshPolicy]);
 
   // Função para ordenar os dados
   const changeSort = (field) => {
@@ -37,9 +135,61 @@ export const ServiceProvider = ({ children }) => {
   };
 
   // Função para carregar os dados da API
-  const loadServiceData = async (pageNum = 1, reset = false) => {
+  const loadServiceData = async (pageNum = 1, reset = false, showLoading = true) => {
     try {
-      setLoading(true);
+      const requestParams = {
+        page: pageNum,
+        limit: 150,
+        order: sortOrder,
+        orderBy: sortField,
+        search: searchTerm,
+        searchType: searchType
+      };
+
+      // Gerar uma chave única para este conjunto específico de parâmetros
+      const cacheKey = generateCacheKey(requestParams);
+      
+      // Verificar se temos dados em cache e se o cache está habilitado
+      if (isCacheEnabled && !searchTerm) {
+        // Verificar se temos dados em cache para esta requisição específica
+        const cachedData = CacheService.getCache(cacheKey);
+        
+        if (cachedData) {
+          console.log(`Usando dados em cache para ${cacheKey}`);
+          
+          // Usar os dados do cache
+          const result = cachedData.data;
+          
+          // Mapear e processar os dados como você fazia antes
+          const mappedData = mapApiDataToServiceData(result);
+          
+          if (reset) {
+            setServiceData(mappedData);
+          } else {
+            setServiceData(prev => [...prev, ...mappedData]);
+          }
+          
+          setTotalResults(mappedData.length);
+          setInitialized(true);
+          
+          // Definir a fonte de dados como cache
+          setDataSource('cache');
+          
+          // Disparar evento personalizado para indicar fonte dos dados
+          if (typeof window.dispatchEvent === 'function') {
+            const event = new CustomEvent('data-source-changed', { detail: { source: 'cache' } });
+            window.dispatchEvent(event);
+          }
+          
+          // Retornar para encerrar a função aqui
+          return;
+        }
+      }
+      
+      // Se não tiver cache ou o cache estiver desabilitado, continua com a requisição
+      if (showLoading) {
+        setLoading(true);
+      }
       
       // Construir URL de base
       let apiUrl = `${API_BASE_URL}/get_services.php?page=${pageNum}&limit=150&order=${sortOrder}&orderBy=${sortField}`;
@@ -81,86 +231,10 @@ export const ServiceProvider = ({ children }) => {
         setHasMore(false);
       } else {
         // Mapeia os dados da API para o formato esperado
-        const mappedData = result.map(item => ({
-          id: item.id,
-          Cod: item.Cod,
-          codigoTUSS: item.Codigo_TUSS,
-          Descricao_Apresentacao: item.Descricao_Apresentacao,
-          Descricao_Resumida: item.Descricao_Resumida,
-          Descricao_Comercial: item.Descricao_Comercial,
-          Concentracao: item.Concentracao,
-          Unidade_Fracionamento: item.UnidadeFracionamento,
-          Fracionamento: item.Fracionamento,
-          "Laboratório": item.Laboratorio,
-          Revisado_Farma: item.Revisado_Farma,
-          
-          // Campos de dRegistro_anvisa
-          "RegistroVisa": item.RegistroVisa,
-          "Cód GGrem": item.Cod_Ggrem,
-          // Importante: Esclarecer a origem do PrincipioAtivo
-          "Princípio_Ativo_RegistroVisa": item.PrincipioAtivo, // Do dRegistro_anvisa
-          Principio_Ativo_RegistroVisa: item.PrincipioAtivo,   // Do dRegistro_anvisa
-          Laboratorio: item.Lab,
-          "CNPJ Lab": item.cnpj_lab,
-          "Classe Terapêutica": item.Classe_Terapeutica,
-          "Tipo do Produto": item.Tipo_Porduto,
-          "Regime Preço": item.Regime_Preco,
-          "Restrição Hosp": item.Restricao_Hosp,
-          Cap: item.Cap,
-          Confaz87: item.Confaz87,
-          ICMS0: item.Icms0,
-          Lista: item.Lista,
-          Status: item.Status,
-          
-          // Campos de dTabela
-          Tabela: item.tabela,
-          "Tabela Classe": item.tabela_classe,
-          "Tabela tipo": item.tabela_tipo,
-          "Classe JaraguaSul": item.classe_Jaragua_do_sul,
-          "Classificação tipo": item.classificacao_tipo,
-          Finalidade: item.finalidade,
-          Objetivo: item.objetivo,
-          
-          // Campos de dViaadministracao
-          "Via_Administração": item.Via_administracao,
-          
-          // Campos de dClasseFarmaceutica
-          "Classe_Farmaceutica": item.ClasseFarmaceutica,
-          
-          // Campos de dPrincipioativo - Verificar se estes campos estão vindo do backend
-          Princípio_Ativo: item.PrincipioAtivo,              // Do dPrincipioativo
-          PrincipioAtivo: item.PrincipioAtivo,               // Do dPrincipioativo
-          "Princípio_Ativo_Classificado": item.PrincipioAtivoClassificado,
-          PrincipioAtivoClassificado: item.PrincipioAtivoClassificado,
-          FaseuGF: item.FaseUGF,
-          FaseUGF: item.FaseUGF,
-          
-          // Outros campos
-          Armazenamento: item.Armazenamento,
-          Medicamento: item.tipo_medicamento,
-          Descricao: item.UnidadeFracionamentoDescricao,
-          Divisor: item.Divisor,
-          "Fator_Conversão": item.id_fatorconversao,
-          "ID Taxa": item.id_taxas,
-          "tipo taxa": item.tipo_taxa,
-          finalidade: item.TaxaFinalidade,
-          "Tempo infusão": item.tempo_infusao,
-          
-          // IDs para relacionamentos
-          idPrincipioAtivo: item.idPrincipioAtivo,
-          idRegistroVisa: item.idRegistroVisa,
-          idViaAdministracao: item.idViaAdministracao,
-          idClasseFarmaceutica: item.idClasseFarmaceutica,
-          idArmazenamento: item.idArmazenamento,
-          idMedicamento: item.idMedicamento,
-          idUnidadeFracionamento: item.idUnidadeFracionamento,
-          idFatorConversao: item.idFatorConversao,
-          idTaxas: item.idTaxas,
-          idTabela: item.idTabela
-        }));
-
-        // Atualizar o total de resultados encontrados
-        setTotalResults(mappedData.length);
+        const mappedData = mapApiDataToServiceData(result);
+        
+        // Armazenar o total de registros para exibição no CacheControl
+        setTotalRecords(mappedData.length);
 
         if (reset) {
           setServiceData(mappedData);
@@ -168,18 +242,122 @@ export const ServiceProvider = ({ children }) => {
           setServiceData(prev => [...prev, ...mappedData]);
         }
         
+        // Se o cache estiver habilitado e não for uma pesquisa, armazene em cache
+        if (isCacheEnabled && !searchTerm) {
+          console.log(`Armazenando dados em cache para ${cacheKey}`);
+          CacheService.setCache(cacheKey, result, { requestParams }, CACHE_EXPIRY);
+        }
+        
         setInitialized(true);
+        
+        // Definir a fonte de dados como servidor
+        setDataSource('server');
+        
+        // Atualizar o timestamp da última atualização
+        setLastRefreshTime(Date.now());
+        
+        // Disparar evento personalizado para indicar fonte dos dados
+        if (typeof window.dispatchEvent === 'function') {
+          const event = new CustomEvent('data-source-changed', { detail: { source: 'server' } });
+          window.dispatchEvent(event);
+        }
       }
     } catch (error) {
       console.error("Erro ao buscar os serviços:", error);
       setError(error.message);
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
-  // Nova função para pesquisar diretamente na API
-  // Nova função para pesquisar diretamente na API
+  // Função helper para mapear os dados da API para o formato esperado
+  const mapApiDataToServiceData = (apiData) => {
+    return apiData.map(item => ({
+      id: item.id,
+      Cod: item.Cod,
+      codigoTUSS: item.Codigo_TUSS,
+      Descricao_Apresentacao: item.Descricao_Apresentacao,
+      Descricao_Resumida: item.Descricao_Resumida,
+      Descricao_Comercial: item.Descricao_Comercial,
+      Concentracao: item.Concentracao,
+      Unidade_Fracionamento: item.UnidadeFracionamento,
+      Fracionamento: item.Fracionamento,
+      "Laboratório": item.Laboratorio,
+      Revisado_Farma: item.Revisado_Farma,
+      
+      // Campos de dRegistro_anvisa
+      "RegistroVisa": item.RegistroVisa,
+      "Cód GGrem": item.Cod_Ggrem,
+      "Princípio_Ativo_RegistroVisa": item.PrincipioAtivo,
+      Principio_Ativo_RegistroVisa: item.PrincipioAtivo,
+      Laboratorio: item.Lab,
+      "CNPJ Lab": item.cnpj_lab,
+      "Classe Terapêutica": item.Classe_Terapeutica,
+      "Tipo do Produto": item.Tipo_Porduto,
+      "Regime Preço": item.Regime_Preco,
+      "Restrição Hosp": item.Restricao_Hosp,
+      Cap: item.Cap,
+      Confaz87: item.Confaz87,
+      ICMS0: item.Icms0,
+      Lista: item.Lista,
+      Status: item.Status,
+      
+      // Campos de dTabela
+      Tabela: item.tabela,
+      "Tabela Classe": item.tabela_classe,
+      "Tabela tipo": item.tabela_tipo,
+      "Classe JaraguaSul": item.classe_Jaragua_do_sul,
+      "Classificação tipo": item.classificacao_tipo,
+      Finalidade: item.finalidade,
+      Objetivo: item.objetivo,
+      
+      // Campos de dViaadministracao
+      "Via_Administração": item.Via_administracao,
+      
+      // Campos de dClasseFarmaceutica
+      "Classe_Farmaceutica": item.ClasseFarmaceutica,
+      
+      // Campos de dPrincipioativo
+      Princípio_Ativo: item.PrincipioAtivo,
+      PrincipioAtivo: item.PrincipioAtivo,
+      "Princípio_Ativo_Classificado": item.PrincipioAtivoClassificado,
+      PrincipioAtivoClassificado: item.PrincipioAtivoClassificado,
+      FaseuGF: item.FaseUGF,
+      FaseUGF: item.FaseUGF,
+      
+      // Outros campos
+      Armazenamento: item.Armazenamento,
+      Medicamento: item.tipo_medicamento,
+      Descricao: item.UnidadeFracionamentoDescricao,
+      Divisor: item.Divisor,
+      "Fator_Conversão": item.id_fatorconversao,
+      "ID Taxa": item.id_taxas,
+      "tipo taxa": item.tipo_taxa,
+      finalidade: item.TaxaFinalidade,
+      "Tempo infusão": item.tempo_infusao,
+      
+      // IDs para relacionamentos
+      idPrincipioAtivo: item.idPrincipioAtivo,
+      idRegistroVisa: item.idRegistroVisa,
+      idViaAdministracao: item.idViaAdministracao,
+      idClasseFarmaceutica: item.idClasseFarmaceutica,
+      idArmazenamento: item.idArmazenamento,
+      idMedicamento: item.idMedicamento,
+      idUnidadeFracionamento: item.idUnidadeFracionamento,
+      idFatorConversao: item.idFatorConversao,
+      idTaxas: item.idTaxas,
+      idTabela: item.idTabela
+    }));
+  };
+
+  // Função para gerar uma chave única para o cache
+  const generateCacheKey = (params) => {
+    return `services_${params.page}_${params.limit}_${params.order}_${params.orderBy}${params.search ? `_search_${params.search}_${params.searchType}` : ''}`;
+  };
+
+  // Função para pesquisar serviços
   const searchServiceData = async (term, type = searchType) => {
     // Limpar resultados anteriores primeiro
     setServiceData([]);
@@ -199,7 +377,45 @@ export const ServiceProvider = ({ children }) => {
     setLoading(true);
     
     try {
-      // Construir URL de pesquisa
+      // Parâmetros para esta requisição de pesquisa
+      const requestParams = {
+        page: 1,
+        limit: 150,
+        order: sortOrder,
+        orderBy: sortField,
+        search: term,
+        searchType: type
+      };
+      
+      // Gerar uma chave única para esta pesquisa
+      const cacheKey = generateCacheKey(requestParams);
+      
+      // Verificar se temos esta pesquisa em cache
+      if (isCacheEnabled) {
+        const cachedSearch = CacheService.getCache(cacheKey);
+        
+        if (cachedSearch) {
+          console.log(`Usando resultados de pesquisa em cache para "${term}"`);
+          
+          // Usar os dados do cache
+          const result = cachedSearch.data;
+          
+          // Mapear os resultados
+          const mappedData = mapApiDataToServiceData(result);
+          
+          setServiceData(mappedData);
+          setTotalResults(mappedData.length);
+          setHasMore(false); // Em pesquisas, geralmente carregamos tudo de uma vez
+          
+          // Definir a fonte de dados como cache
+          setDataSource('cache');
+          
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // Se não tiver cache, continua com a requisição
       const apiUrl = `${API_BASE_URL}/get_services.php?page=1&limit=150&order=${sortOrder}&orderBy=${sortField}&search=${encodeURIComponent(term)}&searchType=${type}`;
       
       const response = await fetch(apiUrl);
@@ -214,89 +430,25 @@ export const ServiceProvider = ({ children }) => {
         throw new Error("Os dados recebidos não são uma lista válida");
       }
       
-      // Mapear os resultados usando o mesmo mapeamento da função loadServiceData
-      const mappedData = result.map(item => ({
-        id: item.id,
-        Cod: item.Cod,
-        codigoTUSS: item.Codigo_TUSS,
-        Descricao_Apresentacao: item.Descricao_Apresentacao,
-        Descricao_Resumida: item.Descricao_Resumida,
-        Descricao_Comercial: item.Descricao_Comercial,
-        Concentracao: item.Concentracao,
-        Unidade_Fracionamento: item.UnidadeFracionamento,
-        Fracionamento: item.Fracionamento,
-        "Laboratório": item.Laboratorio,
-        Revisado_Farma: item.Revisado_Farma,
-        
-        // Campos de dRegistro_anvisa
-        "RegistroVisa": item.RegistroVisa,
-        "Cód GGrem": item.Cod_Ggrem,
-        // Importante: Esclarecer a origem do PrincipioAtivo
-        "Princípio_Ativo_RegistroVisa": item.PrincipioAtivo, // Do dRegistro_anvisa
-        Principio_Ativo_RegistroVisa: item.PrincipioAtivo,   // Do dRegistro_anvisa
-        Laboratorio: item.Lab,
-        "CNPJ Lab": item.cnpj_lab,
-        "Classe Terapêutica": item.Classe_Terapeutica,
-        "Tipo do Produto": item.Tipo_Porduto,
-        "Regime Preço": item.Regime_Preco,
-        "Restrição Hosp": item.Restricao_Hosp,
-        Cap: item.Cap,
-        Confaz87: item.Confaz87,
-        ICMS0: item.Icms0,
-        Lista: item.Lista,
-        Status: item.Status,
-        
-        // Campos de dTabela
-        Tabela: item.tabela,
-        "Tabela Classe": item.tabela_classe,
-        "Tabela tipo": item.tabela_tipo,
-        "Classe JaraguaSul": item.classe_Jaragua_do_sul,
-        "Classificação tipo": item.classificacao_tipo,
-        Finalidade: item.finalidade,
-        Objetivo: item.objetivo,
-        
-        // Campos de dViaadministracao
-        "Via_Administração": item.Via_administracao,
-        
-        // Campos de dClasseFarmaceutica
-        "Classe_Farmaceutica": item.ClasseFarmaceutica,
-        
-        // Campos de dPrincipioativo - Verificar se estes campos estão vindo do backend
-        Princípio_Ativo: item.PrincipioAtivo,              // Do dPrincipioativo
-        PrincipioAtivo: item.PrincipioAtivo,               // Do dPrincipioativo
-        "Princípio_Ativo_Classificado": item.PrincipioAtivoClassificado,
-        PrincipioAtivoClassificado: item.PrincipioAtivoClassificado,
-        FaseuGF: item.FaseUGF,
-        FaseUGF: item.FaseUGF,
-        
-        // Outros campos
-        Armazenamento: item.Armazenamento,
-        Medicamento: item.tipo_medicamento,
-        Descricao: item.UnidadeFracionamentoDescricao,
-        Divisor: item.Divisor,
-        "Fator_Conversão": item.id_fatorconversao,
-        "ID Taxa": item.id_taxas,
-        "tipo taxa": item.tipo_taxa,
-        finalidade: item.TaxaFinalidade,
-        "Tempo infusão": item.tempo_infusao,
-        
-        // IDs para relacionamentos
-        idPrincipioAtivo: item.idPrincipioAtivo,
-        idRegistroVisa: item.idRegistroVisa,
-        idViaAdministracao: item.idViaAdministracao,
-        idClasseFarmaceutica: item.idClasseFarmaceutica,
-        idArmazenamento: item.idArmazenamento,
-        idMedicamento: item.idMedicamento,
-        idUnidadeFracionamento: item.idUnidadeFracionamento,
-        idFatorConversao: item.idFatorConversao,
-        idTaxas: item.idTaxas,
-        idTabela: item.idTabela
-      }));
+      // Mapear os resultados
+      const mappedData = mapApiDataToServiceData(result);
       
       // Atualizar dados e estado
       setServiceData(mappedData);
       setTotalResults(mappedData.length);
       setHasMore(false); // Em pesquisas, geralmente carregamos tudo de uma vez
+      
+      // Definir a fonte de dados como servidor
+      setDataSource('server');
+      
+      // Atualizar o timestamp da última atualização
+      setLastRefreshTime(Date.now());
+      
+      // Armazenar a pesquisa em cache se o cache estiver ativado
+      if (isCacheEnabled) {
+        console.log(`Armazenando resultados de pesquisa em cache para "${term}"`);
+        CacheService.setCache(cacheKey, result, { requestParams }, CACHE_EXPIRY);
+      }
       
     } catch (error) {
       console.error("Erro na pesquisa:", error);
@@ -306,7 +458,6 @@ export const ServiceProvider = ({ children }) => {
     }
   };
 
-  // Função para limpar a pesquisa
   // Função para limpar a pesquisa
   const clearSearch = async () => {
     // Limpar estados de pesquisa
@@ -325,7 +476,40 @@ export const ServiceProvider = ({ children }) => {
     setLoading(true);
     
     try {
-      // Construir URL para carregar dados normais
+      // Verificar se temos dados iniciais em cache
+      if (isCacheEnabled) {
+        const requestParams = {
+          page: 1,
+          limit: 150,
+          order: sortOrder,
+          orderBy: sortField
+        };
+        
+        const cacheKey = generateCacheKey(requestParams);
+        const cachedData = CacheService.getCache(cacheKey);
+        
+        if (cachedData) {
+          console.log('Usando dados iniciais do cache após limpar pesquisa');
+          
+          // Usar os dados do cache
+          const result = cachedData.data;
+          
+          // Mapear e processar os dados
+          const mappedData = mapApiDataToServiceData(result);
+          
+          setServiceData(mappedData);
+          setTotalResults(mappedData.length);
+          setInitialized(true);
+          
+          // Definir a fonte de dados como cache
+          setDataSource('cache');
+          
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // Se não tiver cache, fazer requisição normal
       const apiUrl = `${API_BASE_URL}/get_services.php?page=1&limit=150&order=${sortOrder}&orderBy=${sortField}`;
       
       const response = await fetch(apiUrl);
@@ -341,86 +525,30 @@ export const ServiceProvider = ({ children }) => {
       }
       
       // Mapear os resultados
-      const mappedData = result.map(item => ({
-        id: item.id,
-        Cod: item.Cod,
-        codigoTUSS: item.Codigo_TUSS,
-        Descricao_Apresentacao: item.Descricao_Apresentacao,
-        Descricao_Resumida: item.Descricao_Resumida,
-        Descricao_Comercial: item.Descricao_Comercial,
-        Concentracao: item.Concentracao,
-        Unidade_Fracionamento: item.UnidadeFracionamento,
-        Fracionamento: item.Fracionamento,
-        "Laboratório": item.Laboratorio,
-        Revisado_Farma: item.Revisado_Farma,
-        
-        // Campos de dRegistro_anvisa
-        "RegistroVisa": item.RegistroVisa,
-        "Cód GGrem": item.Cod_Ggrem,
-        // Importante: Esclarecer a origem do PrincipioAtivo
-        "Princípio_Ativo_RegistroVisa": item.PrincipioAtivo, // Do dRegistro_anvisa
-        Principio_Ativo_RegistroVisa: item.PrincipioAtivo,   // Do dRegistro_anvisa
-        Laboratorio: item.Lab,
-        "CNPJ Lab": item.cnpj_lab,
-        "Classe Terapêutica": item.Classe_Terapeutica,
-        "Tipo do Produto": item.Tipo_Porduto,
-        "Regime Preço": item.Regime_Preco,
-        "Restrição Hosp": item.Restricao_Hosp,
-        Cap: item.Cap,
-        Confaz87: item.Confaz87,
-        ICMS0: item.Icms0,
-        Lista: item.Lista,
-        Status: item.Status,
-        
-        // Campos de dTabela
-        Tabela: item.tabela,
-        "Tabela Classe": item.tabela_classe,
-        "Tabela tipo": item.tabela_tipo,
-        "Classe JaraguaSul": item.classe_Jaragua_do_sul,
-        "Classificação tipo": item.classificacao_tipo,
-        Finalidade: item.finalidade,
-        Objetivo: item.objetivo,
-        
-        // Campos de dViaadministracao
-        "Via_Administração": item.Via_administracao,
-        
-        // Campos de dClasseFarmaceutica
-        "Classe_Farmaceutica": item.ClasseFarmaceutica,
-        
-        // Campos de dPrincipioativo - Verificar se estes campos estão vindo do backend
-        Princípio_Ativo: item.PrincipioAtivo,              // Do dPrincipioativo
-        PrincipioAtivo: item.PrincipioAtivo,               // Do dPrincipioativo
-        "Princípio_Ativo_Classificado": item.PrincipioAtivoClassificado,
-        PrincipioAtivoClassificado: item.PrincipioAtivoClassificado,
-        FaseuGF: item.FaseUGF,
-        FaseUGF: item.FaseUGF,
-        
-        // Outros campos
-        Armazenamento: item.Armazenamento,
-        Medicamento: item.tipo_medicamento,
-        Descricao: item.UnidadeFracionamentoDescricao,
-        Divisor: item.Divisor,
-        "Fator_Conversão": item.id_fatorconversao,
-        "ID Taxa": item.id_taxas,
-        "tipo taxa": item.tipo_taxa,
-        finalidade: item.TaxaFinalidade,
-        "Tempo infusão": item.tempo_infusao,
-        
-        // IDs para relacionamentos
-        idPrincipioAtivo: item.idPrincipioAtivo,
-        idRegistroVisa: item.idRegistroVisa,
-        idViaAdministracao: item.idViaAdministracao,
-        idClasseFarmaceutica: item.idClasseFarmaceutica,
-        idArmazenamento: item.idArmazenamento,
-        idMedicamento: item.idMedicamento,
-        idUnidadeFracionamento: item.idUnidadeFracionamento,
-        idFatorConversao: item.idFatorConversao,
-        idTaxas: item.idTaxas,
-        idTabela: item.idTabela
-      }));
+      const mappedData = mapApiDataToServiceData(result);
       
       // Atualizar dados
       setServiceData(mappedData);
+      
+      // Definir a fonte de dados como servidor
+      setDataSource('server');
+      
+      // Atualizar o timestamp da última atualização
+      setLastRefreshTime(Date.now());
+      
+      // Armazenar em cache se ativado
+      if (isCacheEnabled) {
+        const requestParams = {
+          page: 1,
+          limit: 150,
+          order: sortOrder,
+          orderBy: sortField
+        };
+        
+        const cacheKey = generateCacheKey(requestParams);
+        console.log(`Armazenando dados iniciais em cache após limpar pesquisa`);
+        CacheService.setCache(cacheKey, result, { requestParams }, CACHE_EXPIRY);
+      }
       
     } catch (error) {
       console.error("Erro ao limpar pesquisa:", error);
@@ -437,55 +565,56 @@ export const ServiceProvider = ({ children }) => {
     loadServiceData(1, true);
   };
 
+  // Função para limpar os dados de serviço antes de enviar para a API
   const cleanServiceData = (data) => {
-  // Cria uma cópia para não modificar o objeto original
-  const cleanedData = { ...data };
-  
-  // Remove os campos que não devem ser enviados ao backend
-  // e que estão causando erro de tipo no banco de dados
-  delete cleanedData.UnidadeFracionamento;
-  delete cleanedData.Unidade_Fracionamento;
-  delete cleanedData.Descricao;
-  delete cleanedData.UnidadeFracionamentoDescricao;
-  delete cleanedData.PrincipioAtivo;
-  delete cleanedData.PrincipioAtivoClassificado;
-  delete cleanedData.TaxaFinalidade;
-  delete cleanedData.tipo_taxa;
-  delete cleanedData.tempo_infusao;
-  delete cleanedData.ViaAdministracao;
-  delete cleanedData.ClasseFarmaceutica;
-  delete cleanedData.Armazenamento;
-  delete cleanedData.tipo_medicamento;
-  delete cleanedData.Fator_Conversão;
-  delete cleanedData.tabela;
-  delete cleanedData.tabela_classe;
-  delete cleanedData.tabela_tipo;
-  delete cleanedData.finalidade;
-  delete cleanedData.objetivo;
-  
-  // Converte IDs para números inteiros
-  const idFields = [
-    'idPrincipioAtivo',
-    'idUnidadeFracionamento',
-    'idTaxas',
-    'idTabela',
-    'idViaAdministracao',
-    'idClasseFarmaceutica',
-    'idArmazenamento',
-    'idMedicamento',
-    'idFatorConversao'
-  ];
-  
-  idFields.forEach(field => {
-    if (cleanedData[field] && typeof cleanedData[field] === 'string') {
-      cleanedData[field] = parseInt(cleanedData[field], 10);
-    }
-  });
-  
-  return cleanedData;
-};
+    // Cria uma cópia para não modificar o objeto original
+    const cleanedData = { ...data };
+    
+    // Remove os campos que não devem ser enviados ao backend
+    // e que estão causando erro de tipo no banco de dados
+    delete cleanedData.UnidadeFracionamento;
+    delete cleanedData.Unidade_Fracionamento;
+    delete cleanedData.Descricao;
+    delete cleanedData.UnidadeFracionamentoDescricao;
+    delete cleanedData.PrincipioAtivo;
+    delete cleanedData.PrincipioAtivoClassificado;
+    delete cleanedData.TaxaFinalidade;
+    delete cleanedData.tipo_taxa;
+    delete cleanedData.tempo_infusao;
+    delete cleanedData.ViaAdministracao;
+    delete cleanedData.ClasseFarmaceutica;
+    delete cleanedData.Armazenamento;
+    delete cleanedData.tipo_medicamento;
+    delete cleanedData.Fator_Conversão;
+    delete cleanedData.tabela;
+    delete cleanedData.tabela_classe;
+    delete cleanedData.tabela_tipo;
+    delete cleanedData.finalidade;
+    delete cleanedData.objetivo;
+    
+    // Converte IDs para números inteiros
+    const idFields = [
+      'idPrincipioAtivo',
+      'idUnidadeFracionamento',
+      'idTaxas',
+      'idTabela',
+      'idViaAdministracao',
+      'idClasseFarmaceutica',
+      'idArmazenamento',
+      'idMedicamento',
+      'idFatorConversao'
+    ];
+    
+    idFields.forEach(field => {
+      if (cleanedData[field] && typeof cleanedData[field] === 'string') {
+        cleanedData[field] = parseInt(cleanedData[field], 10);
+      }
+    });
+    
+    return cleanedData;
+  };
 
-  // Adicione esta função ao ServiceContext.js
+  // Função para adicionar um serviço
   const addService = async (serviceData) => {
     try {
       // Log dos dados originais (para debug)
@@ -497,7 +626,7 @@ export const ServiceProvider = ({ children }) => {
       // Log dos dados limpos (para debug)
       console.log("Dados limpos para envio:", cleanedData);
       
-      // Enviar dados limpos usando fetch em vez de api.post
+      // Enviar dados limpos
       const response = await fetch(`${API_BASE_URL}/insert_service.php`, {
         method: 'POST',
         headers: {
@@ -508,9 +637,21 @@ export const ServiceProvider = ({ children }) => {
       
       const responseData = await response.json();
       
-      // Resto da sua função...
       if (responseData && responseData.id) {
         console.log("Serviço criado com sucesso, ID:", responseData.id);
+        
+        // IMPORTANTE: Invalidar o cache existente após adição
+        if (isCacheEnabled && autoRefreshPolicy.refreshAfterCRUD) {
+          // Método 1: Abordagem simples - invalidar todo o cache para operações de adição
+          clearCache();
+          
+          // Método 2 (Opcional): Adicionar o item ao cache
+          // const newService = { ...cleanedData, id: responseData.id };
+          // CacheService.addServiceToCache(newService);
+          
+          console.log("Cache invalidado após adição do serviço");
+        }
+        
         return responseData.id;
       } else {
         console.log("Resposta completa do servidor:", responseData);
@@ -523,7 +664,7 @@ export const ServiceProvider = ({ children }) => {
     }
   };
 
-  // Função formatServiceData corrigida para preservar os IDs
+  // Função para formatar os dados de serviço
   const formatServiceData = (data) => {
     // Cria uma cópia para não modificar o original
     const formatted = { ...data };
@@ -651,17 +792,67 @@ export const ServiceProvider = ({ children }) => {
   };
 
   // Função para atualizar um serviço
-  const updateService = (updatedService) => {
-    setServiceData(prev => 
-      prev.map(item => 
-        item.id === updatedService.id ? { ...item, ...updatedService } : item
-      )
-    );
+  const updateService = async (updatedService) => {
+    try {
+      // Código para enviar a atualização para a API
+      // Após a atualização bem-sucedida na API, também atualize no state local
+      setServiceData(prev => 
+        prev.map(item => 
+          item.id === updatedService.id ? { ...item, ...updatedService } : item
+        )
+      );
+      
+      // IMPORTANTE: Invalidar o cache existente após atualização
+      if (isCacheEnabled && autoRefreshPolicy.refreshAfterCRUD) {
+        // Método 1: Abordagem simples - invalidar todo o cache para operações de atualização
+        clearCache();
+        
+        // Método 2 (Opcional, mais avançado): Atualizar o item diretamente no cache
+        // Isso requer mais implementação, mas é mais eficiente
+        // CacheService.updateServiceInCache(updatedService);
+        
+        console.log("Cache invalidado após atualização do serviço");
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Erro ao atualizar serviço:", error);
+      return false;
+    }
   };
 
   // Função para excluir um serviço
-  const deleteService = (serviceId) => {
-    setServiceData(prev => prev.filter(item => item.id !== serviceId));
+  const deleteService = async (serviceId) => {
+    try {
+      // Código para enviar a exclusão para a API
+      
+      // Após a exclusão bem-sucedida na API, também atualize no state local
+      setServiceData(prev => prev.filter(item => item.id !== serviceId));
+      
+      // IMPORTANTE: Invalidar o cache existente após exclusão
+      if (isCacheEnabled && autoRefreshPolicy.refreshAfterCRUD) {
+        // Método 1: Abordagem simples - invalidar todo o cache para operações de exclusão
+        clearCache();
+        
+        // Método 2 (Opcional): Remover o item específico do cache
+        // CacheService.deleteServiceFromCache(serviceId);
+        
+        console.log("Cache invalidado após exclusão do serviço");
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Erro ao excluir serviço:", error);
+      return false;
+    }
+  };
+
+  // Adicione esta função para alterar a política de atualização automática
+  const updateAutoRefreshPolicy = (newPolicy) => {
+    setAutoRefreshPolicy(prev => ({
+      ...prev,
+      ...newPolicy
+    }));
   };
 
   // Atualiza quando a ordenação muda
@@ -680,7 +871,19 @@ export const ServiceProvider = ({ children }) => {
     sortOrder,
     sortField,
     initialized,
-    // Novos valores para pesquisa
+    // Valores para cache
+    isCacheEnabled,
+    toggleCache,
+    clearCache,
+    totalRecords,
+    reloadAllData,
+    dataSource,
+    // Política de atualização automática
+    autoRefreshPolicy,
+    updateAutoRefreshPolicy,
+    shouldRefreshData,
+    lastRefreshTime,
+    // Valores para pesquisa
     searchTerm,
     searchType,
     isSearching,
@@ -695,7 +898,7 @@ export const ServiceProvider = ({ children }) => {
     deleteService,
     addService,
     resetAndLoad,
-    // Novas funções para pesquisa
+    // Funções para pesquisa
     searchServiceData,
     clearSearch
   };
