@@ -1,0 +1,221 @@
+/* Estilos para PacientesEmTratamento */
+
+.main-content-pacientes {
+    flex: 1;
+    margin-left: 16rem; /* Equivalente a ml-64 */
+    padding: 1.5rem; /* Equivalente a p-6 */
+    height: calc(100vh - 64px);
+
+    margin-top: 5rem;
+    padding: 1.5rem;
+    height: calc(100vh - 5rem);
+    overflow-y: auto;
+  }
+  
+  /* Navegação de abas */
+  .patient-tabs {
+    display: flex;
+    gap: 0.5rem;
+    background-color: #f1f1f1;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  
+  .patient-tab {
+    font-family: 'CodecPro';
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #575654;
+    background-color: transparent;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+  }
+  
+  .patient-tab:hover {
+    background-color: #8cb369;
+    color: #f1f1f1;
+  }
+  
+  .patient-tab.active {
+    background-color: #c6d651;
+    color: #35524a;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Conteúdo da aba */
+  .patient-content {
+    background: #f1f1f1;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    min-height: 70vh;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Form Controls */
+  .form-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  
+  .form-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  
+  .form-group {
+    flex: 1;
+    min-width: 250px;
+  }
+  
+  .form-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    display: block;
+    color: #35524a;
+  }
+  
+  .form-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #e4e9c0;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    transition: border 0.3s ease;
+  }
+  
+  .form-input:focus {
+    outline: none;
+    border-color: #8cb369;
+    box-shadow: 0 0 0 3px rgba(140, 179, 105, 0.2);
+  }
+  
+  .form-select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #e4e9c0;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    background-color: #fff;
+    transition: border 0.3s ease;
+  }
+  
+  /* Botões */
+  .button-group {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    justify-content: flex-end;
+  }
+  
+  /*.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+  }*/
+  
+  .btn-primary {
+    background-color: #8cb369;
+    color: #f1f1f1;
+  }
+  
+  .btn-primary:hover {
+    background-color: #35524a;
+  }
+  
+  .btn-secondary {
+    background-color: #e4e9c0;
+    color: #35524a;
+  }
+  
+  .btn-secondary:hover {
+    background-color: #c6d651;
+  }
+  
+  .btn-danger {
+    background-color: #f26b6b;
+    color: #f1f1f1;
+  }
+  
+  .btn-danger:hover {
+    background-color: #e64848;
+  }
+  
+  /* Tabela de Pacientes */
+  .patients-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+  }
+  
+  .patients-table th,
+  .patients-table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #e4e9c0;
+  }
+  
+  .patients-table th {
+    background: linear-gradient(90deg, #c6d651 30%, #8cb369 100%);
+    color: #35524a;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+  }
+  
+  .patients-table tr:hover {
+    background-color: rgba(198, 214, 81, 0.1);
+  }
+  
+  .patients-table .selected {
+    background-color: rgba(198, 214, 81, 0.3);
+  }
+  
+  /* Calculadora */
+  .calculator-card {
+    background-color: #fff;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+  }
+  
+  .calculator-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #35524a;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e4e9c0;
+  }
+  
+  .calculator-result {
+    background-color: #e4e9c0;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-top: 1rem;
+    font-weight: 600;
+  }
+  
+  .formula-text {
+    font-family: monospace;
+    background-color: #f8f9fa;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    margin: 1rem 0;
+    font-size: 0.875rem;
+    white-space: pre-wrap;
+  }

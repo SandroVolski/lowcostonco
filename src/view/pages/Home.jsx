@@ -48,8 +48,8 @@ export default function Home() {
       title: 'Pacientes em Tratamento',
       icon: Users,
       columns: ['Nome', 'Plano de Saúde', 'Medicamentos'],
-      href: '#',
-      isClickable: false,
+      href: '/PacientesEmTratamento',
+      isClickable: true,
     },
     {
       title: 'Empresas',

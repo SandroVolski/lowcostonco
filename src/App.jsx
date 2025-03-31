@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from "r
 import { AnimatePresence } from "framer-motion";
 import Home from "./view/pages/Home";
 import ServicoRelacionada from "./view/pages/ServicoRelacionada";
+import PacientesEmTratamento from "./view/pages/PacientesEmTratamento";
+
 import Login from "./view/pages/Login"
 
 import { ServiceProvider } from './components/ServiceContext';
@@ -21,6 +23,11 @@ function App() {
 
             <Route element={<ProtectedRoute />}>
               <Route path="/ServicoRelacionada" element={<ServicoRelacionada />} />
+              <Route path="/Home" element={<Home />} />
+            </Route>
+
+            <Route element={<ProtectedRoute />}>
+              <Route path="/PacientesEmTratamento" element={<PacientesEmTratamento />} />
               <Route path="/Home" element={<Home />} />
             </Route>
 

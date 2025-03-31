@@ -29,7 +29,7 @@ export function Sidebar() {
   const menuItems = [
     { icon: LayoutGrid, label: "Inicial", path: "/Home" },
     { icon: Database, label: "Relação de Serviços", path: "/ServicoRelacionada" },
-    { icon: Database, label: "Pacientes em Trata.", path: "#" },
+    { icon: Database, label: "Pacientes em Trata.", path: "/PacientesEmTratamento" },
     { icon: Database, label: "Empresas", path: "#" },
   ];
 
