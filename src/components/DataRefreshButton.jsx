@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { useServiceData } from '../components/ServiceContext';
-import { showSuccessAlert, showErrorAlert } from '../utils/CustomAlerts';
+import { showSuccessAlert, showErrorAlert, showConfirmAlert } from '../utils/CustomAlerts';
 
 /**
  * Componente para atualização manual dos dados
  * Este botão limpa o cache de serviços e força uma nova busca ao servidor
  */
-const DataRefreshButton = ({ className, showText = true, size = 20, color = "text-blue-600" }) => {
+const DataRefreshButton = ({ className, showText = true, size = 18, color = "text-green-500" }) => {
   const [refreshing, setRefreshing] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  
   const { 
     loadServiceData, 
     clearCache,
@@ -21,6 +23,13 @@ const DataRefreshButton = ({ className, showText = true, size = 20, color = "tex
   const handleRefresh = async () => {
     try {
       if (refreshing) return;
+      
+      // Pedir confirmação ao usuário antes de atualizar
+      const confirmed = await showConfirmAlert("Deseja atualizar a tabela?", 
+        "Esta ação irá buscar os dados mais recentes do servidor.");
+      
+      // Se o usuário cancelou, não fazer nada
+      if (!confirmed) return;
       
       setRefreshing(true);
       
@@ -52,25 +61,22 @@ const DataRefreshButton = ({ className, showText = true, size = 20, color = "tex
   };
 
   return (
-    <button
+    <button 
       onClick={handleRefresh}
       disabled={refreshing}
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-all ${
-        refreshing 
-          ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-          : 'hover:bg-blue-50 active:bg-blue-100'
-      } ${className || ''}`}
-      title="Atualizar dados do servidore"
+      className={`flex items-center justify-center gap-2 px-3 py-2 rounded-md ${className}`}
+      style={{ backgroundColor: 'transparent' }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <RefreshCw 
         size={size} 
-        className={`${color} ${refreshing ? 'animate-spin' : ''}`} 
+        className={refreshing ? 'animate-spin' : ''}
+        style={{ 
+          color: isHovered ? '#8cb369' : '#c6d651',
+          transition: 'color 0.2s ease'
+        }}
       />
-      {showText && (
-        <span className="text-sm font-medium text-gray-700">
-          {refreshing ? 'Atualizando...' : 'Atualizar dados'}
-        </span>
-      )}
     </button>
   );
 };

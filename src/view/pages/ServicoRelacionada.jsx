@@ -388,6 +388,35 @@ function ServicoRelacionadaContent() {
     }
   };
 
+  const refreshDataAfterModification = async () => {
+    try {
+      // 1. Notificar o usuário que a atualização está em andamento
+      setLocalLoading(true);
+      
+      // 2. Primeiro, indicar que os dados precisam de revalidação
+      if (typeof forceRevalidation === 'function') {
+        forceRevalidation();
+      }
+      
+      // 3. Limpar o cache para forçar uma nova busca ao servidor
+      clearServicesCache();
+      
+      // 4. Recarregar dados 
+      await loadServiceData(1, true);
+      
+      // 5. Opcional: Mostrar uma notificação rápida de atualização bem-sucedida
+      setDataSource('server');
+      showCacheRefreshIndicator();
+      
+      console.log("Dados atualizados automaticamente após modificação");
+    } catch (error) {
+      console.error("Erro ao atualizar dados após modificação:", error);
+      showErrorAlert("Falha ao atualizar os dados", "Tente atualizar manualmente.");
+    } finally {
+      setLocalLoading(false);
+    }
+  };
+
   // Função para executar a busca diretamente a partir do valor atual do input
   const executeSearch = () => {
     if (searchInputRef.current) {
@@ -867,7 +896,7 @@ function ServicoRelacionadaContent() {
       showSuccessAlert("Serviço excluído com sucesso!");
       
       // Usar a nova função otimizada
-      await fastUpdateWithLoadingIndicator('delete', selectedRowId);
+      await refreshDataAfterModification();
       
     } catch (error) {
       console.error("Erro ao excluir o serviço:", error);
@@ -1047,7 +1076,7 @@ function ServicoRelacionadaContent() {
       };
       
       // Usar a nova função otimizada
-      await fastUpdateWithLoadingIndicator('add', completeItem);
+      await refreshDataAfterModification();
       
     } catch (error) {
       console.error("Erro ao adicionar o serviço:", error);
@@ -1717,7 +1746,7 @@ function ServicoRelacionadaContent() {
       showSuccessAlert("Serviço atualizado com sucesso!");
       
       // Usar a nova função otimizada
-      await fastUpdateWithLoadingIndicator('update', cleanedData);
+      await refreshDataAfterModification();
       
     } catch (error) {
       console.error("Erro ao atualizar o serviço:", error);
@@ -1802,27 +1831,10 @@ function ServicoRelacionadaContent() {
                   </div>
                 )}
                 
-                {/* Indicador da fonte de dados */}
-                {initialized && (
-                  <div className={`flex items-center px-3 py-1 rounded-md text-sm ${
-                    dataSource === 'cache' 
-                      ? 'bg-green-50 text-green-700 border border-green-200' 
-                      : 'bg-blue-50 text-blue-700 border border-blue-200'
-                  }`}>
-                    <span className="mr-1">Dados carregados de:</span>
-                    <span className="font-medium">
-                      {dataSource === 'cache' ? 'Cache local' : 'Servidor'}
-                    </span>
-                    
-                    {/* Botão de atualização pequeno inline */}
-                    <div className="ml-2">
-                      <DataRefreshButton showText={false} size={14} />
-                    </div>
-                  </div>
-                )}
                 
-                <div className="flex items-center gap-3">
-                  {/* Botão para controle de cache */}
+                
+                {/*<div className="flex items-center gap-3">
+                   Botão para controle de cache 
                   <button
                     onClick={() => setShowCacheControl(true)}
                     className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center"
@@ -1832,14 +1844,15 @@ function ServicoRelacionadaContent() {
                     <span className="text-xs text-gray-600">Cache</span>
                   </button>
                   
-                  {/* Botão de atualização de dados */}
+                  {/* Botão de atualização de dados 
                   <DataRefreshButton />
-                </div>
+                </div>*/}
                 
                 <div className="flex items-center gap-4">
                   <div className="flex flex-col">
                     <div className="search-container">
                       <div className="search-bar">
+                      <DataRefreshButton />
                         <button
                           onClick={executeSearch}
                           className={`pesquisa-icone ${searchTerm.trim().length > 0 ? 'search-icon-blinking' : ''}`}
@@ -2062,42 +2075,41 @@ function ServicoRelacionadaContent() {
                   </div>
                 </div>
               ) : (
-                <div className="h-[calc(100vh-220px)] overflow-hidden">
-                  <DataTable
-                    ref={dataTableRef}
-                    data={serviceData}
-                    searchTerm={searchTerm}
-                    sortOrder={sortOrder}
-                    sortField={sortField}
-                    changeSort={changeSort}
-                    onSelectionChange={toggleRowSelection}
-                    editingRow={editingRow}
-                    editedData={editedData}
-                    handleInputChange={handleInputChange}
-                    handleDropdownChange={handleDropdownChange}
-                    selectedRows={selectedRows}
-                    isAdding={isAdding}
-                    newServiceData={newServiceData}
-                    handleNewInputChange={handleNewInputChange}
-                    handleNewDropdownChange={handleNewDropdownChange}
-                    dropdownOptions={dropdownOptions}
-                    updateTrigger={updateCounter}
-                  />
+                /* Aqui renderizamos a tabela, mas sem as chaves extras */
+                <div className="flex flex-col">
+                  {/* Container da tabela com tamanho fixo e rolagem */}
+                  <div className="h-[calc(100vh-200px)] overflow-auto border-b">
+                    <DataTable
+                      ref={dataTableRef}
+                      data={serviceData}
+                      searchTerm={searchTerm}
+                      sortOrder={sortOrder}
+                      sortField={sortField}
+                      changeSort={changeSort}
+                      onSelectionChange={toggleRowSelection}
+                      editingRow={editingRow}
+                      editedData={editedData}
+                      handleInputChange={handleInputChange}
+                      handleDropdownChange={handleDropdownChange}
+                      selectedRows={selectedRows}
+                      isAdding={isAdding}
+                      newServiceData={newServiceData}
+                      handleNewInputChange={handleNewInputChange}
+                      handleNewDropdownChange={handleNewDropdownChange}
+                      dropdownOptions={dropdownOptions}
+                      updateTrigger={updateCounter}
+                    />
+                  </div>
+                  
+                  {/* Botão agora está fora da div com rolagem */}
                   {hasMore && !isSearching && (
-                    <div className="flex justify-center mt-4">
+                    <div className="flex justify-center py-4 mt-2">
                       <button
                         onClick={loadMore}
                         className="button buttontxt"
                         disabled={loading}
                       >
-                        {loading ? (
-                          <span className="flex items-center justify-center">
-                            <span className="animate-spin mr-2 h-4 w-4 border-b-2 border-white rounded-full"></span>
-                            Carregando...
-                          </span>
-                        ) : (
-                          <span>Mostrar mais</span>
-                        )}
+                        <span>Mostrar mais</span>
                       </button>
                     </div>
                   )}

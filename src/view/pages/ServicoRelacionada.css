@@ -270,17 +270,17 @@
 
 /* Estilo do contêiner estilizado */
 .styled-container {
-    background-color: #f1f1f1; /* Atras (background da tabela) */
-    border-radius: 20px;
-    box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
-    padding: 2rem; /* Mantém o padding em todas as direções */
-    width: 75%; /* muda a posição da tabela */
-    margin: 5rem auto 0;
-    position:absolute;
-    left: 21.01%; /* muda a posição da tabela */
-    transition: transform 0.1s ease, box-shadow 0.1s ease;
-    margin-bottom: 3rem;
-  }
+  background-color: #f1f1f1;
+  border-radius: 20px;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
+  padding: 2rem 2rem 0.5rem 2rem; /* Topo, Direita, Inferior, Esquerda - reduzido o padding inferior */
+  width: 75%;
+  margin: 5rem auto 0;
+  position: absolute;
+  left: 21.01%;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  margin-bottom: 3rem;
+}
   
   /* Ajuste para o conteúdo interno */
   .styled-container > * {

@@ -3,7 +3,7 @@ import { useServiceData } from './ServiceContext';
 import { useDropdownOptions } from './DropdownOptionsContext';
 import { Database, RotateCcw, RefreshCw, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import CacheService from '../services/CacheService';
-
+import DataRefreshButton from '../components/DataRefreshButton';
 // Componente para exibir e gerenciar o cache do sistema
 const CacheControl = ({ onClose }) => {
   // Removi a declaração de showCacheControl daqui, pois estava causando o erro
@@ -314,20 +314,12 @@ const CacheControl = ({ onClose }) => {
           
           {/* Botões de ação */}
           <div className="flex flex-col sm:flex-row gap-3 mt-6">
-            <button
-              onClick={clearAllCache}
-              disabled={refreshing}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg transition-colors"
-            >
-              <RotateCcw size={18} />
-              Limpar Cache
-            </button>
-            
-            <button
-              onClick={refreshCache}
-              disabled={refreshing}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
-            >
+          <DataRefreshButton 
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg transition-colors"
+            showText={true}
+            size={18}
+            color="text-red-700" 
+          />
               {refreshing ? (
                 <>
                   <RefreshCw size={18} className="animate-spin" />
@@ -339,7 +331,7 @@ const CacheControl = ({ onClose }) => {
                   Atualizar Cache
                 </>
               )}
-            </button>
+            
           </div>
           
           {/* Dicas */}
