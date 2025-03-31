@@ -3,13 +3,14 @@ import { motion } from 'framer-motion';
 import { Header } from '../../components/Header';
 import { Sidebar } from '../../components/Sidebar';
 import PageTransition from '../../components/PageTransition';
-import CadastroPaciente from '../../components/pacientes/CadastroPaciente';
+import CadastroPaciente from './PacientesEmTratamento/CadastroPaciente';
 import ProtocoloPaciente from '../../components/pacientes/ProtocoloPaciente';
 import PreviaPaciente from '../../components/pacientes/PreviaPaciente';
 import NovaPreviaPaciente from '../../components/pacientes/NovaPreviaPaciente';
 import ConsultaPaciente from '../../components/pacientes/ConsultaPaciente';
 import CalculadoraPaciente from '../../components/pacientes/CalculadoraPaciente';
 import { PatientProvider } from '../../context/PatientContext';
+import { Search, Plus, Trash2, Edit, RefreshCw, X, Save, Database } from 'lucide-react';
 
 // CSS
 import './PacientesEmTratamento.css';
@@ -27,61 +28,21 @@ export default function PacientesEmTratamento() {
           <div className="flex-1">
             <Header />
             <div className="main-content-pacientes">
-              {/* Navegação de abas */}
-              <div className="patient-tabs">
-                <button 
-                  className={`patient-tab ${activeTab === 'cadastro' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('cadastro')}
-                >
-                  Cadastro
-                </button>
-                <button 
-                  className={`patient-tab ${activeTab === 'paciente' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('paciente')}
-                >
-                  Paciente
-                </button>
-                <button 
-                  className={`patient-tab ${activeTab === 'protocolo' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('protocolo')}
-                >
-                  Protocolo
-                </button>
-                <button 
-                  className={`patient-tab ${activeTab === 'previa' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('previa')}
-                >
-                  Prévia
-                </button>
-                <button 
-                  className={`patient-tab ${activeTab === 'nova-previa' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('nova-previa')}
-                >
-                  Nova Prévia
-                </button>
-                <button 
-                  className={`patient-tab ${activeTab === 'consultar' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('consultar')}
-                >
-                  Consultar
-                </button>
-                <button 
-                  className={`patient-tab ${activeTab === 'calculadora' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('calculadora')}
-                >
-                  Calculadora
-                </button>
-              </div>
-              
-              {/* Conteúdo da aba */}
-              <div className="patient-content">
-                {activeTab === 'cadastro' && <CadastroPaciente />}
-                {activeTab === 'paciente' && <CadastroPaciente />}
-                {activeTab === 'protocolo' && <ProtocoloPaciente />}
-                {activeTab === 'previa' && <PreviaPaciente />}
-                {activeTab === 'nova-previa' && <NovaPreviaPaciente />}
-                {activeTab === 'consultar' && <ConsultaPaciente />}
-                {activeTab === 'calculadora' && <CalculadoraPaciente />}
+              {/* Container principal estilizado */}
+              <div className="styled-container-pacientes">
+                
+                
+                
+                {/* Conteúdo da aba */}
+                <div className="patient-content">
+                  {activeTab === 'cadastro' && <CadastroPaciente />}
+                  {activeTab === 'paciente' && <CadastroPaciente />}
+                  {activeTab === 'protocolo' && <ProtocoloPaciente />}
+                  {activeTab === 'previa' && <PreviaPaciente />}
+                  {activeTab === 'nova-previa' && <NovaPreviaPaciente />}
+                  {activeTab === 'consultar' && <ConsultaPaciente />}
+                  {activeTab === 'calculadora' && <CalculadoraPaciente />}
+                </div>
               </div>
             </div>
           </div>
@@ -89,4 +50,4 @@ export default function PacientesEmTratamento() {
       </PageTransition>
     </PatientProvider>
   );
-}   
+}

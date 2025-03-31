@@ -1,39 +1,76 @@
-import React from "react";
-import { Database, LayoutGrid, LogOut, User } from "lucide-react";
+import React, { useState } from "react";
+import { Database, LayoutGrid, LogOut, User, ChevronDown, ChevronRight, Users, FilePlus, Calculator, Folder, Search } from "lucide-react";
 import { useLocation, Link } from "react-router-dom";
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
-import { showConfirmAlert } from '../utils/CustomAlerts'; // Importando a função de alerta
+import { showConfirmAlert } from '../utils/CustomAlerts';
 
-import "./Estilos.css"; // Importa os estilos
+import "./Estilos.css";
 
 export function Sidebar() {
   const location = useLocation();
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const [expandedMenus, setExpandedMenus] = useState({}); // Estado para controlar menus expandidos
 
   const handleLogout = async () => {
-    // Exibe a confirmação e aguarda a resposta
     const confirmed = await showConfirmAlert(
       "Deseja realmente sair do sistema?", 
       "Você será desconectado e redirecionado para a tela de login."
     );
     
-    // Só realiza o logout se o usuário confirmar
     if (confirmed) {
       logout();
       navigate('/login');
     }
   };
 
+  // Função para alternar a expansão de submenus
+  const toggleSubmenu = (index) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
+
+  // Verificar se um caminho está ativo (incluindo submenus)
+  const isPathActive = (path) => {
+    if (path === "#") return false;
+    
+    // Para caminhos de subtabs
+    if (path.includes('?tab=')) {
+      const basePath = path.split('?')[0];
+      const tabParam = path.split('tab=')[1];
+      
+      // Verificar se estamos na mesma base de caminho e se a tab na URL corresponde
+      const urlParams = new URLSearchParams(location.search);
+      const currentTab = urlParams.get('tab');
+      
+      return location.pathname === basePath && currentTab === tabParam;
+    }
+    
+    // Para caminhos normais
+    return location.pathname === path;
+  };
+
   const menuItems = [
     { icon: LayoutGrid, label: "Inicial", path: "/Home" },
     { icon: Database, label: "Relação de Serviços", path: "/ServicoRelacionada" },
-    { icon: Database, label: "Pacientes em Trata.", path: "/PacientesEmTratamento" },
+    { 
+      icon: Users, 
+      label: "Pacientes em Trata.", 
+      path: "/PacientesEmTratamento",
+      subMenu: [
+        { icon: Folder, label: "Cad. Paciente", path: "/PacientesEmTratamento?tab=cadastro" },
+        { icon: Folder, label: "Cad. Protocolo", path: "/PacientesEmTratamento?tab=protocolo" },
+        { icon: FilePlus, label: "Nova Prévia", path: "/PacientesEmTratamento?tab=nova-previa" },
+        { icon: Search, label: "Consultar Prévia", path: "/PacientesEmTratamento?tab=previa" },
+        { icon: Calculator, label: "Calculadora", path: "/PacientesEmTratamento?tab=calculadora" }
+      ]
+    },
     { icon: Database, label: "Empresas", path: "#" },
   ];
 
-  // O item de perfil usa Link, mas o LogOut usa button para chamar handleLogout
   const bottomItems = [
     { icon: LogOut, label: "Log Out", isButton: true },
   ];
@@ -43,7 +80,7 @@ export function Sidebar() {
       {/* Cabeçalho */}
       <div className="sidebar-header">
         <div className="sidebar-logo">
-        <img src="/images/LCOLogoUnitarioVetorSidebar.png" alt="Logo" className="sidebar-logo" />
+          <img src="/images/LCOLogoUnitarioVetorSidebar.png" alt="Logo" className="sidebar-logo" />
         </div>
         <div className="sidebar-info">
           <span className="sidebar-title">LOW COST ONCO</span>
@@ -54,15 +91,51 @@ export function Sidebar() {
       {/* Menu Principal */}
       <nav className="sidebar-menu">
         <ul>
-          {menuItems.map(({ icon: Icon, label, path }, index) => (
+          {menuItems.map((item, index) => (
             <li key={index}>
-              <Link
-                to={path}
-                className={`sidebar-item ${location.pathname === path ? "active" : ""}`}
-              >
-                <Icon size={20} />
-                <span>{label}</span>
-              </Link>
+              {item.subMenu ? (
+                // Item com submenu
+                <>
+                  <div 
+                    className={`sidebar-item ${location.pathname === item.path ? "active" : ""}`}
+                    onClick={() => toggleSubmenu(index)}
+                  >
+                    <item.icon size={20} />
+                    <span>{item.label}</span>
+                    {expandedMenus[index] ? (
+                      <ChevronDown size={16} className="submenu-icon" />
+                    ) : (
+                      <ChevronRight size={16} className="submenu-icon" />
+                    )}
+                  </div>
+                  
+                  {/* Renderizar submenu se estiver expandido */}
+                  {expandedMenus[index] && (
+                    <ul className="sidebar-submenu">
+                      {item.subMenu.map((subItem, subIndex) => (
+                        <li key={`${index}-${subIndex}`}>
+                          <Link
+                            to={subItem.path}
+                            className={`sidebar-submenu-item ${isPathActive(subItem.path) ? "active" : ""}`}
+                          >
+                            {subItem.icon && <subItem.icon size={16} />}
+                            <span>{subItem.label}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              ) : (
+                // Item normal sem submenu
+                <Link
+                  to={item.path}
+                  className={`sidebar-item ${location.pathname === item.path ? "active" : ""}`}
+                >
+                  <item.icon size={20} />
+                  <span>{item.label}</span>
+                </Link>
+              )}
             </li>
           ))}
         </ul>

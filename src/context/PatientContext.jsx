@@ -5,7 +5,7 @@ import { showSuccessAlert, showErrorAlert } from '../utils/CustomAlerts';
 const PatientContext = createContext();
 
 // API base URL
-const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api";
+const API_BASE_URL = "http://localhost/backend-php/api/";
 
 // Hook personalizado para usar o contexto
 export const usePatient = () => useContext(PatientContext);
@@ -36,55 +36,16 @@ export const PatientProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       
-      // Fazer requisição para a API simulada (substituir pelo endpoint real)
-      const response = await fetch(`${API_BASE_URL}/pacientes_em_tratamento.php`);
+      // Fazer requisição real para a API
+      const response = await fetch(`${API_BASE_URL}/get_pacientes.php`);
       
       if (!response.ok) {
         throw new Error(`Erro ao carregar pacientes: ${response.status}`);
       }
       
-      // Simulando dados baseados na estrutura do banco fornecido
-      // Na implementação real, isso viria da API
-      const data = [
-        {
-          id: 1,
-          Operadora: "Casacaresc",
-          Prestador: "CEOF",
-          Paciente_Codigo: "909002072000943106",
-          Nome: "Rosani Anita Gabriel",
-          Sexo: "F",
-          Nascimento: "22/02/1986",
-          Indicao_Clinica: "Mama NE",
-          CID: "C509",
-          T: "3",
-          N: "0",
-          M: "1",
-          Estadio: "IV",
-          Finalidade: "Paliativo",
-          CRM_Medico: 4524,
-          Local_das_Metastases: "PULMONARES, SNC, ÓSSEA, HEPÁTICA"
-        },
-        {
-          id: 2,
-          Operadora: "Casacaresc",
-          Prestador: "CEOF",
-          Paciente_Codigo: "909002072003666537",
-          Nome: "Luciano Ferreira",
-          Sexo: "M",
-          Nascimento: "",
-          Indicao_Clinica: "Neoplasma malig do testículo",
-          CID: "C629",
-          T: "",
-          N: "",
-          M: "",
-          Estadio: "",
-          Finalidade: "",
-          CRM_Medico: 4870,
-          Local_das_Metastases: ""
-        }
-      ];
+      const responseData = await response.json();
+      const data = responseData.data || responseData; // Compatibilidade com ambos os formatos
       
-      // Para simulação
       setPatients(data);
       setFilteredPatients(data);
       setInitialized(true);
@@ -100,36 +61,26 @@ export const PatientProvider = ({ children }) => {
   // Carregar dados de referência (operadoras, prestadores, etc.)
   const loadReferenceData = async () => {
     try {
-      // Simular carregamento de operadoras
-      const operadorasData = [
-        { id: 1, nome: "Casacaresc" },
-        { id: 2, nome: "CELOS" },
-        { id: 3, nome: "SIM" }
-      ];
+      // Carregar operadoras
+      const operadorasResponse = await fetch(`${API_BASE_URL}/get_operadoras.php`);
+      if (operadorasResponse.ok) {
+        const operadorasData = await operadorasResponse.json();
+        setOperadoras(operadorasData);
+      }
       
-      // Simular carregamento de prestadores
-      const prestadoresData = [
-        { id: 1, nome: "CEOF" },
-        { id: 2, nome: "NOOVA" },
-        { id: 3, nome: "OCF" },
-        { id: 4, nome: "SOMA" },
-        { id: 5, nome: "VIVER" },
-        { id: 6, nome: "CLIMAMA" }
-      ];
+      // Carregar prestadores
+      const prestadoresResponse = await fetch(`${API_BASE_URL}/get_prestadores.php`);
+      if (prestadoresResponse.ok) {
+        const prestadoresData = await prestadoresResponse.json();
+        setPrestadores(prestadoresData);
+      }
       
-      // Carregar finalidades de tratamento da tabela real
-      const finalidadeData = [
-        { id: 1, descricao: "NeoAdjuvante (Prévio)" },
-        { id: 2, descricao: "Adjuvante" },
-        { id: 3, descricao: "Curativo" },
-        { id: 4, descricao: "Controle" },
-        { id: 5, descricao: "Associado a Radioterapia" },
-        { id: 6, descricao: "Paliativo" }
-      ];
-      
-      setOperadoras(operadorasData);
-      setPrestadores(prestadoresData);
-      setFinalidadeTratamento(finalidadeData);
+      // Carregar finalidades de tratamento
+      const finalidadesResponse = await fetch(`${API_BASE_URL}/get_finalidades_tratamento.php`);
+      if (finalidadesResponse.ok) {
+        const finalidadesData = await finalidadesResponse.json();
+        setFinalidadeTratamento(finalidadesData);
+      }
       
     } catch (error) {
       console.error("Erro ao carregar dados de referência:", error);
@@ -160,22 +111,25 @@ export const PatientProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      // Simulação de chamada API
-      console.log("Adicionando paciente:", patientData);
+      const response = await fetch(`${API_BASE_URL}/create_paciente.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(patientData)
+      });
       
-      // Criar ID simulado para o novo paciente
-      const newId = Math.max(0, ...patients.map(p => p.id)) + 1;
-      const newPatient = {
-        id: newId,
-        ...patientData
-      };
+      if (!response.ok) {
+        throw new Error(`Erro ao adicionar paciente: ${response.status}`);
+      }
       
-      // Atualizar estado local
-      setPatients(prev => [...prev, newPatient]);
-      setFilteredPatients(prev => [...prev, newPatient]);
+      const data = await response.json();
+      
+      // Recarregar os pacientes para obter a lista atualizada
+      await loadPatients(true);
       
       showSuccessAlert("Paciente adicionado com sucesso");
-      return newId;
+      return data.id;
       
     } catch (error) {
       console.error("Erro ao adicionar paciente:", error);
@@ -191,20 +145,31 @@ export const PatientProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      // Simulação de chamada API
-      console.log("Atualizando paciente:", patientId, patientData);
+      // Garantir que o ID esteja no objeto
+      const updateData = {
+        ...patientData,
+        id: patientId
+      };
       
-      // Atualizar estado local
-      setPatients(prev => prev.map(p => 
-        p.id === patientId ? { ...p, ...patientData } : p
-      ));
+      const response = await fetch(`${API_BASE_URL}/update_paciente.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      });
       
-      setFilteredPatients(prev => prev.map(p => 
-        p.id === patientId ? { ...p, ...patientData } : p
-      ));
+      if (!response.ok) {
+        throw new Error(`Erro ao atualizar paciente: ${response.status}`);
+      }
+      
+      // Recarregar os pacientes para obter a lista atualizada
+      await loadPatients(true);
       
       if (selectedPatient?.id === patientId) {
-        setSelectedPatient({ ...selectedPatient, ...patientData });
+        // Atualizar o paciente selecionado
+        const updatedPatient = patients.find(p => p.id === patientId);
+        setSelectedPatient(updatedPatient || null);
       }
       
       showSuccessAlert("Paciente atualizado com sucesso");
@@ -224,8 +189,13 @@ export const PatientProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      // Simulação de chamada API
-      console.log("Excluindo paciente:", patientId);
+      const response = await fetch(`${API_BASE_URL}/delete_paciente.php?id=${patientId}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erro ao excluir paciente: ${response.status}`);
+      }
       
       // Atualizar estado local
       setPatients(prev => prev.filter(p => p.id !== patientId));
@@ -248,9 +218,30 @@ export const PatientProvider = ({ children }) => {
   };
   
   // Selecionar paciente
-  const selectPatient = (patientId) => {
-    const patient = patients.find(p => p.id === patientId);
-    setSelectedPatient(patient || null);
+  const selectPatient = async (patientId) => {
+    try {
+      // Verificar se já temos detalhes completos do paciente no estado atual
+      const existingPatient = patients.find(p => p.id === patientId);
+      
+      if (existingPatient) {
+        setSelectedPatient(existingPatient);
+        return;
+      }
+      
+      // Caso contrário, buscar detalhes do paciente da API
+      const response = await fetch(`${API_BASE_URL}/get_paciente_by_id.php?id=${patientId}`);
+      
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar detalhes do paciente: ${response.status}`);
+      }
+      
+      const patientData = await response.json();
+      setSelectedPatient(patientData);
+      
+    } catch (error) {
+      console.error("Erro ao selecionar paciente:", error);
+      showErrorAlert("Erro ao carregar detalhes do paciente", error.message);
+    }
   };
   
   // Funções para calculadora médica
