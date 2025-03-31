@@ -46,6 +46,7 @@ function ServicoRelacionadaContent() {
   const [cacheRefreshed, setCacheRefreshed] = useState(false);
   const [refreshingData, setRefreshingData] = useState(false);
   const [dataSource, setDataSource] = useState(''); // 'cache' ou 'server'
+  const [updatingRows, setUpdatingRows] = useState(new Set());
 
   const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api";
   //  const [searchDebounceTimeout, setSearchDebounceTimeout] = useState(null);
@@ -55,8 +56,338 @@ function ServicoRelacionadaContent() {
   // Ref para o input de pesquisa
   const searchInputRef = useRef(null);
   
-  // Função para executar a busca diretamente a partir do valor atual do input
-  // Função para executar a busca diretamente a partir do valor atual do input
+  const syncCacheAndInterface = async (operation, itemData) => {
+    try {
+      console.log(`Sincronizando cache e interface: operação ${operation}`, itemData);
+  
+      // ETAPA 1: Atualizar o cache local (localStorage)
+      if (isCacheEnabled) {
+        // Atualizar todas as chaves de cache relevantes
+        const allCacheKeys = Object.keys(localStorage).filter(key => 
+          (key.startsWith('services_') && !key.includes('_search_')) || 
+          key.startsWith('cached_services_chunk_')
+        );
+  
+        console.log(`Encontradas ${allCacheKeys.length} chaves de cache para atualização`);
+  
+        let cacheUpdated = false;
+  
+        for (const key of allCacheKeys) {
+          try {
+            // Obter e analisar dados do cache
+            const cachedItem = localStorage.getItem(key);
+            if (!cachedItem) continue;
+  
+            let cachedData = JSON.parse(cachedItem);
+            let dataToUpdate;
+            let isDataWrapped = false;
+  
+            // Determinar se os dados estão em um objeto wrapper ou direto
+            if (cachedData.data !== undefined) {
+              dataToUpdate = cachedData.data;
+              isDataWrapped = true;
+            } else {
+              dataToUpdate = cachedData;
+            }
+  
+            // Verificar se é um array
+            if (!Array.isArray(dataToUpdate)) {
+              console.log(`Ignorando chave ${key}, formato não suportado`);
+              continue;
+            }
+  
+            // Aplicar a operação de atualização
+            let updatedData;
+            switch (operation) {
+              case 'update':
+                updatedData = dataToUpdate.map(item => 
+                  item.id === itemData.id ? { ...item, ...itemData } : item
+                );
+                break;
+              case 'add':
+                // Adicionar e ordenar por ID
+                updatedData = [...dataToUpdate, itemData].sort((a, b) => Number(a.id) - Number(b.id));
+                break;
+              case 'delete':
+                updatedData = dataToUpdate.filter(item => item.id !== itemData);
+                break;
+              default:
+                console.warn(`Operação desconhecida: ${operation}`);
+                continue;
+            }
+  
+            // Atualizar o cache
+            if (isDataWrapped) {
+              cachedData.data = updatedData;
+              localStorage.setItem(key, JSON.stringify(cachedData));
+            } else {
+              localStorage.setItem(key, JSON.stringify(updatedData));
+            }
+  
+            cacheUpdated = true;
+            console.log(`Cache atualizado para chave ${key}`);
+          } catch (error) {
+            console.error(`Erro ao atualizar chave ${key}:`, error);
+          }
+        }
+  
+        // Atualizar o timestamp de escrita se algo foi atualizado
+        if (cacheUpdated) {
+          if (typeof CacheService !== 'undefined' && CacheService.updateWriteTimestamp) {
+            CacheService.updateWriteTimestamp();
+          } else {
+            localStorage.setItem('last_write_timestamp', Date.now().toString());
+          }
+        }
+      }
+  
+      // ETAPA 2: Atualizar o estado React (interface do usuário)
+      switch (operation) {
+        case 'update':
+          setServiceData(prevData => {
+            // Encontrar e atualizar o item específico
+            const updatedData = prevData.map(item => 
+              item.id === itemData.id ? { ...item, ...itemData } : item
+            );
+            console.log("Estado da UI atualizado após operação de UPDATE");
+            return updatedData;
+          });
+          break;
+        case 'add':
+          setServiceData(prevData => {
+            // Adicionar o novo item e ordenar por ID
+            const updatedData = [...prevData, itemData].sort((a, b) => Number(a.id) - Number(b.id));
+            console.log("Estado da UI atualizado após operação de ADD");
+            return updatedData;
+          });
+          break;
+        case 'delete':
+          setServiceData(prevData => {
+            // Remover o item com o ID fornecido
+            const updatedData = prevData.filter(item => item.id !== itemData);
+            console.log("Estado da UI atualizado após operação de DELETE");
+            return updatedData;
+          });
+          break;
+      }
+  
+      // ETAPA 3: Forçar as alterações a serem refletidas no sistema subjacente
+      // Atualiza serviços no contexto global (se disponível)
+      if (operation === 'update' && typeof updateService === 'function') {
+        updateService(itemData);
+      } else if (operation === 'delete' && typeof deleteService === 'function') {
+        deleteService(itemData);
+      }
+  
+      // ETAPA 4: Atualizar a fonte de dados e mostrar feedback
+      setDataSource('cache');
+      showSuccessAlert("Dados atualizados com sucesso!", "", false, 1500);
+      showCacheRefreshIndicator();
+      
+    } catch (error) {
+      console.error("Erro ao sincronizar cache e interface:", error);
+      // Se falhar a atualização seletiva, tentar uma abordagem mais simples
+      try {
+        // Atualizar o contexto global manualmente
+        if (operation === 'update' && typeof updateService === 'function') {
+          updateService(itemData);
+        } else if (operation === 'delete' && typeof deleteService === 'function') {
+          deleteService(itemData);
+        }
+        // Recarregar dados como fallback
+        loadServiceData(1, true, false);
+      } catch (innerError) {
+        console.error("Erro no fallback de sincronização:", innerError);
+      }
+    }
+  };
+
+  // Função centralizada para atualizar dados após mutações
+  const refreshDataAfterMutation = async () => {
+    try {
+      // 1. Primeiro, indique que os dados precisam de revalidação
+      if (typeof forceRevalidation === 'function') {
+        forceRevalidation();
+      }
+      
+      // 2. Limpar o cache para forçar uma nova busca ao servidor
+      clearServicesCache();
+      
+      // 3. Mostrar indicador visual de atualização
+      showCacheRefreshIndicator();
+      
+      // 4. Definir a fonte dos dados como servidor
+      setDataSource('server');
+      
+      // 5. Recarregar os dados
+      await loadServiceData(1, true);
+      
+      // 6. Mostrar feedback ao usuário (opcional)
+      showSuccessAlert("Dados atualizados automaticamente", "", false, 1500);
+      
+      console.log("Dados atualizados automaticamente após mutação");
+    } catch (error) {
+      console.error("Erro ao atualizar dados após mutação:", error);
+    }
+  };
+
+  // Função para atualizar seletivamente o cache após mutações
+  const updateCacheSelectively = async (operation, itemData) => {
+    try {
+      console.log(`Atualizando cache seletivamente: ${operation}`, itemData);
+
+      // Não faremos nada se o cache não estiver habilitado
+      if (!isCacheEnabled) {
+        console.log("Cache não está habilitado, ignorando atualização seletiva");
+        return;
+      }
+
+      // Sinalizar que o cache foi atualizado (para interface)
+      showCacheRefreshIndicator();
+
+      // Encontrar todas as chaves de cache que podem conter dados
+      const allCacheKeys = Object.keys(localStorage).filter(key => 
+        (key.startsWith('services_') && !key.includes('_search_')) || 
+        key.startsWith(CacheService.CACHE_KEYS.SERVICES_CHUNK_PREFIX)
+      );
+
+      console.log(`Encontradas ${allCacheKeys.length} chaves de cache para atualização seletiva`);
+
+      // Funções auxiliares para diferentes operações
+      const updateCacheItem = (cacheData, item) => {
+        // Se for um array, atualiza diretamente
+        if (Array.isArray(cacheData)) {
+          return cacheData.map(cacheItem => 
+            cacheItem.id === item.id ? { ...cacheItem, ...item } : cacheItem
+          );
+        }
+        // Se for um objeto com dados dentro, atualiza o array dentro
+        else if (cacheData.data && Array.isArray(cacheData.data)) {
+          return {
+            ...cacheData,
+            data: cacheData.data.map(cacheItem => 
+              cacheItem.id === item.id ? { ...cacheItem, ...item } : cacheItem
+            )
+          };
+        }
+        return cacheData;
+      };
+
+      const addCacheItem = (cacheData, item) => {
+        // Se for um array, adiciona diretamente
+        if (Array.isArray(cacheData)) {
+          // Adiciona o item mantendo a ordenação por ID
+          const newArray = [...cacheData, item].sort((a, b) => a.id - b.id);
+          return newArray;
+        }
+        // Se for um objeto com dados dentro, adiciona no array dentro
+        else if (cacheData.data && Array.isArray(cacheData.data)) {
+          return {
+            ...cacheData,
+            data: [...cacheData.data, item].sort((a, b) => a.id - b.id)
+          };
+        }
+        return cacheData;
+      };
+
+      const deleteCacheItem = (cacheData, itemId) => {
+        // Se for um array, filtra diretamente
+        if (Array.isArray(cacheData)) {
+          return cacheData.filter(cacheItem => cacheItem.id !== itemId);
+        }
+        // Se for um objeto com dados dentro, filtra o array dentro
+        else if (cacheData.data && Array.isArray(cacheData.data)) {
+          return {
+            ...cacheData,
+            data: cacheData.data.filter(cacheItem => cacheItem.id !== itemId)
+          };
+        }
+        return cacheData;
+      };
+
+      // Processar cada chave de cache
+      for (const key of allCacheKeys) {
+        try {
+          // Obter os dados do cache
+          const cachedItem = localStorage.getItem(key);
+          if (!cachedItem) continue;
+
+          const cachedData = JSON.parse(cachedItem);
+          let dataToUpdate;
+
+          // Verificar se existe um campo data dentro do objeto
+          if (cachedData.data !== undefined) {
+            dataToUpdate = cachedData.data;
+          } else {
+            dataToUpdate = cachedData;
+          }
+
+          // Aplicar a operação seletiva adequada
+          let updatedData;
+          switch (operation) {
+            case 'update':
+              updatedData = updateCacheItem(dataToUpdate, itemData);
+              break;
+            case 'add':
+              updatedData = addCacheItem(dataToUpdate, itemData);
+              break;
+            case 'delete':
+              updatedData = deleteCacheItem(dataToUpdate, itemData);
+              break;
+            default:
+              console.error(`Operação desconhecida: ${operation}`);
+              continue;
+          }
+
+          // Atualizar dados no localStorage
+          if (cachedData.data !== undefined) {
+            cachedData.data = updatedData;
+            localStorage.setItem(key, JSON.stringify(cachedData));
+          } else {
+            localStorage.setItem(key, JSON.stringify(updatedData));
+          }
+
+          console.log(`Cache atualizado seletivamente para a chave ${key}`);
+        } catch (error) {
+          console.error(`Erro ao atualizar cache para a chave ${key}:`, error);
+        }
+      }
+
+      // Atualizar o timestamp do cache para indicar que houve alteração
+      CacheService.updateWriteTimestamp();
+
+      // Atualizar a interface para refletir as alterações
+      // Vamos fazer isso de forma seletiva também, sem recarregar todos os dados
+      switch (operation) {
+        case 'update':
+          // Atualizar no estado local
+          setServiceData(prevData => 
+            prevData.map(item => item.id === itemData.id ? { ...item, ...itemData } : item)
+          );
+          break;
+        case 'add':
+          // Adicionar ao estado local
+          setServiceData(prevData => {
+            const newData = [...prevData, itemData].sort((a, b) => a.id - b.id);
+            return newData;
+          });
+          break;
+        case 'delete':
+          // Remover do estado local
+          setServiceData(prevData => 
+            prevData.filter(item => item.id !== itemData)
+          );
+          break;
+      }
+
+      // Mostrar feedback visual ao usuário
+      setDataSource('cache');
+      showSuccessAlert("Dados atualizados", "", false, 1000);
+    } catch (error) {
+      console.error("Erro na atualização seletiva do cache:", error);
+    }
+  };
+
   // Função para executar a busca diretamente a partir do valor atual do input
   const executeSearch = () => {
     if (searchInputRef.current) {
@@ -89,6 +420,205 @@ function ServicoRelacionadaContent() {
       } else {
         // Caso tenha menos de 2 caracteres
         showWarningAlert("Pesquisa muito curta", "Digite pelo menos 2 caracteres para pesquisar.");
+      }
+    }
+  };
+
+  // Adicione esta função de utilidade para requisições com timeout
+  const fetchWithTimeout = async (url, options = {}, timeout = 10000) => {
+    // Criar um controlador de aborto para timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('Requisição abortada por timeout');
+      }
+      throw error;
+    }
+  };
+
+  // Função otimizada para atualização rápida da interface com indicador de carregamento por linha
+  const fastUpdateWithLoadingIndicator = async (operation, itemData) => {
+    try {
+      const itemId = operation === 'delete' ? itemData : itemData.id;
+      console.log(`Iniciando operação ${operation} para item ${itemId}`);
+      
+      // ETAPA 1: Atualizar imediatamente a interface
+      // Marcar a linha como "em atualização"
+      setUpdatingRows(prev => {
+        const newSet = new Set(prev);
+        newSet.add(itemId);
+        return newSet;
+      });
+      
+      // ETAPA 2: Atualizar o estado local do React para feedback imediato
+      switch (operation) {
+        case 'update':
+          setServiceData(prevData => {
+            // Para atualização, substituir o item pelo item atualizado, mas adicionar
+            // uma flag isUpdating para ser usada no renderizador
+            return prevData.map(item => 
+              item.id === itemData.id ? { ...itemData, isUpdating: true } : item
+            );
+          });
+          break;
+        case 'add':
+          // Para adição, já mostramos o item como adicionado mas com indicador
+          setServiceData(prevData => {
+            const newItem = { ...itemData, isUpdating: true };
+            const updatedData = [...prevData, newItem].sort((a, b) => Number(a.id) - Number(b.id));
+            return updatedData;
+          });
+          break;
+        case 'delete':
+          // Para exclusão, não removemos imediatamente, mas mostramos como "sendo excluído"
+          setServiceData(prevData => 
+            prevData.map(item => 
+              item.id === itemId ? { ...item, isDeleting: true } : item
+            )
+          );
+          break;
+      }
+      
+      // ETAPA 3: Atualizar o cache em segundo plano
+      // Criar uma worker function que será executada em segundo plano
+      const updateCacheAsync = async () => {
+        // Atualização mínima do cache - apenas as chaves mais importantes
+        // Para reduzir drasticamente o tempo de processamento
+        try {
+          // Apenas atualizar chaves de cache não relacionadas a buscas
+          // E limitar a 5 chaves para evitar processamento excessivo
+          const cacheKeys = Object.keys(localStorage)
+            .filter(key => key.startsWith('services_') && !key.includes('_search_'))
+            .slice(0, 5);
+          
+          for (const key of cacheKeys) {
+            try {
+              const cachedItem = localStorage.getItem(key);
+              if (!cachedItem) continue;
+              
+              let cachedData = JSON.parse(cachedItem);
+              let dataArray;
+              let isWrapped = false;
+              
+              if (cachedData.data && Array.isArray(cachedData.data)) {
+                dataArray = cachedData.data;
+                isWrapped = true;
+              } else if (Array.isArray(cachedData)) {
+                dataArray = cachedData;
+              } else {
+                continue; // Formato não reconhecido
+              }
+              
+              // Aplicar a modificação baseada na operação
+              let updatedArray;
+              switch (operation) {
+                case 'update':
+                  updatedArray = dataArray.map(item => 
+                    item.id === itemData.id ? { ...item, ...itemData } : item
+                  );
+                  break;
+                case 'add':
+                  updatedArray = [...dataArray, itemData]
+                    .sort((a, b) => Number(a.id) - Number(b.id));
+                  break;
+                case 'delete':
+                  updatedArray = dataArray.filter(item => item.id !== itemId);
+                  break;
+              }
+              
+              // Salvar de volta no cache
+              if (isWrapped) {
+                cachedData.data = updatedArray;
+                localStorage.setItem(key, JSON.stringify(cachedData));
+              } else {
+                localStorage.setItem(key, JSON.stringify(updatedArray));
+              }
+            } catch (error) {
+              console.warn(`Erro ao atualizar cache para chave ${key}:`, error);
+              // Continuar com outras chaves mesmo se uma falhar
+            }
+          }
+          
+          // Atualizar timestamp de escrita
+          if (typeof CacheService !== 'undefined' && CacheService.updateWriteTimestamp) {
+            CacheService.updateWriteTimestamp();
+          } else {
+            localStorage.setItem('last_write_timestamp', Date.now().toString());
+          }
+        } catch (error) {
+          console.error('Erro na atualização assíncrona do cache:', error);
+        }
+      };
+      
+      // Executar a atualização do cache em segundo plano
+      setTimeout(updateCacheAsync, 0);
+      
+      // ETAPA 4: Após um curto período, remover o indicador de carregamento
+      // Para operações rápidas, garantir que o indicador apareça por pelo menos 500ms
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Atualizar a interface para remover os indicadores
+      setServiceData(prevData => {
+        switch (operation) {
+          case 'update':
+          case 'add':
+            return prevData.map(item => 
+              item.id === itemId ? { ...item, isUpdating: false } : item
+            );
+          case 'delete':
+            // Agora sim, remover o item do estado
+            return prevData.filter(item => item.id !== itemId);
+        }
+        return prevData;
+      });
+      
+      // Remover a linha da lista de linhas em atualização
+      setUpdatingRows(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+      
+      console.log(`Operação ${operation} para item ${itemId} concluída com sucesso`);
+      
+    } catch (error) {
+      console.error(`Erro na atualização rápida para operação ${operation}:`, error);
+      
+      // Em caso de erro, tente atualizar a interface para remover o indicador
+      try {
+        setUpdatingRows(prev => {
+          const newSet = new Set(prev);
+          const itemId = operation === 'delete' ? itemData : itemData.id;
+          newSet.delete(itemId);
+          return newSet;
+        });
+        
+        // Restaurar estado anterior em caso de erro
+        if (operation === 'update' || operation === 'add') {
+          setServiceData(prevData => 
+            prevData.map(item => 
+              item.id === itemData.id ? { ...item, isUpdating: false } : item
+            )
+          );
+        } else if (operation === 'delete') {
+          setServiceData(prevData => 
+            prevData.map(item => 
+              item.id === itemData ? { ...item, isDeleting: false } : item
+            )
+          );
+        }
+      } catch (innerError) {
+        console.error('Erro ao limpar estado de atualização:', innerError);
       }
     }
   };
@@ -266,9 +796,11 @@ function ServicoRelacionadaContent() {
   useEffect(() => {
     // Somente carrega os dados automaticamente se não estiverem inicializados
     if (!initialized && !loading && serviceData.length === 0) {
-      loadServiceData(1, true);
+      // Adicione um indicador para o loadServiceData usar prioritariamente o cache
+      loadServiceData(1, true, true, true); // O último true indica "useCacheFirst"
     }
   }, [initialized, loading, serviceData.length, loadServiceData]);
+  
 
   // Função para alternar a seleção de uma linha
   const toggleRowSelection = (rowId) => {
@@ -298,11 +830,11 @@ function ServicoRelacionadaContent() {
     }
   };
 
-  // Função para excluir um serviço
+  // 3. Modificação para handleDelete (excluir item)
   const handleDelete = async () => {
     const selectedRowId = Array.from(selectedRows)[0];
     if (!selectedRowId) return;
-
+  
     // Confirmar exclusão com o usuário
     const confirmResult = await showConfirmAlert(
       "Tem certeza que deseja excluir este serviço?", 
@@ -310,31 +842,33 @@ function ServicoRelacionadaContent() {
     );
     
     if (!confirmResult) return; // Usuário cancelou a exclusão
-
+  
     try {
       setLocalLoading(true);
       
-      const response = await fetch(`${API_BASE_URL}/delete_service.php?id=${selectedRowId}`, {
-        method: 'DELETE',
-      });
-
+      // Usar fetch com timeout
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/delete_service.php?id=${selectedRowId}`,
+        { method: 'DELETE' },
+        15000 // 15 segundos de timeout
+      );
+  
       if (!response.ok) {
         throw new Error("Erro ao excluir o serviço");
       }
-
-      // Atualiza o estado global
+  
+      // Atualizar o estado global
       deleteService(selectedRowId);
       
-      // Limpa a seleção
+      // Limpar a seleção
       setSelectedRows(new Set());
-
-      // Mostrar alerta de sucesso
+  
+      // Feedback de sucesso
       showSuccessAlert("Serviço excluído com sucesso!");
-      console.log("Serviço excluído com sucesso!");
-
-      // NOVO: Mostrar indicador de atualização do cache
-      showCacheRefreshIndicator();
-      setDataSource('server');
+      
+      // Usar a nova função otimizada
+      await fastUpdateWithLoadingIndicator('delete', selectedRowId);
+      
     } catch (error) {
       console.error("Erro ao excluir o serviço:", error);
       showErrorAlert("Falha ao excluir", error.message || "Erro desconhecido");
@@ -408,13 +942,14 @@ function ServicoRelacionadaContent() {
     setNewServiceData(resetNewServiceData());
   };
 
+  // 1. Modificação para handleSaveNew (adicionar item)
   const handleSaveNew = async () => {
     // Validação básica
     if (!newServiceData.Cod) {
       showWarningAlert("Campo obrigatório", "Por favor, preencha o Código.");
       return;
     }
-
+  
     // Verificar se há campos de RegistroVisa preenchidos sem o RegistroVisa principal
     const hasRegistroVisaFields = [
       'Cod_Ggrem', 'Lab', 'cnpj_lab', 'Classe_Terapeutica', 
@@ -422,14 +957,12 @@ function ServicoRelacionadaContent() {
       'Confaz87', 'Icms0', 'Lista', 'Status', 'Principio_Ativo'
     ].some(field => newServiceData[field] && newServiceData[field].trim() !== '');
     
-    // Se tem algum campo de RegistroVisa preenchido mas não tem o campo RegistroVisa
     if (hasRegistroVisaFields && (!newServiceData.RegistroVisa || newServiceData.RegistroVisa.trim() === '')) {
       showWarningAlert(
         "Campo obrigatório", 
         "Você preencheu campos do Registro Visa, mas o campo 'RegistroVisa' é obrigatório."
       );
       
-      // Destacar o campo RegistroVisa expandindo o cabeçalho, se necessário
       if (dataTableRef.current && typeof dataTableRef.current.expandHeader === 'function') {
         dataTableRef.current.expandHeader("Registro Visa");
       }
@@ -437,11 +970,9 @@ function ServicoRelacionadaContent() {
       return;
     }
     
-    // Criar uma cópia dos dados para poder modificá-los
+    // Preparar os dados para envio
     const dataToSend = { ...newServiceData };
     
-
-    // ADICIONAR ESTES LOGS PARA DEBUGGING
     console.group('DADOS ORIGINAIS ANTES DE FILTRAR:');
     console.log('idUnidadeFracionamento:', dataToSend.idUnidadeFracionamento);
     console.log('UnidadeFracionamento:', dataToSend.UnidadeFracionamento);
@@ -450,9 +981,8 @@ function ServicoRelacionadaContent() {
     console.log('Descricao:', dataToSend.Descricao);
     console.log('Divisor:', dataToSend.Divisor);
     console.groupEnd();
-
+  
     // Remover campos que podem causar conflitos de tipo
-    // Estes campos de texto não devem ser enviados quando já temos os IDs
     if (!dataToSend.UnidadeFracionamentoDescricao && dataToSend.Descricao) {
       dataToSend.UnidadeFracionamentoDescricao = dataToSend.Descricao;
     } else if (dataToSend.UnidadeFracionamentoDescricao && !dataToSend.Descricao) {
@@ -499,35 +1029,29 @@ function ServicoRelacionadaContent() {
     console.groupEnd();
   
     try {
-      // Mostrar indicador de carregamento
       setLocalLoading(true);
       
-      console.log("Dados a serem enviados:", JSON.stringify(dataToSend));
+      // Usar fetch com timeout para evitar esperas infinitas
       const serviceId = await addService(dataToSend);
       
       setIsAdding(false);
       handleCancelAdd();
       
       // Feedback de sucesso
-      showSuccessPopup({ id: serviceId, cod: dataToSend.Cod }, false, 5000);  
-      console.log("Serviço adicionado com sucesso!", serviceId);
+      showSuccessPopup({ id: serviceId, cod: dataToSend.Cod }, false, 3000);
       
-
-      // NOVO: Mostrar indicador de atualização do cache
-      showCacheRefreshIndicator();
-      setDataSource('server');
+      // Adicionar ID ao item
+      const completeItem = {
+        ...dataToSend,
+        id: serviceId
+      };
       
-      // Recarregar os dados para exibir o novo item
-      loadServiceData(1, true);
-
-      
+      // Usar a nova função otimizada
+      await fastUpdateWithLoadingIndicator('add', completeItem);
       
     } catch (error) {
       console.error("Erro ao adicionar o serviço:", error);
-      showErrorAlert(
-        "Falha ao adicionar serviço", 
-        error.message || "Erro desconhecido"
-      );
+      showErrorAlert("Falha ao adicionar serviço", error.message || "Erro desconhecido");
     } finally {
       setLocalLoading(false);
     }
@@ -1135,14 +1659,14 @@ function ServicoRelacionadaContent() {
     }
   };*/
 
-  // Função para salvar serviço atualizado
+  // 2. Modificação para handleSave (alterar item)
   const handleSave = async () => {
     if (!editingRow) return;
-  
+
     try {
       setLocalLoading(true);
       
-      // Criar uma cópia limpa dos dados para o envio
+      // Preparar dados para envio
       const cleanedData = { ...editedData };
       
       // Adiciona log para depuração
@@ -1170,81 +1694,30 @@ function ServicoRelacionadaContent() {
       
       console.log("Dados limpos a serem enviados:", cleanedData);
   
-      const response = await fetch(`${API_BASE_URL}/update_service.php`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/update_service.php`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cleanedData)
         },
-        body: JSON.stringify(cleanedData),
-      });
-  
-      console.log("Resposta do servidor - Status:", response.status);
-  
-      // Primeiro tentar obter o corpo como texto para debug
-      const responseText = await response.text();
-      console.log("Corpo da resposta (texto):", responseText);
-      
-      // Verificar se a resposta é JSON
-      let responseData;
-      try {
-        responseData = JSON.parse(responseText);
-      } catch (e) {
-        console.warn("Resposta não é JSON válido:", e);
-      }
+        15000 // 15 segundos de timeout
+      );
   
       if (!response.ok) {
-        throw new Error(responseData?.message || "Erro ao atualizar o serviço");
+        throw new Error("Erro ao atualizar o serviço");
       }
   
-      // MODIFICAÇÃO PRINCIPAL: Atualizar apenas a linha editada no estado local
-      // em vez de recarregar todos os dados
-      updateService(cleanedData);
-      
-      // Atualizar seletivamente o cache, se estiver usando
-      if (isCacheEnabled) {
-        // Encontrar todas as chaves de cache que podem conter este serviço
-        // e atualizar apenas o serviço específico em cada cache
-        try {
-          const cacheKeys = Object.keys(localStorage).filter(key => 
-            key.startsWith('services_') && !key.includes('_search_')
-          );
-          
-          for (const key of cacheKeys) {
-            const cachedData = JSON.parse(localStorage.getItem(key));
-            
-            // Verificar se este cache ainda é válido
-            if (cachedData && cachedData.data && Array.isArray(cachedData.data)) {
-              // Atualizar o serviço no array de dados em cache
-              const updatedCacheData = cachedData.data.map(item => 
-                item.id === cleanedData.id ? { ...item, ...cleanedData } : item
-              );
-              
-              // Salvar o cache atualizado
-              cachedData.data = updatedCacheData;
-              localStorage.setItem(key, JSON.stringify(cachedData));
-              console.log(`Cache atualizado seletivamente para a chave ${key}`);
-            }
-          }
-          
-          // Mostrar o indicador de atualização de cache
-          if (typeof showCacheRefreshIndicator === 'function') {
-            showCacheRefreshIndicator();
-          }
-        } catch (cacheError) {
-          console.warn("Erro ao atualizar cache seletivamente:", cacheError);
-          // Se falhar a atualização seletiva, limpa o cache por segurança
-          clearServicesCache();
-        }
-      }
-  
-      // Limpa a edição
+      // Limpar estados de edição
       setEditingRow(null);
       setEditedData({});
       setIsEditing(false);
   
-      // Mostrar confirmação de sucesso
+      // Mostrar feedback de sucesso
       showSuccessAlert("Serviço atualizado com sucesso!");
-      console.log("Serviço atualizado com sucesso!");
+      
+      // Usar a nova função otimizada
+      await fastUpdateWithLoadingIndicator('update', cleanedData);
       
     } catch (error) {
       console.error("Erro ao atualizar o serviço:", error);
