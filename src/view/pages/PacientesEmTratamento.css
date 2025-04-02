@@ -1,0 +1,105 @@
+/* Estilos para a página de pacientes em tratamento */
+
+/* Estilização geral da página */
+.main-content-pacientes {
+  margin-left: 16rem; /* Equivalente a ml-64 */
+  padding: 1.5rem; /* Equivalente a p-6 */
+  margin-top: 4rem; /* Para compensar a altura do Header fixo */
+  min-height: calc(100vh - 64px);
+}
+
+/* Container estilizado alinhado com ServicoRelacionada 
+.styled-container-pacientes {
+  background-color: #f1f1f1;
+  border-radius: 20px;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
+  padding: 2rem 2rem 0.5rem 2rem;
+  width: 75%;
+  margin: 1rem auto 0;
+  position: relative;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  margin-bottom: 3rem;
+}*/
+
+/* Estilização para navegação entre abas */
+.tab-navigation {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tab-button {
+  padding: 0.5rem 1rem;
+  margin: 0 0.5rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+}
+
+.tab-button.active {
+  background: linear-gradient(90deg, #c6d651 10%, #8cb369 100%);
+  color: #f1f1f1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tab-button:not(.active) {
+  color: #575654;
+}
+
+.tab-button:not(.active):hover {
+  background-color: #f4d8d8;
+}
+
+/* Estilos para o conteúdo da aba */
+.patient-content {
+  min-height: 400px;
+}
+
+/* Compatibilidade com os estilos do ServicoRelacionada 
+.main-content {
+  flex: 1;
+  margin-left: 16rem; 
+  padding: 1.5rem; 
+  height: calc(100vh - 64px);
+}*/
+
+/*.styled-container {
+  background-color: #f1f1f1;
+  border-radius: 20px;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
+  padding: 2rem 2rem 0.5rem 2rem;
+  width: 75%;
+  margin: 5rem auto 0;
+  position: relative;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  margin-bottom: 3rem;
+}*/
+
+/* Estilos de animação para transição entre abas */
+.tab-transition-enter {
+  opacity: 0;
+  transform: translateX(10px);
+}
+
+.tab-transition-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.tab-transition-exit {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.tab-transition-exit-active {
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: opacity 300ms, transform 300ms;
+}

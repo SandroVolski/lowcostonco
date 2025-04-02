@@ -1,17 +1,25 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import { showSuccessAlert, showErrorAlert } from '../utils/CustomAlerts';
+// src/context/PatientContext.jsx
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { useToast } from '../components/ui/Toast';
+
+// API base URL
+const API_BASE_URL = "http://localhost/backend-php/api/PacientesEmTratamento";
 
 // Criando o contexto
 const PatientContext = createContext();
 
-// API base URL
-const API_BASE_URL = "http://localhost/backend-php/api/";
-
 // Hook personalizado para usar o contexto
-export const usePatient = () => useContext(PatientContext);
+export const usePatient = () => {
+  const context = useContext(PatientContext);
+  if (context === undefined) {
+    throw new Error('usePatient must be used within a PatientProvider');
+  }
+  return context;
+};
 
 // Provider do contexto
 export const PatientProvider = ({ children }) => {
+  const { toast } = useToast();
   const [patients, setPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -26,6 +34,24 @@ export const PatientProvider = ({ children }) => {
   const [operadoras, setOperadoras] = useState([]);
   const [prestadores, setPrestadores] = useState([]);
   const [finalidadeTratamento, setFinalidadeTratamento] = useState([]);
+  const [searchType, setSearchType] = useState('nome');
+  
+  // Funções para exibir alertas
+  const showSuccessAlert = (message) => {
+    toast({
+      title: "Sucesso",
+      description: message,
+      variant: "success"
+    });
+  };
+
+  const showErrorAlert = (title, message) => {
+    toast({
+      title,
+      description: message,
+      variant: "destructive"
+    });
+  };
   
   // Carregar pacientes da API
   const loadPatients = async (force = false) => {
@@ -88,24 +114,63 @@ export const PatientProvider = ({ children }) => {
   };
   
   // Pesquisar pacientes
-  const searchPatients = (term) => {
+  const searchPatients = async (term, type = 'nome') => {
     setSearchTerm(term);
+    setSearchType(type);
     
-    if (!term.trim()) {
+    if (!term) {
       setFilteredPatients(patients);
-      return;
+      return patients;
     }
     
-    const termLower = term.toLowerCase();
-    const filtered = patients.filter(patient => 
-      patient.Nome.toLowerCase().includes(termLower) ||
-      patient.Paciente_Codigo.toLowerCase().includes(termLower) ||
-      patient.CID.toLowerCase().includes(termLower)
-    );
+    // Normaliza o termo de busca para comparação insensível a maiúsculas/minúsculas
+    const normalizedTerm = term.toLowerCase();
+    
+    let filtered = [];
+    switch (type) {
+      case 'nome':
+        filtered = patients.filter(patient => 
+          patient.Nome && patient.Nome.toLowerCase().includes(normalizedTerm)
+        );
+        break;
+      case 'codigo':
+        filtered = patients.filter(patient => 
+          patient.Paciente_Codigo && patient.Paciente_Codigo.toLowerCase().includes(normalizedTerm)
+        );
+        break;
+      case 'cid':
+        filtered = patients.filter(patient => 
+          patient.CID && patient.CID.toLowerCase().includes(normalizedTerm)
+        );
+        break;
+      case 'operadora':
+        filtered = patients.filter(patient => 
+          patient.Operadora && patient.Operadora.toLowerCase().includes(normalizedTerm)
+        );
+        break;
+      case 'prestador':
+        filtered = patients.filter(patient => 
+          patient.Prestador && patient.Prestador.toLowerCase().includes(normalizedTerm)
+        );
+        break;
+      case 'finalidade':
+        filtered = patients.filter(patient => 
+          patient.Finalidade && patient.Finalidade.toLowerCase().includes(normalizedTerm)
+        );
+        break;
+      default:
+        // Busca em todos os campos se o tipo não for reconhecido
+        filtered = patients.filter(patient => 
+          (patient.Nome && patient.Nome.toLowerCase().includes(normalizedTerm)) ||
+          (patient.Paciente_Codigo && patient.Paciente_Codigo.toLowerCase().includes(normalizedTerm)) ||
+          (patient.CID && patient.CID.toLowerCase().includes(normalizedTerm))
+        );
+    }
     
     setFilteredPatients(filtered);
+    return filtered;
   };
-  
+
   // Adicionar paciente
   const addPatient = async (patientData) => {
     try {
@@ -245,30 +310,35 @@ export const PatientProvider = ({ children }) => {
   };
   
   // Funções para calculadora médica
-  const calculateAUC = (weight, age, creatinine, gender) => {
-    // AUC 1 formula do PDF
-    // ((((Peso do Beneficiário X (140 - Idade do Beneficiário) ) / 
-    // (72 X Creatinina)) X Sexo do Beneficiário* )+25)
-    // * 1 para feminino e 2 para masculino
+  const calculateAUC = (peso, idade, creatinina, sexo) => {
+    // Verificar se os parâmetros são válidos
+    if (peso <= 0 || idade <= 0 || creatinina <= 0 || !['M', 'F'].includes(sexo)) {
+      return 'Parâmetros inválidos';
+    }
     
-    const genderMultiplier = gender === 'F' ? 1 : 2;
-    
-    const result = ((((weight * (140 - age)) / (72 * creatinine)) * genderMultiplier) + 25);
-    
-    return result.toFixed(2);
+    // AUC = ((((Peso x (140 - Idade)) / (72 x Creatinina)) x Sexo) + 25)
+    const sexoFactor = sexo === 'F' ? 1 : 2;
+    const auc = ((((peso * (140 - idade)) / (72 * creatinina)) * sexoFactor) + 25).toFixed(2);
+    return auc;
   };
   
   // Calcular superfície corporal
-  const calculateSC1 = (weight) => {
+  const calculateSC1 = (peso) => {
+    // Verificar se o peso é válido
+    if (peso <= 0) return 'Peso inválido';
+    
     // FÓRMULA 1: SC (m²) = (Peso em kg x 4) + 7 / Peso em kg + 90
-    const result = ((weight * 4) + 7) / (weight + 90);
-    return result.toFixed(4);
+    const sc = ((peso * 4) + 7) / (peso + 90);
+    return sc.toFixed(4);
   };
   
-  const calculateSC2 = (weight, height) => {
+  const calculateSC2 = (peso, altura) => {
+    // Verificar se os parâmetros são válidos
+    if (peso <= 0 || altura <= 0) return 'Parâmetros inválidos';
+    
     // FÓRMULA 2: SC (m²) = (Peso (kg) elevado a 0,5378) x (Estatura (cm) elevado a 0,3964) x 0,024265
-    const result = (Math.pow(weight, 0.5378) * Math.pow(height, 0.3964) * 0.024265);
-    return result.toFixed(4);
+    const sc = Math.pow(peso, 0.5378) * Math.pow(altura, 0.3964) * 0.024265;
+    return sc.toFixed(4);
   };
   
   // Efeito para inicialização
@@ -287,9 +357,12 @@ export const PatientProvider = ({ children }) => {
     loading,
     error,
     searchTerm,
+    searchType,
     operadoras,
     prestadores,
     finalidadeTratamento,
+    initialized,
+    setSelectedPatient,
     
     // Funções
     loadPatients,

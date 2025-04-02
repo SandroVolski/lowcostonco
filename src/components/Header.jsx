@@ -15,6 +15,14 @@ export function Header() {
       ? "Olá... Vamos fazer o que hoje?"
       : location.pathname === "/ServicoRelacionada"
       ? "Relação de Serviços"
+      : location.pathname === "/PacientesEmTratamento" && location.search === "?tab=cadastro"
+      ? "PTTO: Cadastro de Paciente"
+      : location.pathname === "/PacientesEmTratamento" && location.search === "?tab=protocolo"
+      ? "PTTO: Cadastro de Protocolo"
+      : location.pathname === "/PacientesEmTratamento" && location.search === "?tab=calculadora"
+      ? "PTTO: Calculadora de Dosagem"
+      : location.pathname === "/PacientesEmTratamento"
+      ? "Pacientes em Tratamento"
       : "Página Desconhecida";
       
   return (

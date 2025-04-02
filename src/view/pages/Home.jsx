@@ -48,7 +48,7 @@ export default function Home() {
       title: 'Pacientes em Tratamento',
       icon: Users,
       columns: ['Nome', 'Plano de Saúde', 'Medicamentos'],
-      href: '/PacientesEmTratamento',
+      href: '/CadastroPaciente',
       isClickable: true,
     },
     {
