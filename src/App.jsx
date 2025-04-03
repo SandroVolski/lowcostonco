@@ -6,7 +6,7 @@ import Home from "./view/pages/Home";
 import ServicoRelacionada from "./view/pages/ServicoRelacionada";
 import PacientesEmTratamento from "./view/pages/PacientesEmTratamento";
 import Login from "./view/pages/Login";
-import CalculadoraPaciente from "./components/pacientes/CalculadoraPaciente";
+
 import { ToastProvider } from "./components/ui/Toast";
 import { ServiceProvider } from './components/ServiceContext';
 import { AuthProvider } from './auth/AuthProvider';
@@ -28,8 +28,7 @@ function App() {
                   <Route element={<ProtectedRoute />}>
                     <Route path="/ServicoRelacionada" element={<ServicoRelacionada />} />
                     <Route path="/Home" element={<Home />} />
-                    {/* Nova rota para a calculadora */}
-                    <Route path="/calculadora" element={<CalculadoraPaciente />} />
+                    
                   </Route>
                   <Route element={<ProtectedRoute />}>
                     {/* Esta rota principal para PacientesEmTratamento captura parâmetros */}
@@ -43,6 +42,10 @@ function App() {
                     <Route 
                       path="/CadastroProtocolo" 
                       element={<Navigate to="/PacientesEmTratamento?tab=protocolo" replace />} 
+                    />
+                    <Route 
+                      path="/Calculadora"
+                      element={<Navigate to="/PacientesEmTratamento?tab=calculadora" replace />} 
                     />
                   </Route>
                   <Route path="*" element={<Navigate to="/login" replace />} />

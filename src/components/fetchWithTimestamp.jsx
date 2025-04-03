@@ -4,7 +4,7 @@
  */
 
 // API base URL
-const API_BASE_URL = "http://localhost/backend-php/api";
+const API_BASE_URL = "http://localhost/backend-php/api/ServicoRelacionada";
 
 /**
  * Função para fazer requisições fetch com timestamp anti-cache

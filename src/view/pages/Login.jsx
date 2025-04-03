@@ -29,8 +29,10 @@ function Login() {
   // Lista de credenciais válidas com nome de exibição
   const VALID_CREDENTIALS = [
     { code: 'LCOGlobal', password: 'Douglas193', displayName: 'Douglas' },
-    { code: 'jessica@lowcostonco.com.br', password: 'Jessica123', displayName: 'Jéssica' },
-    { code: 'ana@lowcostonco.com.br', password: 'Ana12345', displayName: 'Ana' }
+    { code: 'jessica@lowcostonco.com.br', password: '@JessicaLCO_2025', displayName: 'Jéssica' },
+    { code: 'ana@lowcostonco.com.br', password: '@AnaLCO_2025', displayName: 'Ana' },
+    { code: 'carla@lowcostonco.com.br', password: '@CarlaLCO_2025', displayName: 'Carla' },
+    { code: 'patricia@lowcostonco.com.br', password: '@PatriciaLCO_2025', displayName: 'Patrícia' }
   ];
 
   const handleSubmit = async (e) => {

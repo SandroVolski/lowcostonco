@@ -1,7 +1,6 @@
-// src/components/CalculadoraPaciente.jsx
 import React, { useState, useEffect } from 'react';
-import { usePatient } from '../../context/PatientContext';
-import { useToast } from '../../components/ui/Toast';
+import { usePatient } from '../../../context/PatientContext';
+import { useToast } from '../../../components/ui/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import './CalculadoraPaciente.css';
 
@@ -761,11 +760,11 @@ const CalculadoraPaciente = () => {
           </div>
           
           {tipoProtocolo && (
-            <div className="btn-group">
+            <div className="btn-group-calc">
               <motion.button 
                 type="button"
                 onClick={calculateResults}
-                className="btn-primary"
+                className="btn-primary-calc"
                 disabled={!peso}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -775,7 +774,7 @@ const CalculadoraPaciente = () => {
               <motion.button 
                 type="button"
                 onClick={() => handleClear()}
-                className="btn-secondary"
+                className="btn-secondary-calc"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >

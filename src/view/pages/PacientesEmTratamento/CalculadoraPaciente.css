@@ -166,13 +166,13 @@
   opacity: 60% !important;
 }
 
-.btn-group {
+.btn-group-calc {
   display: flex;
   gap: 12px;
 }
 
-.btn-primary,
-.btn-secondary {
+.btn-primary-calc,
+.btn-secondary-calc {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -185,27 +185,27 @@
   border: none;
 }
 
-.btn-primary {
+.btn-primary-calc {
   background-color: #8cb369; /* Cor da empresa */
   color: white;
 }
 
-.btn-primary:hover {
+.btn-primary-calc:hover {
   background-color: #7ba058; /* Cor mais escura para hover */
 }
 
-.btn-primary:disabled {
+.btn-primary-calc:disabled {
   background-color: #c6d651; /* Segunda cor da empresa */
   cursor: not-allowed;
 }
 
-.btn-secondary {
+.btn-secondary-calc {
   background-color: #f3f4f6;
   color: #4b5563;
   border: 1px solid #d1d5db;
 }
 
-.btn-secondary:hover {
+.btn-secondary-calc:hover {
   background-color: #e5e7eb;
 }
 
@@ -400,6 +400,7 @@
 /* Estilos do Modal */
 .modal-overlay {
   position: fixed;
+  top: var(--header-height);
   top: 0;
   left: 0;
   right: 0;
@@ -408,7 +409,14 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 50;
+  
+}
+
+.sidebar, .header {
+  z-index: 100; /* Valor maior que o overlay */
+  
+  /* Garante que o z-index funcione */
 }
 
 .protocol-modal {
@@ -418,6 +426,9 @@
   max-width: 800px;
   width: 90%;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  margin-left: var(--sidebar-width) !important;
+  transform: translateX(14%) !important;
+  
 }
 
 .modal-title {

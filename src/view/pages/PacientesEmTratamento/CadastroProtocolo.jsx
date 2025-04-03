@@ -1,7 +1,10 @@
 // CadastroProtocolo.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useProtocolo } from '../../../context/ProtocoloContext';
-import { Plus, Edit, Trash2, Search, X, Save, ArrowUpWideNarrow, ArrowDownWideNarrow, Database, ChevronDown, ChevronRight } from 'lucide-react';
+import { 
+  Plus, Edit, Trash2, Search, X, Save, ArrowUpWideNarrow, 
+  ArrowDownWideNarrow, Database, ChevronDown, ChevronRight, Check
+} from 'lucide-react';
 import { showConfirmAlert, showSuccessAlert, showErrorAlert, showWarningAlert } from '../../../utils/CustomAlerts';
 import DataRefreshButton from '../../../components/DataRefreshButton';
 import './PacientesEstilos.css';
@@ -9,6 +12,7 @@ import './PacientesEstilos.css';
 const API_BASE_URL = "http://localhost/backend-php/api/PacientesEmTratamento";
 
 const CadastroProtocolo = () => {
+  // Contexto
   const { 
     filteredProtocolos, 
     loading, 
@@ -23,12 +27,13 @@ const CadastroProtocolo = () => {
     loadProtocolos,
     protocoloServicos,
     loadProtocoloServicos,
-    loadProtocoloDetails, // Add this missing function
-    addServicoToProtocolo, // Add this for the service form
-    deleteServicoFromProtocolo // Add this for service deletion
+    loadProtocoloDetails,
+    addServicoToProtocolo,
+    deleteServicoFromProtocolo,
+    updateServicoProtocolo
   } = useProtocolo();
   
-  // Estados para controle da UI
+  // Estado para controle da UI
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
@@ -36,15 +41,30 @@ const CadastroProtocolo = () => {
   const [sortOrder, setSortOrder] = useState("asc");
   const [sortField, setSortField] = useState("Protocolo_Nome");
   const [cacheRefreshed, setCacheRefreshed] = useState(false);
-  const [searchType, setSearchType] = useState("nome"); // 'nome', 'codigo', 'cid', etc.
+  const [searchType, setSearchType] = useState("nome");
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
-  const [expandedView, setExpandedView] = useState(false);
-  const [servicosData, setServicosData] = useState([]);
-  const [updateError, setUpdateError] = useState(null); // Add this to track update errors
+  const [expandedRows, setExpandedRows] = useState({});
+  const [addingServiceToRow, setAddingServiceToRow] = useState(null);
+  const [updateError, setUpdateError] = useState(null);
   const [viasAdministracao, setViasAdministracao] = useState([]);
+  const [servicosLoading, setServicosLoading] = useState({});
   
-  // Referência para o input de pesquisa
+  // Novos estados para edição de serviços
+  const [editingServiceId, setEditingServiceId] = useState(null);
+  const [editServiceForm, setEditServiceForm] = useState({
+    id_servico: '',
+    Servico_Codigo: '',
+    Dose: '',
+    Dose_M: '',
+    Dose_Total: '',
+    Dias_de_Aplic: '',
+    Via_de_Adm: '',
+    observacoes: ''
+  });
+  
+  // Refs
   const searchInputRef = useRef(null);
+  const loadedProtocolIds = useRef(new Set());
   
   // Estado para formulários
   const [formData, setFormData] = useState({
@@ -55,53 +75,40 @@ const CadastroProtocolo = () => {
     Protocolo_Dias_de_Aplicacao: '',
     CID: '',
     Protocolo_ViaAdm: '',
-    Linha: '' // Add this as it's required in the backend
+    Linha: ''
   });
   
-  // Estado para formulário de serviço
+  // Estado para formulário de serviço (Nomes atualizados para corresponder ao banco de dados)
   const [servicoForm, setServicoForm] = useState({
+    id_servico: 1,
     Servico_Codigo: '',
+    Dose: '',        // Campo adicional
     Dose_M: '',
     Dose_Total: '',
     Dias_de_Aplic: '',
-    Via_de_Adm: ''
+    Via_de_Adm: '',
+    observacoes: ''  // Campo adicional para Observacoes
   });
   
   // Estados para ordenação personalizada
   const [orderedProtocolos, setOrderedProtocolos] = useState([]);
   
-  // Colunas de ordenação - definir as colunas que podem ser ordenadas
-  const orderableColumns = [
-    { field: 'id', label: 'ID' },
-    { field: 'Protocolo_Nome', label: 'Nome' },
-    { field: 'Protocolo_Sigla', label: 'Sigla' },
-    { field: 'Protocolo_Dose_M', label: 'Dose M' },
-    { field: 'Protocolo_Dose_Total', label: 'Dose Total' },
-    { field: 'Protocolo_Dias_de_Aplicacao', label: 'Dias Aplicação' },
-    { field: 'Protocolo_ViaAdm', label: 'Via Adm.' },
-    { field: 'CID', label: 'CID' }
-  ];
-  
-  // Efeito para ordenar protocolos quando o sortField ou sortOrder mudar
+  // Efeito para ordenar protocolos
   useEffect(() => {
     if (!filteredProtocolos || filteredProtocolos.length === 0) return;
     
     const sorted = [...filteredProtocolos].sort((a, b) => {
-      // Extrair os valores a serem comparados
       const aValue = a[sortField] || '';
       const bValue = b[sortField] || '';
       
-      // Verificar se estamos ordenando campos numéricos
       const numericFields = ['id', 'Protocolo_Dose_M', 'Protocolo_Dose_Total'];
       
       if (numericFields.includes(sortField) && !isNaN(aValue) && !isNaN(bValue)) {
-        // Comparação numérica
         const numA = Number(aValue);
         const numB = Number(bValue);
         const comparison = numA - numB;
         return sortOrder === 'asc' ? comparison : -comparison;
       } else {
-        // Comparação de strings para ordem alfabética
         const comparison = String(aValue).localeCompare(String(bValue));
         return sortOrder === 'asc' ? comparison : -comparison;
       }
@@ -110,23 +117,97 @@ const CadastroProtocolo = () => {
     setOrderedProtocolos(sorted);
   }, [filteredProtocolos, sortField, sortOrder]);
   
-  // Efeito para carregar os serviços associados ao protocolo selecionado
+  // Carregar vias de administração
   useEffect(() => {
-    if (selectedProtocolo && expandedView) {
-      setServicosData([]); // Garantir que comece com uma matriz vazia
-      loadProtocoloServicos(selectedProtocolo.id)
-        .then(data => {
-          // Garantir que os dados são uma matriz
-          setServicosData(Array.isArray(data) ? data : []);
-        })
-        .catch(error => {
-          console.error("Erro ao carregar serviços do protocolo:", error);
-          setServicosData([]); // Em caso de erro, definir como matriz vazia
-        });
-    }
-  }, [selectedProtocolo, expandedView, loadProtocoloServicos]);
+    loadViasAdministracao();
+  }, []);
   
-  // Reset do formulário
+  // Efeito para carregar serviços de protocolos expandidos (CORRIGIDO)
+  useEffect(() => {
+    Object.keys(expandedRows).forEach(protocoloId => {
+      const protocolIdNum = Number(protocoloId);
+      
+      // Só carrega se estiver expandido e não foi carregado anteriormente
+      if (expandedRows[protocoloId].expanded && 
+          !loadedProtocolIds.current.has(protocolIdNum)) {
+        
+        // Marca este protocolo como já carregado
+        loadedProtocolIds.current.add(protocolIdNum);
+        
+        // Carrega os serviços
+        fetchServicos(protocolIdNum);
+      }
+    });
+    
+    // Limpeza de IDs que não estão mais expandidos
+    const expandedIds = new Set(Object.keys(expandedRows).map(Number));
+    Array.from(loadedProtocolIds.current).forEach(id => {
+      if (!expandedIds.has(id)) {
+        loadedProtocolIds.current.delete(id);
+      }
+    });
+  }, [expandedRows]);
+  
+  // Função para carregar serviços (CORRIGIDA)
+  const fetchServicos = useCallback(async (protocoloId) => {
+    if (!protocoloId) return;
+    
+    try {
+      setServicosLoading(prev => ({ ...prev, [protocoloId]: true }));
+      const servicos = await loadProtocoloServicos(protocoloId);
+      
+      setExpandedRows(prev => {
+        // Se o nó não existe mais, não faz nada
+        if (!prev[protocoloId]) return prev;
+        
+        return {
+          ...prev,
+          [protocoloId]: {
+            ...prev[protocoloId],
+            servicos: servicos || []
+          }
+        };
+      });
+      
+    } catch (error) {
+      console.error(`Erro ao carregar serviços para protocolo ${protocoloId}:`, error);
+      showErrorAlert("Erro", `Não foi possível carregar os serviços: ${error.message}`);
+    } finally {
+      setServicosLoading(prev => ({ ...prev, [protocoloId]: false }));
+    }
+  }, [loadProtocoloServicos]);
+  
+  // Função para alternar a expansão de uma linha (CORRIGIDA)
+  const toggleRowExpansion = useCallback((protocoloId) => {
+    // Se estiver em modo de edição ou adição, não permitir expandir
+    if (isEditing || isAdding) return;
+    
+    setExpandedRows(prev => {
+      const newState = { ...prev };
+      
+      if (newState[protocoloId]) {
+        // Se já estiver expandido, recolher
+        delete newState[protocoloId];
+      } else {
+        // Se não estiver expandido, expandir e inicializar
+        newState[protocoloId] = {
+          expanded: true,
+          servicos: [],
+          isAddingService: false
+        };
+      }
+      
+      return newState;
+    });
+    
+    // Atualizar a seleção se necessário
+    if (!selectedRows.has(protocoloId)) {
+      setSelectedRows(new Set([protocoloId]));
+      selectProtocolo(protocoloId);
+    }
+  }, [isEditing, isAdding, selectedRows, selectProtocolo]);
+  
+  // Reset dos formulários
   const resetForm = () => {
     setFormData({
       Protocolo_Nome: '',
@@ -138,32 +219,208 @@ const CadastroProtocolo = () => {
       Protocolo_ViaAdm: '',
       Linha: ''
     });
-    setUpdateError(null); // Clear any update errors when resetting form
+    setUpdateError(null);
   };
 
   const resetServicoForm = () => {
     setServicoForm({
+      id_servico: 1,
       Servico_Codigo: '',
+      Dose: '',
       Dose_M: '',
       Dose_Total: '',
       Dias_de_Aplic: '',
-      Via_de_Adm: ''
+      Via_de_Adm: '',
+      observacoes: ''
     });
   };
+  
+  // Funções para gerenciar serviços
+  const startAddService = (protocoloId, e) => {
+    if (e) e.stopPropagation();
+    
+    setExpandedRows(prev => ({
+      ...prev,
+      [protocoloId]: {
+        ...prev[protocoloId],
+        isAddingService: true
+      }
+    }));
+    
+    setAddingServiceToRow(protocoloId);
+    resetServicoForm();
+  };
 
+  const cancelAddService = (protocoloId, e) => {
+    if (e) e.stopPropagation();
+    
+    setExpandedRows(prev => ({
+      ...prev,
+      [protocoloId]: {
+        ...prev[protocoloId],
+        isAddingService: false
+      }
+    }));
+    
+    setAddingServiceToRow(null);
+    resetServicoForm();
+  };
+
+  const saveNewService = useCallback(async (protocoloId, e) => {
+    if (e) e.preventDefault();
+    
+    if (!servicoForm.Servico_Codigo) {
+      showWarningAlert("Dados incompletos", "Por favor, informe pelo menos o código do serviço.");
+      return;
+    }
+    
+    try {
+      setLocalLoading(true);
+      
+      // Chamar API para adicionar serviço
+      await addServicoToProtocolo(protocoloId, servicoForm);
+      
+      // Recarregar serviços
+      await fetchServicos(protocoloId);
+      
+      // Resetar estados
+      resetServicoForm();
+      setExpandedRows(prev => ({
+        ...prev,
+        [protocoloId]: {
+          ...prev[protocoloId],
+          isAddingService: false
+        }
+      }));
+      
+      setAddingServiceToRow(null);
+      showSuccessAlert("Sucesso", "Serviço adicionado com sucesso.");
+      
+    } catch (error) {
+      console.error("Erro ao adicionar serviço:", error);
+      showErrorAlert("Erro", `Não foi possível adicionar o serviço: ${error.message}`);
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [servicoForm, addServicoToProtocolo, fetchServicos]);
+  
+  // Novas funções para edição de serviços
+  const startEditService = (protocoloId, servico, e) => {
+    if (e) e.stopPropagation();
+    
+    // Cancelar qualquer edição em andamento
+    if (editingServiceId) {
+      cancelEditService(e);
+    }
+    
+    setEditingServiceId(servico.id);
+    setEditServiceForm({
+      id_servico: servico.id_servico || '',
+      Servico_Codigo: servico.Servico_Codigo || '',
+      Dose: servico.Dose || '',
+      Dose_M: servico.Dose_M || servico.dose_m || '',
+      Dose_Total: servico.Dose_Total || servico.dose_total || '',
+      Dias_de_Aplic: servico.Dias_de_Aplic || servico.dias_aplicacao || '',
+      Via_de_Adm: servico.Via_de_Adm || servico.via_administracao || '',
+      observacoes: servico.observacoes || ''
+    });
+  };
+  
+  const cancelEditService = (e) => {
+    if (e) e.stopPropagation();
+    setEditingServiceId(null);
+  };
+  
+  const handleEditServiceInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditServiceForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  // Função para salvar as alterações de um serviço
+  const saveServiceChanges = useCallback(async (protocoloId, servicoId, e) => {
+    if (e) e.stopPropagation();
+    
+    try {
+      setLocalLoading(true);
+      
+      // Preparar os dados para envio, garantindo que todos os campos necessários estejam presentes
+      const data = {
+        ...editServiceForm,
+        id: servicoId,
+        id_protocolo: protocoloId
+      };
+      
+      console.log("Enviando dados para atualização:", data);
+      
+      // Usar a função do contexto para atualizar o serviço
+      if (updateServicoProtocolo) {
+        await updateServicoProtocolo(protocoloId, servicoId, data);
+      } else {
+        // Fallback para o caso da função não existir no contexto
+        const response = await axios.put(
+          `${API_BASE_URL}/update_servico_protocolo.php?id_protocolo=${protocoloId}&id=${servicoId}`, 
+          data
+        );
+        console.log("Resposta do servidor:", response.data);
+      }
+      
+      // Recarregar serviços para atualizar a UI
+      await fetchServicos(protocoloId);
+      
+      // Resetar o modo de edição
+      setEditingServiceId(null);
+      
+      showSuccessAlert("Sucesso", "Serviço atualizado com sucesso.");
+      
+    } catch (error) {
+      console.error("Erro ao atualizar serviço:", error);
+      console.error("Detalhes do erro:", error.response?.data || "Sem detalhes adicionais");
+      showErrorAlert("Erro", `Não foi possível atualizar o serviço: ${error.message}`);
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [editServiceForm, fetchServicos, updateServicoProtocolo]);
+
+  const removeService = useCallback(async (protocoloId, servicoId, e) => {
+    if (e) e.stopPropagation();
+    
+    const confirmed = await showConfirmAlert(
+      "Confirmar exclusão", 
+      "Tem certeza que deseja excluir este serviço do protocolo?"
+    );
+    
+    if (confirmed) {
+      try {
+        setLocalLoading(true);
+        
+        // Chamar API para remover serviço
+        await deleteServicoFromProtocolo(protocoloId, servicoId);
+        
+        // Recarregar serviços
+        await fetchServicos(protocoloId);
+        
+        showSuccessAlert("Sucesso", "Serviço removido com sucesso.");
+        
+      } catch (error) {
+        console.error("Erro ao remover serviço:", error);
+        showErrorAlert("Erro", `Não foi possível remover o serviço: ${error.message}`);
+      } finally {
+        setLocalLoading(false);
+      }
+    }
+  }, [deleteServicoFromProtocolo, fetchServicos]);
+  
+  // Handlers para formulários e pesquisa
   const handleSearchTypeChange = (type) => {
     setSearchType(type);
     
-    // Se já existe um termo de pesquisa, refazer a pesquisa com o novo tipo
     if (searchTerm && searchTerm.trim().length >= 2) {
-      // Atualizar estado local
       setLocalLoading(true);
-      
-      // Executar a pesquisa com o novo tipo
       searchProtocolos(searchTerm, type)
-        .finally(() => {
-          setLocalLoading(false);
-        });
+        .finally(() => setLocalLoading(false));
     }
   };
 
@@ -176,7 +433,6 @@ const CadastroProtocolo = () => {
     }
   };
   
-  // Handler para mudança nos campos do formulário
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -185,7 +441,6 @@ const CadastroProtocolo = () => {
     }));
   };
   
-  // Handler para mudança nos campos do formulário de serviço
   const handleServicoInputChange = (e) => {
     const { name, value } = e.target;
     setServicoForm(prev => ({
@@ -194,32 +449,22 @@ const CadastroProtocolo = () => {
     }));
   };
   
-  // Função para mostrar o indicador de atualização do cache
   const showCacheRefreshIndicator = () => {
     setCacheRefreshed(true);
-    // Esconder após 3 segundos
     setTimeout(() => setCacheRefreshed(false), 3000);
   };
   
-  // Atualização de dados após modificação
   const refreshDataAfterModification = async () => {
     try {
       setLocalLoading(true);
-      
-      // Salvar o ID do protocolo selecionado antes de recarregar
       const selectedProtocoloId = selectedProtocolo?.id;
-      
-      // Recarregar dados
       await loadProtocolos(true);
       
-      // Reselecionar explicitamente o protocolo atualizado
       if (selectedProtocoloId) {
         selectProtocolo(selectedProtocoloId);
       }
       
-      // Mostrar indicador de atualização
       showCacheRefreshIndicator();
-      
     } catch (error) {
       console.error("Erro ao atualizar dados após modificação:", error);
       showErrorAlert("Falha ao atualizar os dados", "Tente atualizar manualmente.");
@@ -228,17 +473,13 @@ const CadastroProtocolo = () => {
     }
   };
   
-  // Função de validação de dados
   const validateFormData = (data) => {
-    // Verificar campos obrigatórios
     if (!data.Protocolo_Nome || !data.Protocolo_Sigla) {
       return { valid: false, message: "Nome e Sigla são campos obrigatórios" };
     }
     
-    // Converter campos numéricos (para garantir formato correto)
     const numericData = { ...data };
     
-    // Tratar campos numéricos
     if (numericData.Protocolo_Dose_M !== undefined && numericData.Protocolo_Dose_M !== '') {
       numericData.Protocolo_Dose_M = parseFloat(numericData.Protocolo_Dose_M);
     } else {
@@ -272,12 +513,10 @@ const CadastroProtocolo = () => {
     return { valid: true, data: numericData };
   };
   
-  // Submissão de formulário
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     setUpdateError(null);
     
-    // Validar dados do formulário
     const validation = validateFormData(formData);
     if (!validation.valid) {
       showErrorAlert("Validação falhou", validation.message);
@@ -285,17 +524,20 @@ const CadastroProtocolo = () => {
     }
     
     const validatedData = validation.data;
-    console.log("Enviando dados validados:", validatedData); // Log para debug
     
     if (isEditing && selectedProtocolo) {
       try {
         setLocalLoading(true);
-        await updateProtocolo(selectedProtocolo.id, validatedData);
+        
+        // Usar o id_protocolo para a atualização
+        const protocoloId = selectedProtocolo.id_protocolo || selectedProtocolo.id;
+        console.log("Atualizando protocolo ID:", protocoloId);
+        
+        await updateProtocolo(protocoloId, validatedData);
         setIsEditing(false);
         showSuccessAlert("Protocolo atualizado com sucesso!");
         await refreshDataAfterModification();
       } catch (error) {
-        console.error("Detalhes do erro de atualização:", error);
         setUpdateError(error.message);
         showErrorAlert("Erro ao atualizar protocolo", error.message);
       } finally {
@@ -319,42 +561,14 @@ const CadastroProtocolo = () => {
     resetForm();
   };
   
-  // Submissão do formulário de serviço
-  const handleServicoSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!selectedProtocolo) {
-      showErrorAlert("Selecione um protocolo", "Você precisa selecionar um protocolo para adicionar o serviço.");
-      return;
-    }
-    
-    try {
-      setLocalLoading(true);
-      await addServicoToProtocolo(selectedProtocolo.id, servicoForm);
-      resetServicoForm();
-      showSuccessAlert("Serviço adicionado com sucesso!");
-      
-      // Recarregar serviços do protocolo
-      const updatedServicos = await loadProtocoloServicos(selectedProtocolo.id);
-      setServicosData(updatedServicos);
-    } catch (error) {
-      showErrorAlert("Erro ao adicionar serviço", error.message);
-    } finally {
-      setLocalLoading(false);
-    }
-  };
-  
-  // Funções para alternância da ordenação
   const handleSortChange = (e) => {
     setSortOrder(e.target.value);
   };
   
   const handleSort = (field) => {
-    // Se o campo já está selecionado, inverte a direção
     if (field === sortField) {
       setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
-      // Se é um novo campo, começa com ascendente
       setSortField(field);
       setSortOrder('asc');
     }
@@ -365,26 +579,33 @@ const CadastroProtocolo = () => {
     setSortOrder('asc');
   };
   
-  // Handler para adicionar
   const handleAdd = () => {
     resetForm();
     setIsAdding(true);
     setIsEditing(false);
     setSelectedRows(new Set());
-    setExpandedView(false);
+    setExpandedRows({});
   };
   
-  // Handler para editar
   const handleEdit = () => {
     if (!selectedProtocolo) {
       showErrorAlert("Selecione um protocolo", "Você precisa selecionar um protocolo para editar.");
       return;
     }
     
-    // Buscar o protocolo mais atualizado da lista filteredProtocolos
-    const currentProtocolo = filteredProtocolos.find(p => p.id === selectedProtocolo.id) || selectedProtocolo;
+    // Garantir que estamos usando o ID correto (id_protocolo)
+    const currentProtocolo = filteredProtocolos.find(p => 
+      p.id === selectedProtocolo.id || 
+      p.id_protocolo === selectedProtocolo.id ||
+      p.id === selectedProtocolo.id_protocolo
+    ) || selectedProtocolo;
     
-    // Usar o protocolo atualizado para preencher o formulário
+    // O ID a ser usado para a atualização deve ser o id_protocolo
+    const protocoloId = currentProtocolo.id_protocolo || currentProtocolo.id;
+    
+    console.log("Editando protocolo:", currentProtocolo);
+    console.log("ID a ser usado para atualização:", protocoloId);
+    
     setFormData({
       Protocolo_Nome: currentProtocolo.Protocolo_Nome || '',
       Protocolo_Sigla: currentProtocolo.Protocolo_Sigla || '',
@@ -398,10 +619,9 @@ const CadastroProtocolo = () => {
     
     setIsEditing(true);
     setIsAdding(false);
-    setExpandedView(false);
+    setExpandedRows({});
   };
   
-  // Handler para deletar
   const handleDelete = async () => {
     if (!selectedProtocolo) {
       showErrorAlert("Selecione um protocolo", "Você precisa selecionar um protocolo para excluir.");
@@ -419,7 +639,7 @@ const CadastroProtocolo = () => {
         await deleteProtocolo(selectedProtocolo.id);
         showSuccessAlert("Protocolo excluído com sucesso!");
         setSelectedRows(new Set());
-        setExpandedView(false);
+        setExpandedRows({});
         await refreshDataAfterModification();
       } catch (error) {
         showErrorAlert("Erro ao excluir protocolo", error.message);
@@ -429,7 +649,6 @@ const CadastroProtocolo = () => {
     }
   };
   
-  // Handler para cancelar
   const handleCancel = async () => {
     if (isEditing || isAdding) {
       const confirmCancel = await showConfirmAlert(
@@ -447,87 +666,64 @@ const CadastroProtocolo = () => {
     resetForm();
   };
   
-  // Aliases para simplificar
   const handleCancelAdd = () => handleCancel();
   const handleSaveNew = () => handleSubmit();
   const handleSave = () => handleSubmit();
   
-  // Handler para seleção de linha
   const handleRowClick = (protocoloId) => {
-    if (isEditing || isAdding) return; // Não permite selecionar durante a edição/adição
+    if (isEditing || isAdding) return;
     
-    // Atualizar o estado local
-    setSelectedRows((prev) => {
+    setSelectedRows(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(protocoloId)) {
-        newSet.delete(protocoloId);
-        setExpandedView(false);
-      } else {
+      if (!newSet.has(protocoloId)) {
         newSet.clear();
         newSet.add(protocoloId);
-        setExpandedView(true);
       }
       return newSet;
     });
     
-    // Selecionar o protocolo (sincronamente)
     selectProtocolo(protocoloId);
     
-    // Carregar detalhes (assincronamente)
-    if (protocoloId) {
-      // Certifique-se de que loadProtocoloDetails existe antes de chamá-lo
-      if (loadProtocoloDetails) {
-        loadProtocoloDetails(protocoloId).catch(console.error);
-      } else {
-        console.error("Função loadProtocoloDetails não está disponível");
-      }
+    if (protocoloId && loadProtocoloDetails) {
+      loadProtocoloDetails(protocoloId).catch(console.error);
     }
   };
   
-  // Handler para pesquisa
   const executeSearch = () => {
     if (searchInputRef.current) {
       const value = searchInputRef.current.value.trim();
       
       if (value.length >= 2 || value.length === 0) {
-        // Atualizar estado local
         setLocalLoading(true);
-        
-        // Executar a pesquisa com o tipo atual
         searchProtocolos(value, searchType)
-          .finally(() => {
-            setLocalLoading(false);
-          });
+          .finally(() => setLocalLoading(false));
       } else {
         showWarningAlert("Pesquisa muito curta", "Digite pelo menos 2 caracteres para pesquisar.");
       }
     }
   };
   
-  // Manipulador de evento de input
   const handleInput = () => {
     if (searchInputRef.current) {
       searchProtocolos(searchInputRef.current.value, searchType);
     }
   };
   
-  // Manipulador para evento de Enter no input
   const handleKeyDown = (event) => {
     if (event.key === 'Enter') {
       executeSearch();
     }
   };
   
-  // Handler para limpar pesquisa
   const handleClearSearch = () => {
     if (searchInputRef.current) {
       searchInputRef.current.value = '';
     }
-    setSearchType("nome"); // Redefinir para o tipo padrão
+    setSearchType("nome");
     searchProtocolos('', 'nome');
   };
 
-  // Adicione esta função para carregar as vias de administração
+  // Carregar vias de administração
   const loadViasAdministracao = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/get_vias_administracao.php`);
@@ -540,13 +736,298 @@ const CadastroProtocolo = () => {
       console.error("Erro ao carregar vias de administração:", error);
     }
   };
-  // Adicione este useEffect para carregar as vias quando o componente montar
-  useEffect(() => {
-    loadViasAdministracao();
-  }, []);
-
-
   
+  // Renderização de componentes UI - Modificado para incluir edição
+  const renderServicoRow = (servico, protocoloId) => {
+    const servicoId = servico.id; // Usar 'id' como chave primária
+    const isEditing = editingServiceId === servicoId;
+    
+    // Se estiver em modo de edição, exibe campos editáveis
+    if (isEditing) {
+      return (
+        <tr key={`servico-${servicoId}`} className="border-b border-gray-100 bg-blue-50">
+          <td className="py-2 px-3">
+            <input
+              type="text"
+              name="Servico_Codigo"
+              value={editServiceForm.Servico_Codigo}
+              onChange={handleEditServiceInputChange}
+              className="w-full p-1 border rounded text-sm"
+            />
+          </td>
+          <td className="py-2 px-3">
+            <input
+              type="number"
+              name="Dose"
+              value={editServiceForm.Dose}
+              onChange={handleEditServiceInputChange}
+              className="w-full p-1 border rounded text-sm"
+              step="0.01"
+            />
+          </td>
+          <td className="py-2 px-3">
+            <input
+              type="number"
+              name="Dose_M"
+              value={editServiceForm.Dose_M}
+              onChange={handleEditServiceInputChange}
+              className="w-full p-1 border rounded text-sm"
+              step="0.01"
+            />
+          </td>
+          <td className="py-2 px-3">
+            <input
+              type="number"
+              name="Dose_Total"
+              value={editServiceForm.Dose_Total}
+              onChange={handleEditServiceInputChange}
+              className="w-full p-1 border rounded text-sm"
+              step="0.01"
+            />
+          </td>
+          <td className="py-2 px-3">
+            <input
+              type="number"
+              name="Dias_de_Aplic"
+              value={editServiceForm.Dias_de_Aplic}
+              onChange={handleEditServiceInputChange}
+              className="w-full p-1 border rounded text-sm"
+            />
+          </td>
+          <td className="py-2 px-3">
+            <input
+              type="text"
+              name="Via_de_Adm"
+              value={editServiceForm.Via_de_Adm}
+              onChange={handleEditServiceInputChange}
+              className="w-full p-1 border rounded text-sm"
+            />
+          </td>
+          <td className="py-2 px-3">
+            <textarea
+              name="observacoes"
+              value={editServiceForm.observacoes}
+              onChange={handleEditServiceInputChange}
+              className="w-full p-1 border rounded text-sm"
+              rows="1"
+            ></textarea>
+          </td>
+          <td className="py-2 px-3 text-center">
+            <div className="flex justify-center space-x-2">
+              <button 
+                onClick={(e) => saveServiceChanges(protocoloId, servicoId, e)}
+                className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-100"
+                title="Salvar alterações"
+                disabled={localLoading}
+              >
+                <Check size={16} />
+              </button>
+              <button 
+                onClick={cancelEditService}
+                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100"
+                title="Cancelar edição"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </td>
+        </tr>
+      );
+    }
+    
+    // Renderização normal (não está em edição)
+    return (
+      <tr key={`servico-${servicoId}`} className="border-b border-gray-100 hover:bg-gray-50">
+        <td className="py-2 px-3 text-sm">{servico.Servico_Codigo || servico.id_servico || 'N/D'}</td>
+        <td className="py-2 px-3 text-sm">{servico.Dose || 'N/D'}</td>
+        <td className="py-2 px-3 text-sm">{servico.Dose_M || servico.dose_m || 'N/D'}</td>
+        <td className="py-2 px-3 text-sm">{servico.Dose_Total || servico.dose_total || 'N/D'}</td>
+        <td className="py-2 px-3 text-sm">{servico.Dias_de_Aplic || servico.dias_aplicacao || 'N/D'}</td>
+        <td className="py-2 px-3 text-sm">{servico.Via_de_Adm || servico.via_administracao || 'N/D'}</td>
+        <td className="py-2 px-3 text-sm">{servico.observacoes || 'N/D'}</td>
+        <td className="py-2 px-3 text-center">
+          <div className="flex justify-center space-x-2">
+            <button 
+              onClick={(e) => startEditService(protocoloId, servico, e)}
+              className="text-blue-600 hover:text-blue-900 mx-1 p-1 rounded hover:bg-blue-50"
+              title="Editar serviço"
+            >
+              <Edit size={16} />
+            </button>
+            <button 
+              onClick={(e) => removeService(protocoloId, servicoId, e)}
+              className="text-red-600 hover:text-red-900 mx-1 p-1 rounded hover:bg-red-50"
+              title="Excluir serviço"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
+  const renderAddServiceRow = (protocoloId) => {
+    return (
+      <tr key={`add-service-${protocoloId}`} className="bg-green-50">
+        <td className="py-2 px-3">
+          <input
+            type="text"
+            name="Servico_Codigo"
+            value={servicoForm.Servico_Codigo}
+            onChange={handleServicoInputChange}
+            className="w-full p-1 border rounded text-sm"
+            placeholder="Código"
+          />
+        </td>
+        <td className="py-2 px-3">
+          <input
+            type="number"
+            name="Dose"
+            value={servicoForm.Dose}
+            onChange={handleServicoInputChange}
+            className="w-full p-1 border rounded text-sm"
+            placeholder="Dose"
+            step="0.01"
+          />
+        </td>
+        <td className="py-2 px-3">
+          <input
+            type="number"
+            name="Dose_M"
+            value={servicoForm.Dose_M}
+            onChange={handleServicoInputChange}
+            className="w-full p-1 border rounded text-sm"
+            placeholder="Dose M"
+            step="0.01"
+          />
+        </td>
+        <td className="py-2 px-3">
+          <input
+            type="number"
+            name="Dose_Total"
+            value={servicoForm.Dose_Total}
+            onChange={handleServicoInputChange}
+            className="w-full p-1 border rounded text-sm"
+            placeholder="Dose Total"
+            step="0.01"
+          />
+        </td>
+        <td className="py-2 px-3">
+          <input
+            type="number"
+            name="Dias_de_Aplic"
+            value={servicoForm.Dias_de_Aplic}
+            onChange={handleServicoInputChange}
+            className="w-full p-1 border rounded text-sm"
+            placeholder="Dias"
+          />
+        </td>
+        <td className="py-2 px-3">
+          <input
+            type="text"
+            name="Via_de_Adm"
+            value={servicoForm.Via_de_Adm}
+            onChange={handleServicoInputChange}
+            className="w-full p-1 border rounded text-sm"
+            placeholder="Via"
+          />
+        </td>
+        <td className="py-2 px-3">
+          <textarea
+            name="observacoes"
+            value={servicoForm.observacoes}
+            onChange={handleServicoInputChange}
+            className="w-full p-1 border rounded text-sm"
+            placeholder="Observações"
+            rows="1"
+          ></textarea>
+        </td>
+        <td className="py-2 px-3 text-center">
+          <div className="flex justify-center space-x-2">
+            <button
+              onClick={(e) => saveNewService(protocoloId, e)}
+              className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-100"
+              title="Salvar"
+              disabled={localLoading}
+            >
+              <Check size={16} />
+            </button>
+            <button
+              onClick={(e) => cancelAddService(protocoloId, e)}
+              className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100"
+              title="Cancelar"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
+  const renderExpandedContent = (protocolo) => {
+    const protocoloId = protocolo.id;
+    const rowData = expandedRows[protocoloId] || {};
+    const { servicos = [], isAddingService = false } = rowData;
+    const isLoading = servicosLoading[protocoloId];
+
+    return (
+      <tr className="expanded-content">
+        <td colSpan="8" className="p-0 border-b border-gray-200">
+          <div className="bg-gray-50 p-3 pb-4">
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="text-sm font-medium text-gray-700">
+                Serviços do Protocolo: {protocolo.Protocolo_Nome}
+              </h4>
+              
+              {!isAddingService && (
+                <button 
+                  className="px-2 py-1 bg-green-600 text-white rounded-md flex items-center text-xs"
+                  onClick={(e) => startAddService(protocoloId, e)}
+                >
+                  <Plus size={14} className="mr-1" /> Adicionar Serviço
+                </button>
+              )}
+            </div>
+            
+            {isLoading ? (
+              <div className="flex justify-center py-4">
+                <img src="/images/loadingcorreto-semfundo.gif" alt="Carregando..." className="w-8 h-8" />
+              </div>
+            ) : servicos.length > 0 || isAddingService ? (
+              <div className="overflow-x-auto border rounded bg-white">
+                <table className="min-w-full text-gray-600">
+                <thead>
+                  <tr className="bg-gray-100 text-gray-600 text-xs uppercase">
+                    <th className="py-2 px-3 text-left">Serviço</th>
+                    <th className="py-2 px-3 text-left">Dose</th>
+                    <th className="py-2 px-3 text-left">Dose M</th>
+                    <th className="py-2 px-3 text-left">Dose Total</th>
+                    <th className="py-2 px-3 text-left">Dias Aplic.</th>
+                    <th className="py-2 px-3 text-left">Via Adm.</th>
+                    <th className="py-2 px-3 text-left">Observações</th>
+                    <th className="py-2 px-3 text-center">Ações</th>
+                  </tr>
+                </thead>
+                  <tbody>
+                    {servicos.map(servico => renderServicoRow(servico, protocoloId))}
+                    {isAddingService && renderAddServiceRow(protocoloId)}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-3 bg-white border rounded text-gray-500 text-sm">
+                Nenhum serviço cadastrado para este protocolo.
+              </div>
+            )}
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
+  // Renderização principal
   return (
     <div className="patient-container">
       <div className="mb-6 flex justify-between items-center encimatabela">
@@ -906,286 +1387,163 @@ const CadastroProtocolo = () => {
               </button>
             </div>
           ) : filteredProtocolos.length > 0 ? (
-            <>
-              <table className="data-table w-full">
-                <thead>
-                  <tr>
-                    <th onClick={() => handleSort('id')} className="cursor-pointer">
-                      <div className="header-sort flex items-center justify-center gap-1">
-                        <span className={sortField === 'id' ? 'text-sort-active' : ''} 
-                              style={{ color: sortField === 'id' ? '#f26b6b' : 'inherit' }}>
-                          ID
-                        </span>
-                        {sortField === 'id' && (
-                          sortOrder === 'asc' 
-                            ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                            : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                        )}
-                      </div>
-                    </th>
-                    <th onClick={() => handleSort('Protocolo_Nome')} className="cursor-pointer">
-                      <div className="header-sort flex items-center justify-center gap-1">
-                        <span className={sortField === 'Protocolo_Nome' ? 'text-sort-active' : ''} 
-                              style={{ color: sortField === 'Protocolo_Nome' ? '#f26b6b' : 'inherit' }}>
-                          Nome
-                        </span>
-                        {sortField === 'Protocolo_Nome' && (
-                          sortOrder === 'asc' 
-                            ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                            : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                        )}
-                      </div>
-                    </th>
-                    <th onClick={() => handleSort('Protocolo_Sigla')} className="cursor-pointer">
-                      <div className="header-sort flex items-center justify-center gap-1">
-                        <span className={sortField === 'Protocolo_Sigla' ? 'text-sort-active' : ''} 
-                              style={{ color: sortField === 'Protocolo_Sigla' ? '#f26b6b' : 'inherit' }}>
-                          Sigla
-                        </span>
-                        {sortField === 'Protocolo_Sigla' && (
-                          sortOrder === 'asc' 
-                            ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                            : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                        )}
-                      </div>
-                    </th>
+            <table className="data-table w-full">
+              <thead>
+                <tr>
+                  <th onClick={() => handleSort('id')} className="cursor-pointer">
+                    <div className="header-sort flex items-center justify-center gap-1">
+                      <span className={sortField === 'id' ? 'text-sort-active' : ''} 
+                            style={{ color: sortField === 'id' ? '#f26b6b' : 'inherit' }}>
+                        ID
+                      </span>
+                      {sortField === 'id' && (
+                        sortOrder === 'asc' 
+                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
+                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
+                      )}
+                    </div>
+                  </th>
+                  <th onClick={() => handleSort('Protocolo_Nome')} className="cursor-pointer">
+                    <div className="header-sort flex items-center justify-center gap-1">
+                      <span className={sortField === 'Protocolo_Nome' ? 'text-sort-active' : ''} 
+                            style={{ color: sortField === 'Protocolo_Nome' ? '#f26b6b' : 'inherit' }}>
+                        Nome
+                      </span>
+                      {sortField === 'Protocolo_Nome' && (
+                        sortOrder === 'asc' 
+                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
+                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
+                      )}
+                    </div>
+                  </th>
+                  <th onClick={() => handleSort('Protocolo_Sigla')} className="cursor-pointer">
+                    <div className="header-sort flex items-center justify-center gap-1">
+                      <span className={sortField === 'Protocolo_Sigla' ? 'text-sort-active' : ''} 
+                            style={{ color: sortField === 'Protocolo_Sigla' ? '#f26b6b' : 'inherit' }}>
+                        Sigla
+                      </span>
+                      {sortField === 'Protocolo_Sigla' && (
+                        sortOrder === 'asc' 
+                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
+                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
+                      )}
+                    </div>
+                  </th>
+                
+                  <th onClick={() => handleSort('Protocolo_Dose_M')} className="cursor-pointer">
+                    <div className="header-sort flex items-center justify-center gap-1">
+                      <span className={sortField === 'Protocolo_Dose_M' ? 'text-sort-active' : ''} 
+                            style={{ color: sortField === 'Protocolo_Dose_M' ? '#f26b6b' : 'inherit' }}>
+                        Dose M
+                      </span>
+                      {sortField === 'Protocolo_Dose_M' && (
+                        sortOrder === 'asc' 
+                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
+                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
+                      )}
+                    </div>
+                  </th>
+                  <th onClick={() => handleSort('Protocolo_Dose_Total')} className="cursor-pointer">
+                    <div className="header-sort flex items-center justify-center gap-1">
+                      <span className={sortField === 'Protocolo_Dose_Total' ? 'text-sort-active' : ''} 
+                            style={{ color: sortField === 'Protocolo_Dose_Total' ? '#f26b6b' : 'inherit' }}>
+                        Dose Total
+                      </span>
+                      {sortField === 'Protocolo_Dose_Total' && (
+                        sortOrder === 'asc' 
+                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
+                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
+                      )}
+                    </div>
+                  </th>
+                  <th onClick={() => handleSort('Protocolo_Dias_de_Aplicacao')} className="cursor-pointer">
+                    <div className="header-sort flex items-center justify-center gap-1">
+                      <span className={sortField === 'Protocolo_Dias_de_Aplicacao' ? 'text-sort-active' : ''} 
+                            style={{ color: sortField === 'Protocolo_Dias_de_Aplicacao' ? '#f26b6b' : 'inherit' }}>
+                        Dias Aplicação
+                      </span>
+                      {sortField === 'Protocolo_Dias_de_Aplicacao' && (
+                        sortOrder === 'asc' 
+                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
+                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
+                      )}
+                    </div>
+                  </th>
+                  <th onClick={() => handleSort('Protocolo_ViaAdm')} className="cursor-pointer">
+                    <div className="header-sort flex items-center justify-center gap-1">
+                      <span className={sortField === 'Protocolo_ViaAdm' ? 'text-sort-active' : ''} 
+                            style={{ color: sortField === 'Protocolo_ViaAdm' ? '#f26b6b' : 'inherit' }}>
+                        Via Adm.
+                      </span>
+                      {sortField === 'Protocolo_ViaAdm' && (
+                        sortOrder === 'asc' 
+                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
+                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
+                      )}
+                    </div>
+                  </th>
+                  <th onClick={() => handleSort('CID')} className="cursor-pointer">
+                    <div className="header-sort flex items-center justify-center gap-1">
+                      <span className={sortField === 'CID' ? 'text-sort-active' : ''} 
+                            style={{ color: sortField === 'CID' ? '#f26b6b' : 'inherit' }}>
+                        CID
+                      </span>
+                      {sortField === 'CID' && (
+                        sortOrder === 'asc' 
+                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
+                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
+                      )}
+                    </div>
+                  </th>
+                </tr> 
+              </thead>
+              <tbody>
+                {(orderedProtocolos.length > 0 ? orderedProtocolos : filteredProtocolos).map((protocolo, index) => {
+                  const protocoloId = protocolo.id;
+                  const isExpanded = Boolean(expandedRows[protocoloId]);
                   
-                    <th onClick={() => handleSort('Protocolo_Dose_M')} className="cursor-pointer">
-                      <div className="header-sort flex items-center justify-center gap-1">
-                        <span className={sortField === 'Protocolo_Dose_M' ? 'text-sort-active' : ''} 
-                              style={{ color: sortField === 'Protocolo_Dose_M' ? '#f26b6b' : 'inherit' }}>
-                          Dose M
-                        </span>
-                        {sortField === 'Protocolo_Dose_M' && (
-                          sortOrder === 'asc' 
-                            ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                            : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                        )}
-                      </div>
-                    </th>
-                    <th onClick={() => handleSort('Protocolo_Dose_Total')} className="cursor-pointer">
-                      <div className="header-sort flex items-center justify-center gap-1">
-                        <span className={sortField === 'Protocolo_Dose_Total' ? 'text-sort-active' : ''} 
-                              style={{ color: sortField === 'Protocolo_Dose_Total' ? '#f26b6b' : 'inherit' }}>
-                          Dose Total
-                        </span>
-                        {sortField === 'Protocolo_Dose_Total' && (
-                          sortOrder === 'asc' 
-                            ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                            : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                        )}
-                      </div>
-                    </th>
-                    <th onClick={() => handleSort('Protocolo_Dias_de_Aplicacao')} className="cursor-pointer">
-                      <div className="header-sort flex items-center justify-center gap-1">
-                        <span className={sortField === 'Protocolo_Dias_de_Aplicacao' ? 'text-sort-active' : ''} 
-                              style={{ color: sortField === 'Protocolo_Dias_de_Aplicacao' ? '#f26b6b' : 'inherit' }}>
-                          Dias Aplicação
-                        </span>
-                        {sortField === 'Protocolo_Dias_de_Aplicacao' && (
-                          sortOrder === 'asc' 
-                            ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                            : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                        )}
-                      </div>
-                    </th>
-                    <th onClick={() => handleSort('Protocolo_ViaAdm')} className="cursor-pointer">
-                      <div className="header-sort flex items-center justify-center gap-1">
-                        <span className={sortField === 'Protocolo_ViaAdm' ? 'text-sort-active' : ''} 
-                              style={{ color: sortField === 'Protocolo_ViaAdm' ? '#f26b6b' : 'inherit' }}>
-                          Via Adm.
-                        </span>
-                        {sortField === 'Protocolo_ViaAdm' && (
-                          sortOrder === 'asc' 
-                            ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                            : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                        )}
-                      </div>
-                    </th>
-                    <th onClick={() => handleSort('CID')} className="cursor-pointer">
-                      <div className="header-sort flex items-center justify-center gap-1">
-                        <span className={sortField === 'CID' ? 'text-sort-active' : ''} 
-                              style={{ color: sortField === 'CID' ? '#f26b6b' : 'inherit' }}>
-                          CID
-                        </span>
-                        {sortField === 'CID' && (
-                          sortOrder === 'asc' 
-                            ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                            : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                        )}
-                      </div>
-                    </th>
-                  </tr> 
-                </thead>
-                <tbody>
-                  {(orderedProtocolos.length > 0 ? orderedProtocolos : filteredProtocolos).map((protocolo, index) => (
-                    <tr 
-                      key={protocolo.id || `protocolo-${index}`}
-                      onClick={() => handleRowClick(protocolo.id)}
-                      className={selectedProtocolo?.id === protocolo.id ? 'selected' : ''}
-                    >
-                      <td>{protocolo.id}</td>
-                      <td>{protocolo.Protocolo_Nome}</td>
-                      <td>{protocolo.Protocolo_Sigla}</td>
+                  return (
+                    <React.Fragment key={protocoloId || `protocolo-${index}`}>
+                      <tr 
+                        onClick={() => handleRowClick(protocoloId)}
+                        className={`cursor-pointer ${selectedProtocolo?.id === protocoloId ? 'selected' : ''}`}
+                      >
+                        <td className="relative">
+                          <div className="flex items-center">
+                            <button 
+                              className="mr-2 text-gray-500 hover:text-gray-800 focus:outline-none"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleRowExpansion(protocoloId);
+                              }}
+                            >
+                              {isExpanded ? 
+                                <ChevronDown size={18} className="text-green-600" /> : 
+                                <ChevronRight size={18} />
+                              }
+                            </button>
+                            {protocolo.id}
+                          </div>
+                        </td>
+                        <td>{protocolo.Protocolo_Nome}</td>
+                        <td>{protocolo.Protocolo_Sigla}</td>
+                        <td>{protocolo.Protocolo_Dose_M || 'N/D'}</td>
+                        <td>{protocolo.Protocolo_Dose_Total || 'N/D'}</td>
+                        <td>{protocolo.Protocolo_Dias_de_Aplicacao || 'N/D'}</td>
+                        <td>
+                          {protocolo.Via_administracao ? 
+                            protocolo.Via_administracao : 
+                            (protocolo.Protocolo_ViaAdm ? protocolo.Protocolo_ViaAdm : 'N/D')}
+                        </td>
+                        <td>{protocolo.CID || 'N/D'}</td>
+                      </tr>
                       
-                      <td>{protocolo.Protocolo_Dose_M || 'N/D'}</td>
-                      <td>{protocolo.Protocolo_Dose_Total || 'N/D'}</td>
-                      <td>{protocolo.Protocolo_Dias_de_Aplicacao || 'N/D'}</td>
-                      <td>
-                        {protocolo.Via_administracao ? 
-                          protocolo.Via_administracao : 
-                          (protocolo.Protocolo_ViaAdm ? protocolo.Protocolo_ViaAdm : 'N/D')}
-                      </td>
-                      <td>{protocolo.CID || 'N/D'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-        
-              
-              {/* Seção expandida para mostrar serviços do protocolo selecionado */}
-              {expandedView && selectedProtocolo && (
-                <div className="expanded-view mt-4 bg-white p-4 rounded-lg shadow">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold">
-                      Serviços do Protocolo: {selectedProtocolo.Protocolo_Nome}
-                    </h3>
-                    <button 
-                      className="px-2 py-1 bg-green-600 text-white rounded-md flex items-center text-sm"
-                      onClick={() => {
-                        resetServicoForm();
-                        // Aqui você poderia abrir um modal ou um formulário para adicionar serviço
-                      }}
-                    >
-                      <Plus size={16} className="mr-1" /> Adicionar Serviço
-                    </button>
-                  </div>
-                  
-                  {servicosData && Array.isArray(servicosData) && servicosData.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full bg-white">
-                        <thead>
-                          <tr className="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
-                            <th className="py-3 px-4 text-center">Serviço</th>
-                            <th className="py-3 px-4 text-center">Dose M</th>
-                            <th className="py-3 px-4 text-center">Dose Total</th>
-                            <th className="py-3 px-4 text-center">Dias de Aplic.</th>
-                            <th className="py-3 px-4 text-center">Via de Adm.</th>
-                            <th className="py-3 px-4 text-center">Ações</th>
-                          </tr>
-                        </thead>
-                        <tbody className="text-gray-600 text-sm">
-                          {servicosData.map((servico, index) => (
-                            <tr key={servico.id || servico.id_servico || `servico-${index}`} className="border-b border-gray-200 hover:bg-gray-50">
-                              <td className="py-3 px-4 text-center">{servico.Servico_Codigo}</td>
-                              <td className="py-3 px-4 text-center">{servico.Dose_M}</td>
-                              <td className="py-3 px-4 text-center">{servico.Dose_Total}</td>
-                              <td className="py-3 px-4 text-center">{servico.Dias_de_Aplic}</td>
-                              <td className="py-3 px-4 text-center">{servico.Via_de_Adm}</td>
-                              <td className="py-3 px-4 text-center">
-                                <div className="flex justify-center items-center">
-                                  <button 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      // Lógica para editar serviço
-                                    }}
-                                    className="text-blue-600 hover:text-blue-900 mx-1"
-                                  >
-                                    <Edit size={16} />
-                                  </button>
-                                  <button 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      deleteServicoFromProtocolo(selectedProtocolo.id, servico.id_servico);
-                                    }}
-                                    className="text-red-600 hover:text-red-900 mx-1"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="text-center py-4 text-gray-500">
-                      Nenhum serviço cadastrado para este protocolo.
-                    </div>
-                  )}
-                  
-                  {/* Formulário para adicionar novo serviço */}
-                  <div className="mt-4 p-4 border rounded-lg">
-                    <h4 className="text-md font-medium mb-2">Adicionar Novo Serviço</h4>
-                    <form onSubmit={handleServicoSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Serviço</label>
-                        <input
-                          type="text"
-                          name="Servico_Codigo"
-                          value={servicoForm.Servico_Codigo}
-                          onChange={handleServicoInputChange}
-                          className="w-full p-2 border rounded"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Dose M</label>
-                        <input
-                          type="number"
-                          name="Dose_M"
-                          value={servicoForm.Dose_M}
-                          onChange={handleServicoInputChange}
-                          className="w-full p-2 border rounded"
-                          step="0.01"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Dose Total</label>
-                        <input
-                          type="number"
-                          name="Dose_Total"
-                          value={servicoForm.Dose_Total}
-                          onChange={handleServicoInputChange}
-                          className="w-full p-2 border rounded"
-                          step="0.01"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Dias de Aplicação</label>
-                        <input
-                          type="number"
-                          name="Dias_de_Aplic"
-                          value={servicoForm.Dias_de_Aplic}
-                          onChange={handleServicoInputChange}
-                          className="w-full p-2 border rounded"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Via de Adm.</label>
-                        <input
-                          type="number"
-                          name="Via_de_Adm"
-                          value={servicoForm.Via_de_Adm}
-                          onChange={handleServicoInputChange}
-                          className="w-full p-2 border rounded"
-                        />
-                      </div>
-                      <div className="md:col-span-5 flex justify-end">
-                        <button
-                          type="submit"
-                          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                          disabled={localLoading}
-                        >
-                          {localLoading ? 'Salvando...' : 'Adicionar'}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
-            </>
+                      {isExpanded && renderExpandedContent(protocolo)}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
           ) : (
             <div className="flex flex-col items-center justify-center h-64 gap-4">
               <p className="text-gray-500">

@@ -24,7 +24,9 @@ function CardContent({ item }) {
         <h3 className="text-xl font-semibold" style={{ color: "#f1f1f1" }}>{item.title}</h3>
       </div>
       <div className="mt-[-10px]">
-        <p className="text-sm text-[#e4a94f] mb-2">Principais Colunas:</p>
+        <p className="text-sm text-[#e4a94f] mb-2">
+          {item.title === 'Pacientes em Tratamento' ? 'Principais Funcionalidades:' : 'Principais Colunas:'}
+        </p>
         <ul className="space-y-1">
           {item.columns.map((column, index) => (
             <li key={index} style={{ color: "#35524a" }}>{column}</li>
@@ -47,7 +49,7 @@ export default function Home() {
     {
       title: 'Pacientes em Tratamento',
       icon: Users,
-      columns: ['Nome', 'Plano de Saúde', 'Medicamentos'],
+      columns: ['Cadastros Paciente/Protocolo', 'Prévias', 'Calculadora'],
       href: '/CadastroPaciente',
       isClickable: true,
     },

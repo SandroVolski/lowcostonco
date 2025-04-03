@@ -9,7 +9,7 @@ import CadastroProtocolo from './PacientesEmTratamento/CadastroProtocolo';
 import PreviaPaciente from '../../components/pacientes/PreviaPaciente';
 import NovaPreviaPaciente from '../../components/pacientes/NovaPreviaPaciente';
 import ConsultaPaciente from '../../components/pacientes/ConsultaPaciente';
-import CalculadoraPaciente from '../../components/pacientes/CalculadoraPaciente';
+import CalculadoraPaciente from './PacientesEmTratamento/CalculadoraPaciente';
 import { PatientProvider } from '../../context/PatientContext';
 import { Database, UserPlus, FileText, FilePlus, Users, Calculator } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';

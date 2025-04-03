@@ -247,9 +247,13 @@ export const ProtocoloProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      // Fazer requisição para API
-      const response = await axios.put(`${API_BASE_URL}/update_protocolo.php?id=${id}`, protocoloData);
-      const updatedProtocolo = response.data;
+      // Log para depuração
+      console.log("Atualizando protocolo ID:", id);
+      console.log("Dados para atualização:", protocoloData);
+      
+      // Usar id_protocolo em vez de id na URL
+      const response = await axios.put(`${API_BASE_URL}/update_protocolo.php?id_protocolo=${id}`, protocoloData);
+      const updatedProtocolo = response.data.data || response.data;
       
       // Atualizar estado local
       setProtocolos(prev => 
@@ -267,7 +271,7 @@ export const ProtocoloProvider = ({ children }) => {
       return updatedProtocolo;
     } catch (err) {
       console.error("Erro ao atualizar protocolo:", err);
-      throw new Error(err.response?.data?.message || err.message || 'Erro ao atualizar protocolo');
+      throw new Error(err.response?.data?.error || err.message || 'Erro ao atualizar protocolo');
     } finally {
       setLoading(false);
     }
@@ -304,17 +308,76 @@ export const ProtocoloProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      // Fazer requisição para API
-      const response = await axios.post(`${API_BASE_URL}/add_servico_protocolo.php?id_protocolo=${protocoloId}`, servicoData);
-      const newServico = response.data;
+      // Log detalhado dos dados que estão sendo enviados
+      console.log("Adicionando serviço ao protocolo:", protocoloId);
+      console.log("Dados do serviço:", JSON.stringify(servicoData, null, 2));
       
-      // Atualizar estado local
-      setProtocoloServicos(prev => [...prev, newServico]);
+      // Certificar-se de que os dados estão corretos e incluem todos os campos
+      const cleanedData = {
+        id_servico: servicoData.id_servico || 1,
+        Servico_Codigo: servicoData.Servico_Codigo || "",
+        Dose: servicoData.Dose || "",         // Campo Dose (diferente de Dose_M)
+        Dose_M: servicoData.Dose_M || "",
+        Dose_Total: servicoData.Dose_Total || "",
+        Dias_de_Aplic: servicoData.Dias_de_Aplic || "",
+        Via_de_Adm: servicoData.Via_de_Adm || "",
+        observacoes: servicoData.observacoes || ""  // Campo para observações
+      };
       
-      return newServico.id;
+      console.log("Dados limpos:", JSON.stringify(cleanedData, null, 2));
+      
+      // Chamar API com dados limpos
+      const response = await axios.post(
+        `${API_BASE_URL}/add_servico_protocolo.php?id_protocolo=${protocoloId}`, 
+        cleanedData
+      );
+      
+      console.log("Serviço adicionado com sucesso:", response.data);
+      
+      return response.data;
     } catch (err) {
       console.error("Erro ao adicionar serviço ao protocolo:", err);
-      throw new Error(err.response?.data?.message || err.message || 'Erro ao adicionar serviço ao protocolo');
+      console.error("Detalhes do erro:", err.response?.data || "Sem detalhes adicionais");
+      throw new Error(err.message || 'Erro ao adicionar serviço ao protocolo');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const updateServicoProtocolo = useCallback(async (protocoloId, servicoId, servicoData) => {
+    try {
+      setLoading(true);
+      
+      // Log detalhado dos dados que estão sendo enviados
+      console.log("Atualizando serviço de protocolo:", protocoloId);
+      console.log("ID do serviço:", servicoId);
+      console.log("Dados do serviço:", JSON.stringify(servicoData, null, 2));
+      
+      // Preparar os dados para envio
+      const dataToSend = {
+        ...servicoData,
+        id: servicoId,
+        id_protocolo: protocoloId
+      };
+      
+      // Chamada API para atualizar o serviço
+      const response = await axios.put(
+        `${API_BASE_URL}/update_servico_protocolo.php?id_protocolo=${protocoloId}&id=${servicoId}`, 
+        dataToSend
+      );
+      
+      console.log("Serviço atualizado com sucesso:", response.data);
+      
+      // Atualizar o estado local dos serviços
+      setProtocoloServicos(prev => 
+        prev.map(s => s.id == servicoId ? { ...s, ...servicoData } : s)
+      );
+      
+      return response.data;
+    } catch (err) {
+      console.error("Erro ao atualizar serviço do protocolo:", err);
+      console.error("Detalhes do erro:", err.response?.data || "Sem detalhes adicionais");
+      throw new Error(err.message || 'Erro ao atualizar serviço do protocolo');
     } finally {
       setLoading(false);
     }
@@ -352,7 +415,7 @@ export const ProtocoloProvider = ({ children }) => {
     diagnostico,
     selectProtocolo,
     loadProtocolos,
-    loadProtocoloDetails, // Adicionar esta função ao contexto
+    loadProtocoloDetails,
     runDiagnostic,
     searchProtocolos,
     searchProtocolosApi,
@@ -361,7 +424,8 @@ export const ProtocoloProvider = ({ children }) => {
     deleteProtocolo,
     loadProtocoloServicos,
     addServicoToProtocolo,
-    deleteServicoFromProtocolo
+    deleteServicoFromProtocolo,
+    updateServicoProtocolo  // Adicione esta linha
   };
 
   return (
