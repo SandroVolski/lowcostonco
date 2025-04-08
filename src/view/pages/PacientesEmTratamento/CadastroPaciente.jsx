@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePatient } from '../../../context/PatientContext';
-import { Plus, Edit, Trash2, Search, X, Save, ArrowUpWideNarrow, ArrowDownWideNarrow, Database, ChevronDown } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, X, Save, ArrowUpWideNarrow, ArrowDownWideNarrow, Database, ChevronDown, Calendar } from 'lucide-react';
 import { showConfirmAlert, showSuccessAlert, showErrorAlert, showWarningAlert } from '../../../utils/CustomAlerts';
 import DataRefreshButton from '../../../components/DataRefreshButton';
+import PrestadorSearch from '../../../components/pacientes/PrestadorSearch'; // Importar o novo componente
 import './PacientesEstilos.css';
 
 const CadastroPaciente = () => {
@@ -19,7 +20,7 @@ const CadastroPaciente = () => {
     searchTerm,
     operadoras,
     prestadores,
-    loadPatients
+    loadPatients  // Usaremos apenas loadPatients, não loadReferenceData
   } = usePatient();
   
   // Estados para controle da UI
@@ -30,13 +31,13 @@ const CadastroPaciente = () => {
   const [sortOrder, setSortOrder] = useState("asc");
   const [sortField, setSortField] = useState("Nome");
   const [cacheRefreshed, setCacheRefreshed] = useState(false);
-  const [searchType, setSearchType] = useState("nome"); // 'nome', 'codigo', 'cid', 'operadora', etc.
+  const [searchType, setSearchType] = useState("nome");
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   
   // Referência para o input de pesquisa
   const searchInputRef = useRef(null);
   
-  // Estado para formulários
+  // Estado para formulários - SIMPLIFICADO para corresponder aos campos do backend
   const [formData, setFormData] = useState({
     Operadora: '',
     Prestador: '',
@@ -44,34 +45,52 @@ const CadastroPaciente = () => {
     Nome: '',
     Sexo: '',
     Nascimento: '',
-    Indicao_Clinica: '',
-    CID: '',
-    T: '',
-    N: '',
-    M: '',
-    Estadio: '',
-    Finalidade: '',
-    CRM_Medico: '',
-    Local_das_Metastases: ''
+    Data_Inicio_Tratamento: '',
+    CID: ''
   });
+  
+  // Estados para datas em formato texto (para permitir colar)
+  const [nascimentoText, setNascimentoText] = useState('');
+  const [dataInicioText, setDataInicioText] = useState('');
   
   // Estados para ordenação personalizada
   const [orderedPatients, setOrderedPatients] = useState([]);
   
-  // Colunas de ordenação - definir as colunas que podem ser ordenadas
-  const orderableColumns = [
-    { field: 'id', label: 'ID' },
-    { field: 'Operadora', label: 'Operadora' },
-    { field: 'Prestador', label: 'Prestador' },
-    { field: 'Crm_Nome', label: 'Médico' },
-    { field: 'Paciente_Codigo', label: 'Código' },
-    { field: 'Nome', label: 'Nome' },
-    { field: 'Nascimento', label: 'Data Nasc.' },
-    { field: 'Idade', label: 'Idade' },
-    { field: 'Sexo', label: 'Sexo' },
-    { field: 'Data_Inicio_Tratamento', label: 'Início Trat.' },
-    { field: 'CID', label: 'CID' }
-  ];
+  // Carregar dados de referência se estiverem vazios
+  useEffect(() => {
+    if (!prestadores || prestadores.length === 0) {
+      console.log("Carregando dados de referência porque prestadores está vazio");
+      // Remover a chamada direta a loadReferenceData
+      // Em vez disso, usar a função que já existe no contexto
+      loadPatients(true); // Esta função já recarrega os dados de referência indiretamente
+    }
+  }, [prestadores, loadPatients]);
+  
+  // Efeito para converter entre as datas de texto e o formato do formulário
+  useEffect(() => {
+    // Ao mudar o texto da data, atualizar o formData
+    if (nascimentoText) {
+      try {
+        const formattedDate = formatDateStringToYYYYMMDD(nascimentoText);
+        if (formattedDate) {
+          setFormData(prev => ({...prev, Nascimento: formattedDate}));
+        }
+      } catch (e) {
+        // Não fazer nada se a data for inválida
+      }
+    }
+    
+    if (dataInicioText) {
+      try {
+        const formattedDate = formatDateStringToYYYYMMDD(dataInicioText);
+        if (formattedDate) {
+          setFormData(prev => ({...prev, Data_Inicio_Tratamento: formattedDate}));
+        }
+      } catch (e) {
+        // Não fazer nada se a data for inválida
+      }
+    }
+  }, [nascimentoText, dataInicioText]);
   
   // Efeito para ordenar pacientes quando o sortField ou sortOrder mudar
   useEffect(() => {
@@ -79,11 +98,21 @@ const CadastroPaciente = () => {
     
     const sorted = [...filteredPatients].sort((a, b) => {
       // Extrair os valores a serem comparados
-      const aValue = a[sortField] || '';
-      const bValue = b[sortField] || '';
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+      
+      // Tratamento especial para campo Prestador (pode estar em Prestador_Nome_Fantasia)
+      if (sortField === 'Prestador') {
+        aValue = a.Prestador || a.Prestador_Nome_Fantasia || '';
+        bValue = b.Prestador || b.Prestador_Nome_Fantasia || '';
+      }
+      
+      // Valores vazios ou nulos sempre vão para o final
+      if (aValue === null || aValue === undefined || aValue === '') return sortOrder === 'asc' ? 1 : -1;
+      if (bValue === null || bValue === undefined || bValue === '') return sortOrder === 'asc' ? -1 : 1;
       
       // Verificar se estamos ordenando campos numéricos
-      const numericFields = ['id', 'Idade', 'CRM_Medico'];
+      const numericFields = ['id', 'Idade'];
       
       if (numericFields.includes(sortField) && !isNaN(aValue) && !isNaN(bValue)) {
         // Comparação numérica
@@ -110,27 +139,100 @@ const CadastroPaciente = () => {
       Nome: '',
       Sexo: '',
       Nascimento: '',
-      Indicao_Clinica: '',
-      CID: '',
-      T: '',
-      N: '',
-      M: '',
-      Estadio: '',
-      Finalidade: '',
-      CRM_Medico: '',
-      Local_das_Metastases: ''
+      Data_Inicio_Tratamento: '',
+      CID: ''
     });
+    setNascimentoText('');
+    setDataInicioText('');
   };
-
+  
+  // Função para converter qualquer formato de data em YYYY-MM-DD
+  const formatDateStringToYYYYMMDD = (dateStr) => {
+    if (!dateStr) return '';
+    
+    // Se já estiver no formato YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return dateStr;
+    }
+    
+    // Tentar diferentes formatos
+    const formats = [
+      // DD/MM/YYYY
+      {
+        regex: /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,
+        format: (m) => `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
+      },
+      // DD-MM-YYYY
+      {
+        regex: /^(\d{1,2})-(\d{1,2})-(\d{4})$/,
+        format: (m) => `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
+      },
+      // DD.MM.YYYY
+      {
+        regex: /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/,
+        format: (m) => `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
+      }
+    ];
+    
+    for (const format of formats) {
+      const match = dateStr.match(format.regex);
+      if (match) {
+        return format.format(match);
+      }
+    }
+    
+    // Tentar usar Date.parse como último recurso
+    try {
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0];
+      }
+    } catch (e) {
+      // Ignorar erros da conversão
+    }
+    
+    return '';
+  };
+  
+  // Função para converter YYYY-MM-DD para DD/MM/YYYY (para exibição)
+  const formatDateForDisplay = (dateStr) => {
+    if (!dateStr) return '';
+    
+    // Se já estiver no formato YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const [year, month, day] = dateStr.split('-');
+      return `${day}/${month}/${year}`;
+    }
+    
+    // Se já estiver no formato DD/MM/YYYY
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+      return dateStr;
+    }
+    
+    return dateStr;
+  };
+  
+  // Função para lidar com a colagem de texto nos campos de data
+  const handleDatePaste = (e, setter) => {
+    e.preventDefault();
+    const pastedText = e.clipboardData.getData('text');
+    
+    // Tentar formatar a data colada
+    const formattedDate = formatDateStringToYYYYMMDD(pastedText);
+    if (formattedDate) {
+      // Atualizar o estado de texto
+      setter(formatDateForDisplay(formattedDate));
+    } else {
+      // Se não for possível formatar, manter o texto original
+      setter(pastedText);
+    }
+  };
+  
   const handleSearchTypeChange = (type) => {
     setSearchType(type);
     
-    // Se já existe um termo de pesquisa, refazer a pesquisa com o novo tipo
     if (searchTerm && searchTerm.trim().length >= 2) {
-      // Atualizar estado local
       setLocalLoading(true);
-      
-      // Executar a pesquisa com o novo tipo
       searchPatients(searchTerm, type)
         .finally(() => {
           setLocalLoading(false);
@@ -145,9 +247,16 @@ const CadastroPaciente = () => {
       case 'cid': return 'CID';
       case 'operadora': return 'Operadora';
       case 'prestador': return 'Prestador';
-      case 'finalidade': return 'Finalidade';
       default: return 'Nome';
     }
+  };
+  
+  // Handler para mudança no campo de prestador
+  const handlePrestadorSelect = (selectedPrestadorName) => {
+    setFormData(prev => ({
+      ...prev,
+      Prestador: selectedPrestadorName
+    }));
   };
 
   // Handler para mudança nos campos do formulário
@@ -193,14 +302,36 @@ const CadastroPaciente = () => {
     }
   };
   
+  // Formatar datas para o formato que a API espera (DD/MM/YYYY)
+  const formatDatesForApi = (data) => {
+    const formatted = { ...data };
+    
+    // Converter Nascimento se estiver no formato YYYY-MM-DD
+    if (formatted.Nascimento && /^\d{4}-\d{2}-\d{2}$/.test(formatted.Nascimento)) {
+      const [year, month, day] = formatted.Nascimento.split('-');
+      formatted.Nascimento = `${day}/${month}/${year}`;
+    }
+    
+    // Converter Data_Inicio_Tratamento se estiver no formato YYYY-MM-DD
+    if (formatted.Data_Inicio_Tratamento && /^\d{4}-\d{2}-\d{2}$/.test(formatted.Data_Inicio_Tratamento)) {
+      const [year, month, day] = formatted.Data_Inicio_Tratamento.split('-');
+      formatted.Data_Inicio_Tratamento = `${day}/${month}/${year}`;
+    }
+    
+    return formatted;
+  };
+  
   // Submissão de formulário
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Formatar datas para o formato que a API espera
+    const formattedData = formatDatesForApi(formData);
+    
     if (isEditing && selectedPatient) {
       try {
         setLocalLoading(true);
-        await updatePatient(selectedPatient.id, formData);
+        await updatePatient(selectedPatient.id, formattedData);
         setIsEditing(false);
         showSuccessAlert("Paciente atualizado com sucesso!");
         await refreshDataAfterModification();
@@ -212,7 +343,7 @@ const CadastroPaciente = () => {
     } else if (isAdding) {
       try {
         setLocalLoading(true);
-        const newId = await addPatient(formData);
+        const newId = await addPatient(formattedData);
         setIsAdding(false);
         showSuccessAlert("Paciente adicionado com sucesso!");
         await refreshDataAfterModification();
@@ -265,23 +396,24 @@ const CadastroPaciente = () => {
     // Buscar o paciente mais atualizado da lista filteredPatients
     const currentPatient = filteredPatients.find(p => p.id === selectedPatient.id) || selectedPatient;
     
+    // Extrair as datas para os campos de texto
+    const nascimento = currentPatient.Nascimento || currentPatient.Data_Nascimento || '';
+    const dataInicio = currentPatient.Data_Inicio_Tratamento || '';
+    
+    // Atualizar os estados de texto das datas
+    setNascimentoText(nascimento);
+    setDataInicioText(dataInicio);
+    
     // Usar o paciente atualizado para preencher o formulário
     setFormData({
       Operadora: currentPatient.Operadora || '',
-      Prestador: currentPatient.Prestador || '',
-      Paciente_Codigo: currentPatient.Paciente_Codigo || '',
-      Nome: currentPatient.Nome || '',
+      Prestador: currentPatient.Prestador_Nome_Fantasia || currentPatient.Prestador || '',
+      Paciente_Codigo: currentPatient.Paciente_Codigo || currentPatient.Codigo || '',
+      Nome: currentPatient.Nome || currentPatient.Paciente_Nome || '',
       Sexo: currentPatient.Sexo || '',
-      Nascimento: currentPatient.Nascimento || '',
-      Indicao_Clinica: currentPatient.Indicao_Clinica || '',
-      CID: currentPatient.CID || '',
-      T: currentPatient.T || '',
-      N: currentPatient.N || '',
-      M: currentPatient.M || '',
-      Estadio: currentPatient.Estadio || '',
-      Finalidade: currentPatient.Finalidade || '',
-      CRM_Medico: currentPatient.CRM_Medico || '',
-      Local_das_Metastases: currentPatient.Local_das_Metastases || ''
+      Nascimento: formatDateStringToYYYYMMDD(nascimento),
+      Data_Inicio_Tratamento: formatDateStringToYYYYMMDD(dataInicio),
+      CID: currentPatient.CID || currentPatient.Cid_Diagnostico || ''
     });
     
     setIsEditing(true);
@@ -342,19 +474,15 @@ const CadastroPaciente = () => {
   const handleRowClick = (patientId) => {
     if (isEditing || isAdding) return; // Não permite selecionar durante a edição/adição
     
-    setSelectedRows((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(patientId)) {
-        newSet.delete(patientId);
-      } else {
-        newSet.clear();
-        newSet.add(patientId);
-      }
-      
-      // Também atualiza o paciente selecionado no contexto
+    // Se clicar na linha já selecionada, desselecioná-la
+    if (selectedRows.has(patientId) && selectedPatient?.id === patientId) {
+      setSelectedRows(new Set()); // Limpa o conjunto de linhas selecionadas
+      selectPatient(null); // Importante: limpa a seleção no contexto
+    } else {
+      // Caso contrário, selecionar a linha
+      setSelectedRows(new Set([patientId]));
       selectPatient(patientId);
-      return newSet;
-    });
+    }
   };
   
   // Handler para pesquisa
@@ -400,6 +528,19 @@ const CadastroPaciente = () => {
     searchPatients('', 'nome');
   };
   
+  // Handler para recarregar prestadores manualmente
+  const handleRefreshPrestadores = async () => {
+    try {
+      setLocalLoading(true);
+      await loadPatients(true); // Usamos loadPatients em vez de loadReferenceData
+      showSuccessAlert("Lista de prestadores atualizada");
+    } catch (error) {
+      showErrorAlert("Erro ao atualizar prestadores", error.message);
+    } finally {
+      setLocalLoading(false);
+    }
+  };
+  
   return (
     <div className="patient-container">
       <div className="mb-6 flex justify-between items-center encimatabela">
@@ -439,7 +580,6 @@ const CadastroPaciente = () => {
           <div className="flex flex-col">
             <div className="search-container">
               <div className="search-bar">
-                {/* <DataRefreshButton /> */}
                 <button
                   onClick={executeSearch}
                   className={`pesquisa-icone ${searchTerm ? 'search-icon-blinking' : ''}`}
@@ -478,61 +618,47 @@ const CadastroPaciente = () => {
               
               {/* Seletor do tipo de pesquisa - mostrar apenas quando expandido */}
               {isSearchExpanded && (
-                <div className="search-type-selector mt-2 flex items-center">
-                  <div className="text-xs mr-2 text-gray-600">Buscar por:</div>
-                  <div className="flex flex-wrap space-x-3">
-                    <label className={`cursor-pointer flex items-center ${searchType === 'nome' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
-                      <input
-                        type="radio"
-                        name="searchType"
-                        value="nome"
-                        checked={searchType === 'nome'}
-                        onChange={() => handleSearchTypeChange('nome')}
-                        className="mr-1 h-3 w-3"
-                      />
-                      <span className="text-xs">Nome</span>
-                    </label>
-                    
-                    <label className={`cursor-pointer flex items-center ${searchType === 'codigo' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
-                      <input
-                        type="radio"
-                        name="searchType"
-                        value="codigo"
-                        checked={searchType === 'codigo'}
-                        onChange={() => handleSearchTypeChange('codigo')}
-                        className="mr-1 h-3 w-3"
-                      />
-                      <span className="text-xs">Código</span>
-                    </label>
-                    
-                    {/*<label className={`cursor-pointer flex items-center ${searchType === 'operadora' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
-                      <input
-                        type="radio"
-                        name="searchType"
-                        value="operadora"
-                        checked={searchType === 'operadora'}
-                        onChange={() => handleSearchTypeChange('operadora')}
-                        className="mr-1 h-3 w-3"
-                      />
-                      <span className="text-xs">Operadora</span>
-                    </label>
-                    
-                    <label className={`cursor-pointer flex items-center ${searchType === 'prestador' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
-                      <input
-                        type="radio"
-                        name="searchType"
-                        value="prestador"
-                        checked={searchType === 'prestador'}
-                        onChange={() => handleSearchTypeChange('prestador')}
-                        className="mr-1 h-3 w-3"
-                      />
-                      <span className="text-xs">Prestador</span>
-                    </label>*/}
-                    
-                    
-                  </div>
+              <div className="search-type-selector mt-2 flex items-center">
+                <div className="text-xs mr-2 text-gray-600">Buscar por:</div>
+                <div className="flex flex-wrap space-x-3">
+                  <label className={`cursor-pointer flex items-center ${searchType === 'nome' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
+                    <input
+                      type="radio"
+                      name="searchType"
+                      value="nome"
+                      checked={searchType === 'nome'}
+                      onChange={() => handleSearchTypeChange('nome')}
+                      className="mr-1 h-3 w-3"
+                    />
+                    <span className="text-xs">Nome</span>
+                  </label>
+                  
+                  <label className={`cursor-pointer flex items-center ${searchType === 'codigo' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
+                    <input
+                      type="radio"
+                      name="searchType"
+                      value="codigo"
+                      checked={searchType === 'codigo'}
+                      onChange={() => handleSearchTypeChange('codigo')}
+                      className="mr-1 h-3 w-3"
+                    />
+                    <span className="text-xs">Código</span>
+                  </label>
+                  
+                  <label className={`cursor-pointer flex items-center ${searchType === 'cid' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
+                    <input
+                      type="radio"
+                      name="searchType"
+                      value="cid"
+                      checked={searchType === 'cid'}
+                      onChange={() => handleSearchTypeChange('cid')}
+                      className="mr-1 h-3 w-3"
+                    />
+                    <span className="text-xs">CID</span>
+                  </label>
                 </div>
-              )}
+              </div>
+            )}
             </div>
             
             {/* Indicador de resultados da pesquisa */}
@@ -628,9 +754,9 @@ const CadastroPaciente = () => {
         </div>
       </div>
       
-      {/* Formulário de edição/adição */}
+      {/* Formulário de edição/adição SIMPLIFICADO */}
       {(isAdding || isEditing) && (
-        <form onSubmit={handleSubmit} className="patient-form bg-white p-4 rounded-lg  mb-4">
+        <form onSubmit={handleSubmit} className="patient-form bg-white p-4 rounded-lg mb-4">
           <div className="form-row flex flex-wrap gap-4 mb-4">
             <div className="form-group flex-1 min-w-[250px]">
               <label htmlFor="operadora" className="form-label">Operadora</label>
@@ -650,20 +776,26 @@ const CadastroPaciente = () => {
             </div>
             
             <div className="form-group flex-1 min-w-[250px]">
-              <label htmlFor="prestador" className="form-label">Prestador</label>
-              <select 
-                id="prestador"
-                name="Prestador"
-                value={formData.Prestador}
-                onChange={handleInputChange}
-                className="form-select"
-                required
-              >
-                <option value="">Selecione um prestador</option>
-                {prestadores.map(pr => (
-                  <option key={pr.id} value={pr.nome}>{pr.nome}</option>
-                ))}
-              </select>
+              <label htmlFor="prestador" className="form-label flex justify-between">
+                <span>Prestador</span>
+                {prestadores.length > 0 && (
+                  <button 
+                    type="button" 
+                    onClick={handleRefreshPrestadores}
+                    className="text-xs text-blue-500 hover:text-blue-700"
+                    title="Atualizar lista de prestadores"
+                  >
+                    Atualizar lista
+                  </button>
+                )}
+              </label>
+              {/* Novo componente de pesquisa de prestadores */}
+              <PrestadorSearch 
+                prestadores={prestadores}
+                selectedPrestador={formData.Prestador}
+                onSelect={handlePrestadorSelect}
+                required={true}
+              />
             </div>
             
             <div className="form-group flex-1 min-w-[250px]">
@@ -712,29 +844,70 @@ const CadastroPaciente = () => {
             
             <div className="form-group flex-1 min-w-[250px]">
               <label htmlFor="dataNascimento" className="form-label">Data de Nascimento</label>
-              <input 
-                type="text"
-                id="dataNascimento"
-                name="Nascimento"
-                value={formData.Nascimento}
-                onChange={handleInputChange}
-                className="form-input"
-                placeholder="DD/MM/AAAA"
-              />
+              <div className="relative flex">
+                {/* Campo de texto para permitir colar */}
+                <input 
+                  type="text"
+                  id="dataNascimentoText"
+                  value={nascimentoText}
+                  onChange={(e) => setNascimentoText(e.target.value)}
+                  onPaste={(e) => handleDatePaste(e, setNascimentoText)}
+                  className="form-input pr-12"
+                  placeholder="DD/MM/AAAA"
+                />
+                {/* Campo date oculto que mantém o valor para o formulário */}
+                <input 
+                  type="date"
+                  id="dataNascimento"
+                  name="Nascimento"
+                  value={formData.Nascimento}
+                  onChange={handleInputChange}
+                  className="absolute w-0 h-0 opacity-0"
+                />
+                <button 
+                  type="button"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  onClick={() => document.getElementById('dataNascimento').showPicker()}
+                  title="Abrir calendário"
+                >
+                  <Calendar size={18} />
+                </button>
+              </div>
             </div>
           </div>
           
           <div className="form-row flex flex-wrap gap-4 mb-4">
             <div className="form-group flex-1 min-w-[250px]">
-              <label htmlFor="indicacaoClinica" className="form-label">Indicação Clínica</label>
-              <input 
-                type="text"
-                id="indicacaoClinica"
-                name="Indicao_Clinica"
-                value={formData.Indicao_Clinica}
-                onChange={handleInputChange}
-                className="form-input"
-              />
+              <label htmlFor="dataInicioTratamento" className="form-label">Data de Início do Tratamento</label>
+              <div className="relative flex">
+                {/* Campo de texto para permitir colar */}
+                <input 
+                  type="text"
+                  id="dataInicioTratamentoText"
+                  value={dataInicioText}
+                  onChange={(e) => setDataInicioText(e.target.value)}
+                  onPaste={(e) => handleDatePaste(e, setDataInicioText)}
+                  className="form-input pr-12"
+                  placeholder="DD/MM/AAAA"
+                />
+                {/* Campo date oculto que mantém o valor para o formulário */}
+                <input 
+                  type="date"
+                  id="dataInicioTratamento"
+                  name="Data_Inicio_Tratamento"
+                  value={formData.Data_Inicio_Tratamento}
+                  onChange={handleInputChange}
+                  className="absolute w-0 h-0 opacity-0"
+                />
+                <button 
+                  type="button"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  onClick={() => document.getElementById('dataInicioTratamento').showPicker()}
+                  title="Abrir calendário"
+                >
+                  <Calendar size={18} />
+                </button>
+              </div>
             </div>
             
             <div className="form-group flex-1 min-w-[250px]">
@@ -744,96 +917,6 @@ const CadastroPaciente = () => {
                 id="cid"
                 name="CID"
                 value={formData.CID}
-                onChange={handleInputChange}
-                className="form-input"
-              />
-            </div>
-          </div>
-          
-          <div className="form-row flex flex-wrap gap-4 mb-4">
-            <div className="form-group flex-1 min-w-[100px]">
-              <label htmlFor="t" className="form-label">T</label>
-              <input 
-                type="text"
-                id="t"
-                name="T"
-                value={formData.T}
-                onChange={handleInputChange}
-                className="form-input"
-              />
-            </div>
-            
-            <div className="form-group flex-1 min-w-[100px]">
-              <label htmlFor="n" className="form-label">N</label>
-              <input 
-                type="text"
-                id="n"
-                name="N"
-                value={formData.N}
-                onChange={handleInputChange}
-                className="form-input"
-              />
-            </div>
-            
-            <div className="form-group flex-1 min-w-[100px]">
-              <label htmlFor="m" className="form-label">M</label>
-              <input 
-                type="text"
-                id="m"
-                name="M"
-                value={formData.M}
-                onChange={handleInputChange}
-                className="form-input"
-              />
-            </div>
-            
-            <div className="form-group flex-1 min-w-[250px]">
-              <label htmlFor="estadio" className="form-label">Estadio</label>
-              <input 
-                type="text"
-                id="estadio"
-                name="Estadio"
-                value={formData.Estadio}
-                onChange={handleInputChange}
-                className="form-input"
-              />
-            </div>
-          </div>
-          
-          <div className="form-row flex flex-wrap gap-4 mb-4">
-            <div className="form-group flex-1 min-w-[250px]">
-              <label htmlFor="finalidade" className="form-label">Finalidade</label>
-              <input 
-                type="text"
-                id="finalidade"
-                name="Finalidade"
-                value={formData.Finalidade}
-                onChange={handleInputChange}
-                className="form-input"
-              />
-            </div>
-            
-            <div className="form-group flex-1 min-w-[250px]">
-              <label htmlFor="crmMedico" className="form-label">CRM Médico</label>
-              <input 
-                type="text"
-                id="crmMedico"
-                name="CRM_Medico"
-                value={formData.CRM_Medico}
-                onChange={handleInputChange}
-                className="form-input"
-              />
-            </div>
-          </div>
-          
-          <div className="form-row flex flex-wrap gap-4 mb-4">
-            <div className="form-group flex-1">
-              <label htmlFor="localMetastases" className="form-label">Local das Metástases</label>
-              <input 
-                type="text"
-                id="localMetastases"
-                name="Local_das_Metastases"
-                value={formData.Local_das_Metastases}
                 onChange={handleInputChange}
                 className="form-input"
               />
@@ -889,26 +972,13 @@ const CadastroPaciente = () => {
                       )}
                     </div>
                   </th>
-                  <th onClick={() => handleSort('Prestador')} className="cursor-pointer">
+                  <th onClick={() => handleSort('Prestador_Nome_Fantasia')} className="cursor-pointer">
                     <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'Prestador' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'Prestador' ? '#f26b6b' : 'inherit' }}>
+                      <span className={sortField === 'Prestador_Nome_Fantasia' ? 'text-sort-active' : ''} 
+                            style={{ color: sortField === 'Prestador_Nome_Fantasia' ? '#f26b6b' : 'inherit' }}>
                         Prestador
                       </span>
-                      {sortField === 'Prestador' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => handleSort('Crm_Nome')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'Crm_Nome' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'Crm_Nome' ? '#f26b6b' : 'inherit' }}>
-                        Médico
-                      </span>
-                      {sortField === 'Crm_Nome' && (
+                      {sortField === 'Prestador_Nome_Fantasia' && (
                         sortOrder === 'asc' 
                           ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
                           : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
@@ -1017,8 +1087,7 @@ const CadastroPaciente = () => {
                   >
                     <td>{patient.id}</td>
                     <td>{patient.Operadora}</td>
-                    <td>{patient.Prestador}</td>
-                    <td>{patient.Crm_Nome || 'N/D'}</td>
+                    <td>{patient.Prestador_Nome_Fantasia || patient.Prestador || 'N/D'}</td>
                     <td>{patient.Paciente_Codigo}</td>
                     <td>{patient.Nome}</td>
                     <td>{patient.Nascimento}</td>

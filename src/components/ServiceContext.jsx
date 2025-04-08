@@ -48,7 +48,7 @@ export const ServiceProvider = ({ children }) => {
     maxAge: CACHE_MAX_AGE_WITHOUT_VALIDATION    // Idade máxima do cache
   });
 
-  const API_BASE_URL = "http://localhost/backend-php/api/ServicoRelacionada";
+  const API_BASE_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/ServicoRelacionada";
 
   // Inicializar o cache
   useEffect(() => {

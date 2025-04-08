@@ -48,7 +48,7 @@ function ServicoRelacionadaContent() {
   const [dataSource, setDataSource] = useState(''); // 'cache' ou 'server'
   const [updatingRows, setUpdatingRows] = useState(new Set());
 
-  const API_BASE_URL = "http://localhost/backend-php/api/ServicoRelacionada";
+  const API_BASE_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/ServicoRelacionada";
   //  const [searchDebounceTimeout, setSearchDebounceTimeout] = useState(null);
 
   // Referência para o componente DataTable para controlar expansão de colunas

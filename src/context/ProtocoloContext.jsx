@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import axios from 'axios';
-const API_BASE_URL = "http://localhost/backend-php/api/PacientesEmTratamento"; // Sem barra no final
+const API_BASE_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/PacientesEmTratamento"; // Sem barra no final
 
 // Criar o contexto
 const ProtocoloContext = createContext();
@@ -282,26 +282,45 @@ export const ProtocoloProvider = ({ children }) => {
     try {
       setLoading(true);
       
+      // Verificar o formato do ID
+      console.log("Tentando excluir protocolo com ID:", id);
+      
+      // Verificar se estamos usando id ou id_protocolo
+      const protocoloToDelete = protocolos.find(p => 
+        p.id === id || p.id_protocolo === id
+      );
+      
+      if (!protocoloToDelete) {
+        console.error("Protocolo não encontrado no estado local com ID:", id);
+      } else {
+        console.log("Protocolo a ser excluído:", protocoloToDelete);
+      }
+      
+      // Garantir que estamos usando o ID correto na API
+      const idToUse = protocoloToDelete?.id_protocolo || id;
+      
       // Fazer requisição para API
-      await axios.delete(`${API_BASE_URL}/delete_protocolo.php?id=${id}`);
+      console.log(`Enviando DELETE para ${API_BASE_URL}/delete_protocolo.php?id=${idToUse}`);
+      await axios.delete(`${API_BASE_URL}/delete_protocolo.php?id=${idToUse}`);
       
       // Atualizar estado local
-      setProtocolos(prev => prev.filter(p => p.id !== id));
-      setFilteredProtocolos(prev => prev.filter(p => p.id !== id));
+      setProtocolos(prev => prev.filter(p => p.id !== id && p.id_protocolo !== id));
+      setFilteredProtocolos(prev => prev.filter(p => p.id !== id && p.id_protocolo !== id));
       
       // Limpar seleção se for o mesmo protocolo
-      if (selectedProtocolo && selectedProtocolo.id === id) {
+      if (selectedProtocolo && (selectedProtocolo.id === id || selectedProtocolo.id_protocolo === id)) {
         setSelectedProtocolo(null);
       }
       
       return true;
     } catch (err) {
       console.error("Erro ao excluir protocolo:", err);
-      throw new Error(err.response?.data?.message || err.message || 'Erro ao excluir protocolo');
+      console.error("Detalhes da resposta:", err.response?.data);
+      throw new Error(err.response?.data?.error || err.message || 'Erro ao excluir protocolo');
     } finally {
       setLoading(false);
     }
-  }, [selectedProtocolo]);
+  }, [selectedProtocolo, protocolos]);
 
   // Função para adicionar um serviço a um protocolo
   const addServicoToProtocolo = useCallback(async (protocoloId, servicoData) => {

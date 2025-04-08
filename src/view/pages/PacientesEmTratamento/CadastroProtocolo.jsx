@@ -9,7 +9,7 @@ import { showConfirmAlert, showSuccessAlert, showErrorAlert, showWarningAlert } 
 import DataRefreshButton from '../../../components/DataRefreshButton';
 import './PacientesEstilos.css';
 
-const API_BASE_URL = "http://localhost/backend-php/api/PacientesEmTratamento";
+const API_BASE_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/PacientesEmTratamento";
 
 const CadastroProtocolo = () => {
   // Contexto
@@ -68,6 +68,7 @@ const CadastroProtocolo = () => {
   
   // Estado para formulários
   const [formData, setFormData] = useState({
+    Servico_Codigo: '',  // Added this field
     Protocolo_Nome: '',
     Protocolo_Sigla: '',
     Protocolo_Dose_M: '',
@@ -183,21 +184,21 @@ const CadastroProtocolo = () => {
     if (isEditing || isAdding) return;
     
     setExpandedRows(prev => {
-      const newState = { ...prev };
+      const wasExpanded = prev[protocoloId] && prev[protocoloId].expanded;
       
-      if (newState[protocoloId]) {
-        // Se já estiver expandido, recolher
-        delete newState[protocoloId];
+      // Se a linha já estava expandida, apenas a feche
+      if (wasExpanded) {
+        return {};
       } else {
-        // Se não estiver expandido, expandir e inicializar
-        newState[protocoloId] = {
-          expanded: true,
-          servicos: [],
-          isAddingService: false
+        // Caso contrário, feche todas as outras e expanda apenas a selecionada
+        return {
+          [protocoloId]: {
+            expanded: true,
+            servicos: prev[protocoloId]?.servicos || [],
+            isAddingService: prev[protocoloId]?.isAddingService || false
+          }
         };
       }
-      
-      return newState;
     });
     
     // Atualizar a seleção se necessário
@@ -210,6 +211,7 @@ const CadastroProtocolo = () => {
   // Reset dos formulários
   const resetForm = () => {
     setFormData({
+      Servico_Codigo: '',  // Added this field
       Protocolo_Nome: '',
       Protocolo_Sigla: '',
       Protocolo_Dose_M: '',
@@ -607,6 +609,7 @@ const CadastroProtocolo = () => {
     console.log("ID a ser usado para atualização:", protocoloId);
     
     setFormData({
+      Servico_Codigo: currentProtocolo.Servico_Codigo || '',  // Added this field
       Protocolo_Nome: currentProtocolo.Protocolo_Nome || '',
       Protocolo_Sigla: currentProtocolo.Protocolo_Sigla || '',
       Protocolo_Dose_M: currentProtocolo.Protocolo_Dose_M || '',
@@ -670,22 +673,35 @@ const CadastroProtocolo = () => {
   const handleSaveNew = () => handleSubmit();
   const handleSave = () => handleSubmit();
   
+  // MODIFICADO: Permite desseleção ao clicar na linha selecionada
   const handleRowClick = (protocoloId) => {
     if (isEditing || isAdding) return;
     
-    setSelectedRows(prev => {
-      const newSet = new Set(prev);
-      if (!newSet.has(protocoloId)) {
-        newSet.clear();
-        newSet.add(protocoloId);
+    // Se clicar na linha já selecionada, desselecioná-la
+    if (selectedRows.has(protocoloId) && selectedProtocolo?.id === protocoloId) {
+      setSelectedRows(new Set());
+      selectProtocolo(null); // Limpa a seleção
+      
+      // Fechar todas as expansões quando desselecionado
+      setExpandedRows({});
+    } else {
+      // Selecionar a linha
+      setSelectedRows(new Set([protocoloId]));
+      selectProtocolo(protocoloId);
+      
+      // Expandir apenas a linha selecionada, fechando todas as outras
+      setExpandedRows({
+        [protocoloId]: {
+          expanded: true,
+          servicos: expandedRows[protocoloId]?.servicos || [],
+          isAddingService: expandedRows[protocoloId]?.isAddingService || false
+        }
+      });
+      
+      // Carregar os detalhes do protocolo e serviços
+      if (protocoloId && loadProtocoloDetails) {
+        loadProtocoloDetails(protocoloId).catch(console.error);
       }
-      return newSet;
-    });
-    
-    selectProtocolo(protocoloId);
-    
-    if (protocoloId && loadProtocoloDetails) {
-      loadProtocoloDetails(protocoloId).catch(console.error);
     }
   };
   
@@ -737,7 +753,7 @@ const CadastroProtocolo = () => {
     }
   };
   
-  // Renderização de componentes UI - Modificado para incluir edição
+  // Renderização de componentes UI - MODIFICADO para melhorar a aparência
   const renderServicoRow = (servico, protocoloId) => {
     const servicoId = servico.id; // Usar 'id' como chave primária
     const isEditing = editingServiceId === servicoId;
@@ -745,7 +761,7 @@ const CadastroProtocolo = () => {
     // Se estiver em modo de edição, exibe campos editáveis
     if (isEditing) {
       return (
-        <tr key={`servico-${servicoId}`} className="border-b border-gray-100 bg-blue-50">
+        <tr key={`servico-${servicoId}`} className="servico-edit-row transition-all duration-150">
           <td className="py-2 px-3">
             <input
               type="text"
@@ -804,19 +820,20 @@ const CadastroProtocolo = () => {
             />
           </td>
           <td className="py-2 px-3">
-            <textarea
+            <input
+              type="text"
               name="observacoes"
               value={editServiceForm.observacoes}
               onChange={handleEditServiceInputChange}
               className="w-full p-1 border rounded text-sm"
               rows="1"
-            ></textarea>
+            />
           </td>
           <td className="py-2 px-3 text-center">
             <div className="flex justify-center space-x-2">
               <button 
                 onClick={(e) => saveServiceChanges(protocoloId, servicoId, e)}
-                className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-100"
+                className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-100 transition-colors"
                 title="Salvar alterações"
                 disabled={localLoading}
               >
@@ -824,7 +841,7 @@ const CadastroProtocolo = () => {
               </button>
               <button 
                 onClick={cancelEditService}
-                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100"
+                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100 transition-colors"
                 title="Cancelar edição"
               >
                 <X size={16} />
@@ -835,28 +852,32 @@ const CadastroProtocolo = () => {
       );
     }
     
-    // Renderização normal (não está em edição)
+    // Renderização normal (não está em edição) - MODIFICADO: Melhoria visual
     return (
-      <tr key={`servico-${servicoId}`} className="border-b border-gray-100 hover:bg-gray-50">
+      <tr key={`servico-${servicoId}`} className="servico-row transition-all duration-150">
         <td className="py-2 px-3 text-sm">{servico.Servico_Codigo || servico.id_servico || 'N/D'}</td>
         <td className="py-2 px-3 text-sm">{servico.Dose || 'N/D'}</td>
         <td className="py-2 px-3 text-sm">{servico.Dose_M || servico.dose_m || 'N/D'}</td>
         <td className="py-2 px-3 text-sm">{servico.Dose_Total || servico.dose_total || 'N/D'}</td>
         <td className="py-2 px-3 text-sm">{servico.Dias_de_Aplic || servico.dias_aplicacao || 'N/D'}</td>
         <td className="py-2 px-3 text-sm">{servico.Via_de_Adm || servico.via_administracao || 'N/D'}</td>
-        <td className="py-2 px-3 text-sm">{servico.observacoes || 'N/D'}</td>
+        <td className="py-2 px-3 text-sm max-w-xs truncate" title={servico.observacoes || 'N/D'}>
+          {servico.observacoes || 'N/D'}
+        </td>
         <td className="py-2 px-3 text-center">
           <div className="flex justify-center space-x-2">
             <button 
               onClick={(e) => startEditService(protocoloId, servico, e)}
-              className="text-blue-600 hover:text-blue-900 mx-1 p-1 rounded hover:bg-blue-50"
+              className="hover:text-green-900 p-1 rounded hover:bg-green-50 transition-colors"
+              style={{ color: "#8cb369" }}
               title="Editar serviço"
             >
-              <Edit size={16} />
+              <Edit size={16}  />
             </button>
             <button 
               onClick={(e) => removeService(protocoloId, servicoId, e)}
-              className="text-red-600 hover:text-red-900 mx-1 p-1 rounded hover:bg-red-50"
+              className="hover:text-red-1000 p-1 rounded hover:bg-red-100 transition-colors"
+              style={{ color: "#f26b6b" }}
               title="Excluir serviço"
             >
               <Trash2 size={16} />
@@ -869,14 +890,14 @@ const CadastroProtocolo = () => {
 
   const renderAddServiceRow = (protocoloId) => {
     return (
-      <tr key={`add-service-${protocoloId}`} className="bg-green-50">
+      <tr key={`add-service-${protocoloId}`} className="servico-add-row transition-all duration-150">
         <td className="py-2 px-3">
           <input
             type="text"
             name="Servico_Codigo"
             value={servicoForm.Servico_Codigo}
             onChange={handleServicoInputChange}
-            className="w-full p-1 border rounded text-sm"
+            className="w-full p-1 border rounded text-sm focus:ring-2 focus:ring-green-200 focus:border-green-400"
             placeholder="Código"
           />
         </td>
@@ -886,7 +907,7 @@ const CadastroProtocolo = () => {
             name="Dose"
             value={servicoForm.Dose}
             onChange={handleServicoInputChange}
-            className="w-full p-1 border rounded text-sm"
+            className="w-full p-1 border rounded text-sm focus:ring-2 focus:ring-green-200 focus:border-green-400"
             placeholder="Dose"
             step="0.01"
           />
@@ -897,7 +918,7 @@ const CadastroProtocolo = () => {
             name="Dose_M"
             value={servicoForm.Dose_M}
             onChange={handleServicoInputChange}
-            className="w-full p-1 border rounded text-sm"
+            className="w-full p-1 border rounded text-sm focus:ring-2 focus:ring-green-200 focus:border-green-400"
             placeholder="Dose M"
             step="0.01"
           />
@@ -908,7 +929,7 @@ const CadastroProtocolo = () => {
             name="Dose_Total"
             value={servicoForm.Dose_Total}
             onChange={handleServicoInputChange}
-            className="w-full p-1 border rounded text-sm"
+            className="w-full p-1 border rounded text-sm focus:ring-2 focus:ring-green-200 focus:border-green-400"
             placeholder="Dose Total"
             step="0.01"
           />
@@ -919,7 +940,7 @@ const CadastroProtocolo = () => {
             name="Dias_de_Aplic"
             value={servicoForm.Dias_de_Aplic}
             onChange={handleServicoInputChange}
-            className="w-full p-1 border rounded text-sm"
+            className="w-full p-1 border rounded text-sm focus:ring-2 focus:ring-green-200 focus:border-green-400"
             placeholder="Dias"
           />
         </td>
@@ -929,25 +950,26 @@ const CadastroProtocolo = () => {
             name="Via_de_Adm"
             value={servicoForm.Via_de_Adm}
             onChange={handleServicoInputChange}
-            className="w-full p-1 border rounded text-sm"
+            className="w-full p-1 border rounded text-sm focus:ring-2 focus:ring-green-200 focus:border-green-400"
             placeholder="Via"
           />
         </td>
         <td className="py-2 px-3">
-          <textarea
+          <input
+            type="text"
             name="observacoes"
             value={servicoForm.observacoes}
             onChange={handleServicoInputChange}
-            className="w-full p-1 border rounded text-sm"
+            className="w-full p-1 border rounded text-sm focus:ring-2 focus:ring-green-200 focus:border-green-400"
             placeholder="Observações"
             rows="1"
-          ></textarea>
+          />
         </td>
         <td className="py-2 px-3 text-center">
           <div className="flex justify-center space-x-2">
             <button
               onClick={(e) => saveNewService(protocoloId, e)}
-              className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-100"
+              className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-100 transition-colors"
               title="Salvar"
               disabled={localLoading}
             >
@@ -955,7 +977,7 @@ const CadastroProtocolo = () => {
             </button>
             <button
               onClick={(e) => cancelAddService(protocoloId, e)}
-              className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100"
+              className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100 transition-colors"
               title="Cancelar"
             >
               <X size={16} />
@@ -966,6 +988,7 @@ const CadastroProtocolo = () => {
     );
   };
 
+  // MODIFICADO: Melhorada a estilização da subtabela
   const renderExpandedContent = (protocolo) => {
     const protocoloId = protocolo.id;
     const rowData = expandedRows[protocoloId] || {};
@@ -975,50 +998,65 @@ const CadastroProtocolo = () => {
     return (
       <tr className="expanded-content">
         <td colSpan="8" className="p-0 border-b border-gray-200">
-          <div className="bg-gray-50 p-3 pb-4">
-            <div className="flex justify-between items-center mb-2">
-              <h4 className="text-sm font-medium text-gray-700">
-                Serviços do Protocolo: {protocolo.Protocolo_Nome}
+          <div className="bg-gray-50 p-4 pb-5 rounded-lg shadow-inner">
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="text-sm font-medium flex items-center" style={{ color: "#35524a" }}>
+                <Database size={16} className="mr-2" style={{ color: "#35524a" }} />
+                Serviços do Protocolo: <span className="ml-1 font-bold" style={{ color: "rgb(245, 173, 118)" }}>{protocolo.Protocolo_Nome}</span>
               </h4>
               
               {!isAddingService && (
                 <button 
-                  className="px-2 py-1 bg-green-600 text-white rounded-md flex items-center text-xs"
+                  className="px-3 py-1.5 rounded-md flex items-center text-xs shadow-sm hover:opacity-60 transition-colors"
+                  style={{ backgroundColor: " #f7c59f", color: "#35524a", fontWeight: "bold" }}
                   onClick={(e) => startAddService(protocoloId, e)}
                 >
-                  <Plus size={14} className="mr-1" /> Adicionar Serviço
+                  <Plus size={14} className="mr-1.5" /> Adicionar Serviço
                 </button>
               )}
+
             </div>
             
             {isLoading ? (
-              <div className="flex justify-center py-4">
-                <img src="/images/loadingcorreto-semfundo.gif" alt="Carregando..." className="w-8 h-8" />
+              <div className="flex justify-center py-6">
+                <div className="animate-pulse flex space-x-2 items-center">
+                  <div className="h-3 w-3 bg-gren-400 rounded-full"></div>
+                  <div className="h-3 w-3 bg-green-400 rounded-full"></div>
+                  <div className="h-3 w-3 bg-gren-400 rounded-full"></div>
+                  <span className="text-sm text-green-600 ml-2">Carregando serviços...</span>
+                </div>
               </div>
             ) : servicos.length > 0 || isAddingService ? (
-              <div className="overflow-x-auto border rounded bg-white">
-                <table className="min-w-full text-gray-600">
-                <thead>
-                  <tr className="bg-gray-100 text-gray-600 text-xs uppercase">
-                    <th className="py-2 px-3 text-left">Serviço</th>
-                    <th className="py-2 px-3 text-left">Dose</th>
-                    <th className="py-2 px-3 text-left">Dose M</th>
-                    <th className="py-2 px-3 text-left">Dose Total</th>
-                    <th className="py-2 px-3 text-left">Dias Aplic.</th>
-                    <th className="py-2 px-3 text-left">Via Adm.</th>
-                    <th className="py-2 px-3 text-left">Observações</th>
-                    <th className="py-2 px-3 text-center">Ações</th>
-                  </tr>
-                </thead>
-                  <tbody>
+              <div className="overflow-x-auto border rounded-lg shadow-sm bg-white">
+                <table className="min-w-full text-gray-600 divide-y divide-gray-200 servicos-table">
+                  <thead>
+                    <tr className="servicos-header-row text-xs uppercase tracking-wider">
+                      <th className="py-3 px-4 text-center font-semibold">Serviço</th>
+                      <th className="py-3 px-4 text-center font-semibold">Dose</th>
+                      <th className="py-3 px-4 text-center font-semibold">Dose M</th>
+                      <th className="py-3 px-4 text-center font-semibold">Dose Total</th>
+                      <th className="py-3 px-4 text-center font-semibold">Dias Aplic.</th>
+                      <th className="py-3 px-4 text-center font-semibold">Via Adm.</th>
+                      <th className="py-3 px-4 text-center font-semibold">Observações</th>
+                      <th className="py-3 px-4 text-center font-semibold">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
                     {servicos.map(servico => renderServicoRow(servico, protocoloId))}
                     {isAddingService && renderAddServiceRow(protocoloId)}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <div className="text-center py-3 bg-white border rounded text-gray-500 text-sm">
-                Nenhum serviço cadastrado para este protocolo.
+              <div className="text-center py-6 bg-white border rounded-lg text-gray-500 text-sm flex flex-col items-center">
+                <Database size={32} className="text-gray-400 mb-2" />
+                <p>Nenhum serviço cadastrado para este protocolo.</p>
+                <button 
+                  className="mt-3 text-green-600 hover:text-green-800 text-xs underline flex items-center"
+                  onClick={(e) => startAddService(protocoloId, e)}
+                >
+                  <Plus size={12} className="mr-1" /> Adicionar o primeiro serviço
+                </button>
               </div>
             )}
           </div>
@@ -1032,7 +1070,7 @@ const CadastroProtocolo = () => {
     <div className="patient-container">
       <div className="mb-6 flex justify-between items-center encimatabela">
         {/* Área de ordenação */}
-        <div className="organize-container">
+        <div className="organize-container"> 
           <h2 className="organize-text">Ordenação</h2>
           <div className="custom-select">
             <select 
@@ -1053,7 +1091,7 @@ const CadastroProtocolo = () => {
               Ordenado por: <strong style={{color: '#f26b6b'}} >{sortField}</strong> ({sortOrder === 'asc' ? 'crescente' : 'decrescente'})
             </span>
             <button 
-              className="ml-2 text-blue-600 hover:text-blue-800" 
+              className="ml-2 text-green-600 hover:text-green-800" 
               onClick={handleResetSort}
               title="Resetar ordenação"
             >
@@ -1240,7 +1278,7 @@ const CadastroProtocolo = () => {
           </div>
         </div>
       </div>
-      
+  
       {/* Formulário de edição/adição */}
       {(isAdding || isEditing) && (
         <form onSubmit={handleSubmit} className="patient-form bg-white p-4 rounded-lg mb-4">
@@ -1254,7 +1292,20 @@ const CadastroProtocolo = () => {
           
           <div className="form-row flex flex-wrap gap-4 mb-4">
             <div className="form-group flex-1 min-w-[250px]">
-              <label htmlFor="protocoloNome" className="form-label">Nome do Protocolo</label>
+              <label htmlFor="servicoCodigo" className="form-label">Código do Serviço</label>
+              <input 
+                type="text"
+                id="servicoCodigo"
+                name="Servico_Codigo"
+                value={formData.Servico_Codigo || ''}
+                onChange={handleInputChange}
+                className="form-input"
+                placeholder="Código do serviço relacionado"
+              />
+            </div>
+            
+            <div className="form-group flex-1 min-w-[250px]">
+              <label htmlFor="protocoloNome" className="form-label">Nome do Protocolo*</label>
               <input 
                 type="text"
                 id="protocoloNome"
@@ -1265,9 +1316,11 @@ const CadastroProtocolo = () => {
                 required
               />
             </div>
-            
+          </div>
+          
+          <div className="form-row flex flex-wrap gap-4 mb-4">
             <div className="form-group flex-1 min-w-[250px]">
-              <label htmlFor="protocoloSigla" className="form-label">Sigla</label>
+              <label htmlFor="protocoloSigla" className="form-label">Sigla do Protocolo*</label>
               <input 
                 type="text"
                 id="protocoloSigla"
@@ -1278,46 +1331,33 @@ const CadastroProtocolo = () => {
                 required
               />
             </div>
-          </div>
-          
-          <div className="form-row flex flex-wrap gap-4 mb-4">
+            
             <div className="form-group flex-1 min-w-[250px]">
               <label htmlFor="cid" className="form-label">CID Associado</label>
               <input 
                 type="text"
                 id="cid"
                 name="CID"
-                value={formData.CID}
+                value={formData.CID || ''}
                 onChange={handleInputChange}
                 className="form-input"
                 placeholder="Pode ser mais de um, separados por vírgula"
-              />
-            </div>
-            
-            <div className="form-group flex-1 min-w-[250px]">
-              <label htmlFor="linha" className="form-label">Linha</label>
-              <input 
-                type="number"
-                id="linha"
-                name="Linha"
-                value={formData.Linha}
-                onChange={handleInputChange}
-                className="form-input"
               />
             </div>
           </div>
           
           <div className="form-row flex flex-wrap gap-4 mb-4">
             <div className="form-group flex-1 min-w-[250px]">
-              <label htmlFor="protocoloDoseM" className="form-label">Dose M</label>
+              <label htmlFor="protocoloDoseM" className="form-label">Dose M²</label>
               <input 
                 type="number"
                 id="protocoloDoseM"
                 name="Protocolo_Dose_M"
-                value={formData.Protocolo_Dose_M}
+                value={formData.Protocolo_Dose_M || ''}
                 onChange={handleInputChange}
                 className="form-input"
                 step="0.01"
+                placeholder="Dose por m²"
               />
             </div>
             
@@ -1327,10 +1367,11 @@ const CadastroProtocolo = () => {
                 type="number"
                 id="protocoloDoseTotal"
                 name="Protocolo_Dose_Total"
-                value={formData.Protocolo_Dose_Total}
+                value={formData.Protocolo_Dose_Total || ''}
                 onChange={handleInputChange}
                 className="form-input"
                 step="0.01"
+                placeholder="Dose total do protocolo"
               />
             </div>
           </div>
@@ -1342,9 +1383,10 @@ const CadastroProtocolo = () => {
                 type="number"
                 id="protocoloDiasAplicacao"
                 name="Protocolo_Dias_de_Aplicacao"
-                value={formData.Protocolo_Dias_de_Aplicacao}
+                value={formData.Protocolo_Dias_de_Aplicacao || ''}
                 onChange={handleInputChange}
                 className="form-input"
+                placeholder="Quantidade de dias"
               />
             </div>
             
@@ -1365,6 +1407,29 @@ const CadastroProtocolo = () => {
                 ))}
               </select>
             </div>
+          </div>
+          
+          <div className="form-row flex flex-wrap gap-4 mb-4">
+            <div className="form-group flex-1 min-w-[250px]">
+              <label htmlFor="linha" className="form-label">Linha</label>
+              <input 
+                type="number"
+                id="linha"
+                name="Linha"
+                value={formData.Linha || ''}
+                onChange={handleInputChange}
+                className="form-input"
+                placeholder="Linha do protocolo"
+              />
+            </div>
+            
+            <div className="form-group flex-1 min-w-[250px]">
+              {/* Espaço reservado para balanceamento visual ou campo futuro */}
+            </div>
+          </div>
+          
+          <div className="mt-4 text-xs text-gray-500">
+            * Campos obrigatórios
           </div>
         </form>
       )}
@@ -1501,12 +1566,13 @@ const CadastroProtocolo = () => {
                 {(orderedProtocolos.length > 0 ? orderedProtocolos : filteredProtocolos).map((protocolo, index) => {
                   const protocoloId = protocolo.id;
                   const isExpanded = Boolean(expandedRows[protocoloId]);
+                  const isSelected = selectedRows.has(protocoloId);
                   
                   return (
                     <React.Fragment key={protocoloId || `protocolo-${index}`}>
                       <tr 
                         onClick={() => handleRowClick(protocoloId)}
-                        className={`cursor-pointer ${selectedProtocolo?.id === protocoloId ? 'selected' : ''}`}
+                        className={`cursor-pointer transition-colors ${isSelected ? 'selected-row' : ''}`}
                       >
                         <td className="relative">
                           <div className="flex items-center">
@@ -1518,7 +1584,7 @@ const CadastroProtocolo = () => {
                               }}
                             >
                               {isExpanded ? 
-                                <ChevronDown size={18} className="text-green-600" /> : 
+                                <ChevronDown size={18} className="text-green-50" /> : 
                                 <ChevronRight size={18} />
                               }
                             </button>
@@ -1561,6 +1627,63 @@ const CadastroProtocolo = () => {
           <span>Dados atualizados com sucesso</span>
         </div>
       )}
+      
+      {/* Estilos específicos para as modificações solicitadas */}
+      <style jsx>{`
+        /* Estilização da linha selecionada com opacidade ajustada */
+        .selected-row {
+          background-color: rgba(242, 107, 107, 0.15) !important;
+          font-weight: 500;
+        }
+        
+        /* Estilização para as linhas da tabela */
+        .servico-row:hover {
+          background-color: rgba(243, 244, 246, 0.7);
+        }
+        
+        /* Estilização para a linha em modo de edição */
+        .servico-edit-row {
+          background-color: rgba(219, 234, 254, 0.5) !important;
+          border-left: 3px solid #93c5fd !important;
+        }
+        
+        /* Estilização para a linha de adição de serviço */
+        .servico-add-row {
+          background-color: rgba(220, 252, 231, 0.5);
+          border-left: 3px solid #6ee7b7;
+        }
+        
+        /* Estilização para a tabela de serviços */
+        .servicos-table {
+          border-collapse: separate;
+          border-spacing: 0;
+        }
+        
+        .servicos-table th {
+          font-size: 0.75rem;
+          color: #374151;
+          letter-spacing: 0.05em;
+        }
+        
+        .servicos-table th:first-child,
+        .servicos-table td:first-child {
+          padding-left: 1rem;
+        }
+        
+        .servicos-table td {
+          padding: 0.625rem 0.75rem;
+        }
+        
+        /* Animação de expansão */
+        .expanded-content {
+          animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 };

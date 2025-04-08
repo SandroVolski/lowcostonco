@@ -3,7 +3,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useToast } from '../components/ui/Toast';
 
 // API base URL
-const API_BASE_URL = "http://localhost/backend-php/api/PacientesEmTratamento";
+const API_BASE_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/PacientesEmTratamento";
 
 // Criando o contexto
 const PatientContext = createContext();
@@ -87,29 +87,71 @@ export const PatientProvider = ({ children }) => {
   // Carregar dados de referência (operadoras, prestadores, etc.)
   const loadReferenceData = async () => {
     try {
+      console.log("Carregando dados de referência...");
+      
       // Carregar operadoras
       const operadorasResponse = await fetch(`${API_BASE_URL}/get_operadoras.php`);
       if (operadorasResponse.ok) {
         const operadorasData = await operadorasResponse.json();
+        console.log(`Operadoras carregadas: ${operadorasData.length}`);
         setOperadoras(operadorasData);
+      } else {
+        console.error("Erro ao carregar operadoras:", operadorasResponse.status);
       }
       
-      // Carregar prestadores
-      const prestadoresResponse = await fetch(`${API_BASE_URL}/get_prestadores.php`);
-      if (prestadoresResponse.ok) {
-        const prestadoresData = await prestadoresResponse.json();
-        setPrestadores(prestadoresData);
+      // Carregar prestadores - MELHORADO para priorizar Prestador_Nome_Fantasia
+      try {
+        console.log("Iniciando carregamento de prestadores...");
+        const prestadoresResponse = await fetch(`${API_BASE_URL}/get_prestadores.php`);
+        
+        if (prestadoresResponse.ok) {
+          const prestadoresData = await prestadoresResponse.json();
+          console.log(`Prestadores carregados: ${prestadoresData.length}`);
+          
+          // Registrar alguns prestadores para verificar o formato dos dados
+          if (prestadoresData.length > 0) {
+            console.log("Amostra dos primeiros prestadores:", prestadoresData.slice(0, 3));
+          }
+          
+          // Usar diretamente os dados retornados, que já devem priorizar o nome fantasia
+          // mas garantir que qualquer processamento adicional seja feito se necessário
+          const processedPrestadores = prestadoresData.map(p => ({
+            ...p,
+            // Garantir que o campo nome esteja presente e contenha o nome_fantasia quando disponível
+            nome: p.nome || p.nome_fantasia || p.nome_original || `Prestador ${p.id}`
+          }));
+          
+          // Ordenar por nome para facilitar a busca
+          processedPrestadores.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+          
+          setPrestadores(processedPrestadores);
+        } else {
+          console.error("Erro ao carregar prestadores:", prestadoresResponse.status);
+          const errorText = await prestadoresResponse.text();
+          console.error("Detalhes do erro:", errorText);
+          throw new Error(`Erro ao carregar prestadores: ${prestadoresResponse.status}`);
+        }
+      } catch (error) {
+        console.error("Erro detalhado ao carregar prestadores:", error);
+        // Carregar alguns prestadores de exemplo para evitar falha completa
+        setPrestadores([
+          { id: 1, nome: "Exemplo Hospital A", nome_fantasia: "Exemplo Hospital A" },
+          { id: 2, nome: "Exemplo Clínica B", nome_fantasia: "Exemplo Clínica B" }
+        ]);
       }
       
       // Carregar finalidades de tratamento
       const finalidadesResponse = await fetch(`${API_BASE_URL}/get_finalidades_tratamento.php`);
       if (finalidadesResponse.ok) {
         const finalidadesData = await finalidadesResponse.json();
+        console.log(`Finalidades carregadas: ${finalidadesData.length}`);
         setFinalidadeTratamento(finalidadesData);
+      } else {
+        console.error("Erro ao carregar finalidades:", finalidadesResponse.status);
       }
       
     } catch (error) {
-      console.error("Erro ao carregar dados de referência:", error);
+      console.error("Erro geral ao carregar dados de referência:", error);
     }
   };
   
@@ -133,11 +175,12 @@ export const PatientProvider = ({ children }) => {
           patient.Nome && patient.Nome.toLowerCase().includes(normalizedTerm)
         );
         break;
-      case 'codigo':
-        filtered = patients.filter(patient => 
-          patient.Paciente_Codigo && patient.Paciente_Codigo.toLowerCase().includes(normalizedTerm)
-        );
-        break;
+        case 'codigo':
+          filtered = patients.filter(patient => 
+            patient.Paciente_Codigo && 
+            String(patient.Paciente_Codigo).toLowerCase().includes(normalizedTerm)
+          );
+          break;
       case 'cid':
         filtered = patients.filter(patient => 
           patient.CID && patient.CID.toLowerCase().includes(normalizedTerm)
@@ -171,36 +214,53 @@ export const PatientProvider = ({ children }) => {
     return filtered;
   };
 
+  const debugApiRequest = (url, method, data) => {
+    console.group("Depuração da Requisição API");
+    console.log("URL:", url);
+    console.log("Método:", method);
+    console.log("Dados enviados:", data);
+    console.groupEnd();
+  };
+
   // Adicionar paciente
   const addPatient = async (patientData) => {
     try {
+      // Ativa o estado de carregamento para mostrar feedback visual ao usuário
       setLoading(true);
       
+      // Faz a requisição POST para a API com os dados do paciente
       const response = await fetch(`${API_BASE_URL}/create_paciente.php`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(patientData)
+        body: JSON.stringify(patientData) // Converte o objeto JavaScript para uma string JSON
       });
       
+      // Verifica se a resposta foi bem-sucedida (status 2xx)
       if (!response.ok) {
         throw new Error(`Erro ao adicionar paciente: ${response.status}`);
       }
       
+      // Converte a resposta em JSON
       const data = await response.json();
       
-      // Recarregar os pacientes para obter a lista atualizada
+      // Recarrega a lista de pacientes para incluir o novo paciente
       await loadPatients(true);
       
+      // Mostra uma mensagem de sucesso
       showSuccessAlert("Paciente adicionado com sucesso");
+      
+      // Retorna o ID do novo paciente
       return data.id;
       
     } catch (error) {
+      // Em caso de erro, registra no console e mostra uma mensagem ao usuário
       console.error("Erro ao adicionar paciente:", error);
       showErrorAlert("Erro ao adicionar paciente", error.message);
-      throw error;
+      throw error; // Propaga o erro para que possa ser tratado pelo chamador
     } finally {
+      // Independentemente do resultado, desativa o estado de carregamento
       setLoading(false);
     }
   };
@@ -221,7 +281,7 @@ export const PatientProvider = ({ children }) => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(updateData)
+        body: JSON.stringify(updateData) // Usar os dados originais com ID
       });
       
       if (!response.ok) {
@@ -283,7 +343,14 @@ export const PatientProvider = ({ children }) => {
   };
   
   // Selecionar paciente
+  // Selecionar paciente
   const selectPatient = async (patientId) => {
+    // Se patientId for null, limpar a seleção e retornar
+    if (patientId === null) {
+      setSelectedPatient(null);
+      return;
+    }
+    
     try {
       // Verificar se já temos detalhes completos do paciente no estado atual
       const existingPatient = patients.find(p => p.id === patientId);
@@ -371,6 +438,7 @@ export const PatientProvider = ({ children }) => {
     updatePatient,
     deletePatient,
     selectPatient,
+    loadReferenceData, // Adicione esta linha para exportar a função
     
     // Funções para calculadora
     calculateAUC,
