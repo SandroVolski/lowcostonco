@@ -63,8 +63,8 @@ export function Sidebar() {
       subMenu: [
         { icon: UserPlus, label: "Cad. Paciente", path: "/PacientesEmTratamento?tab=cadastro" },
         { icon: FileText, label: "Cad. Protocolo", path: "/PacientesEmTratamento?tab=protocolo" },
-        { icon: FilePlus, label: "Nova Prévia", path: "/PacientesEmTratamento?tab=nova-previa" },
-        { icon: Search, label: "Consultar Prévia", path: "/PacientesEmTratamento?tab=previa" },
+        { icon: FilePlus, label: "Prévias", path: "/PacientesEmTratamento?tab=nova-previa" },
+        /*{ icon: Search, label: "Consultar Prévia", path: "/PacientesEmTratamento?tab=previa" },*/
         { icon: Calculator, label: "Calculadora", path: "/PacientesEmTratamento?tab=calculadora" }
       ]
     },

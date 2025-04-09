@@ -21,6 +21,8 @@ export function Header() {
       ? "PTTO: Cadastro de Protocolo"
       : location.pathname === "/PacientesEmTratamento" && location.search === "?tab=calculadora"
       ? "PTTO: Calculadora de Dosagem"
+      : location.pathname === "/PacientesEmTratamento" && location.search === "?tab=nova-previa"
+      ? "PTTO: Prévias"
       : location.pathname === "/PacientesEmTratamento"
       ? "Pacientes em Tratamento"
       : "Página Desconhecida";

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useLocation } from 'react-router-dom'; // Adicione esta importação
+import { useLocation } from 'react-router-dom';
 import { Header } from '../../components/Header';
 import { Sidebar } from '../../components/Sidebar';
 import PageTransition from '../../components/PageTransition';
@@ -8,6 +8,7 @@ import CadastroPaciente from './PacientesEmTratamento/CadastroPaciente';
 import CadastroProtocolo from './PacientesEmTratamento/CadastroProtocolo';
 import PreviaPaciente from '../../components/pacientes/PreviaPaciente';
 import NovaPreviaPaciente from '../../components/pacientes/NovaPreviaPaciente';
+import NovaPreviaView from './PacientesEmTratamento/NovaPreviaView'; // Importar o novo componente
 import ConsultaPaciente from '../../components/pacientes/ConsultaPaciente';
 import CalculadoraPaciente from './PacientesEmTratamento/CalculadoraPaciente';
 import { PatientProvider } from '../../context/PatientContext';
@@ -104,7 +105,7 @@ export default function PacientesEmTratamento() {
                     <PageTransition key="nova-previa">
                       <Header pageTitle={currentTitle} />
                       <AnimatedTabContent>
-                        <NovaPreviaPaciente />
+                        <NovaPreviaView />
                       </AnimatedTabContent>
                     </PageTransition>
                   )}

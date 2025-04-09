@@ -3,11 +3,13 @@ import { usePatient } from '../../../context/PatientContext';
 import { Plus, Edit, Trash2, Search, X, Save, ArrowUpWideNarrow, ArrowDownWideNarrow, Database, ChevronDown, Calendar } from 'lucide-react';
 import { showConfirmAlert, showSuccessAlert, showErrorAlert, showWarningAlert } from '../../../utils/CustomAlerts';
 import DataRefreshButton from '../../../components/DataRefreshButton';
-import PrestadorSearch from '../../../components/pacientes/PrestadorSearch'; // Importar o novo componente
+import PrestadorSearch from '../../../components/pacientes/PrestadorSearch';
+import PatientProtocoloCacheControl from '../../../components/PatientProtocoloCacheControl';
 import './PacientesEstilos.css';
 
 const CadastroPaciente = () => {
   const { 
+    // Propriedades existentes
     filteredPatients, 
     loading, 
     error, 
@@ -20,7 +22,17 @@ const CadastroPaciente = () => {
     searchTerm,
     operadoras,
     prestadores,
-    loadPatients  // Usaremos apenas loadPatients, não loadReferenceData
+    loadPatients,
+    
+    // Novas propriedades relacionadas ao cache
+    isCacheEnabled,
+    dataSource: contextDataSource,
+    totalRecords,
+    toggleCache,
+    clearCache,
+    forceRevalidation,
+    reloadAllData,
+    refreshDataAfterModification: contextRefreshData
   } = usePatient();
   
   // Estados para controle da UI
@@ -30,14 +42,18 @@ const CadastroPaciente = () => {
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [sortOrder, setSortOrder] = useState("asc");
   const [sortField, setSortField] = useState("Nome");
-  const [cacheRefreshed, setCacheRefreshed] = useState(false);
   const [searchType, setSearchType] = useState("nome");
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  
+  // Novos estados para cache
+  const [showCacheControl, setShowCacheControl] = useState(false);
+  const [cacheRefreshed, setCacheRefreshed] = useState(false);
+  const [dataSource, setDataSource] = useState('');
   
   // Referência para o input de pesquisa
   const searchInputRef = useRef(null);
   
-  // Estado para formulários - SIMPLIFICADO para corresponder aos campos do backend
+  // Estado para formulários
   const [formData, setFormData] = useState({
     Operadora: '',
     Prestador: '',
@@ -56,13 +72,18 @@ const CadastroPaciente = () => {
   // Estados para ordenação personalizada
   const [orderedPatients, setOrderedPatients] = useState([]);
   
+  // Sincronizar o dataSource do contexto
+  useEffect(() => {
+    if (contextDataSource) {
+      setDataSource(contextDataSource);
+    }
+  }, [contextDataSource]);
+  
   // Carregar dados de referência se estiverem vazios
   useEffect(() => {
     if (!prestadores || prestadores.length === 0) {
       console.log("Carregando dados de referência porque prestadores está vazio");
-      // Remover a chamada direta a loadReferenceData
-      // Em vez disso, usar a função que já existe no contexto
-      loadPatients(true); // Esta função já recarrega os dados de referência indiretamente
+      loadPatients(true);
     }
   }, [prestadores, loadPatients]);
   
@@ -228,6 +249,32 @@ const CadastroPaciente = () => {
     }
   };
   
+  // Função para mostrar o indicador de atualização do cache
+  const showCacheRefreshIndicator = () => {
+    setCacheRefreshed(true);
+    // Esconder após 3 segundos
+    setTimeout(() => setCacheRefreshed(false), 3000);
+  };
+  
+  // Atualização de dados após modificação - Versão com cache
+  const refreshDataAfterModification = async () => {
+    try {
+      setLocalLoading(true);
+      
+      // Usar a função do contexto para atualizar os dados
+      await contextRefreshData();
+      
+      // Mostrar indicador de atualização
+      showCacheRefreshIndicator();
+      
+    } catch (error) {
+      console.error("Erro ao atualizar dados após modificação:", error);
+      showErrorAlert("Falha ao atualizar os dados", "Tente atualizar manualmente.");
+    } finally {
+      setLocalLoading(false);
+    }
+  };
+  
   const handleSearchTypeChange = (type) => {
     setSearchType(type);
     
@@ -268,40 +315,6 @@ const CadastroPaciente = () => {
     }));
   };
   
-  // Função para mostrar o indicador de atualização do cache
-  const showCacheRefreshIndicator = () => {
-    setCacheRefreshed(true);
-    // Esconder após 3 segundos
-    setTimeout(() => setCacheRefreshed(false), 3000);
-  };
-  
-  // Atualização de dados após modificação
-  const refreshDataAfterModification = async () => {
-    try {
-      setLocalLoading(true);
-      
-      // Salvar o ID do paciente selecionado antes de recarregar
-      const selectedPatientId = selectedPatient?.id;
-      
-      // Recarregar dados
-      await loadPatients(true);
-      
-      // Reselecionar explicitamente o paciente atualizado
-      if (selectedPatientId) {
-        selectPatient(selectedPatientId);
-      }
-      
-      // Mostrar indicador de atualização
-      showCacheRefreshIndicator();
-      
-    } catch (error) {
-      console.error("Erro ao atualizar dados após modificação:", error);
-      showErrorAlert("Falha ao atualizar os dados", "Tente atualizar manualmente.");
-    } finally {
-      setLocalLoading(false);
-    }
-  };
-  
   // Formatar datas para o formato que a API espera (DD/MM/YYYY)
   const formatDatesForApi = (data) => {
     const formatted = { ...data };
@@ -321,7 +334,7 @@ const CadastroPaciente = () => {
     return formatted;
   };
   
-  // Submissão de formulário
+  // Submissão de formulário - Versão com cache
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -334,6 +347,8 @@ const CadastroPaciente = () => {
         await updatePatient(selectedPatient.id, formattedData);
         setIsEditing(false);
         showSuccessAlert("Paciente atualizado com sucesso!");
+        
+        // Usar a função de atualização que lida com o cache
         await refreshDataAfterModification();
       } catch (error) {
         showErrorAlert("Erro ao atualizar paciente", error.message);
@@ -343,9 +358,17 @@ const CadastroPaciente = () => {
     } else if (isAdding) {
       try {
         setLocalLoading(true);
+        
+        // Se o cache estiver habilitado, marcar para revalidação
+        if (isCacheEnabled) {
+          forceRevalidation();
+        }
+        
         const newId = await addPatient(formattedData);
         setIsAdding(false);
         showSuccessAlert("Paciente adicionado com sucesso!");
+        
+        // Usar a função de atualização que lida com o cache
         await refreshDataAfterModification();
       } catch (error) {
         showErrorAlert("Erro ao adicionar paciente", error.message);
@@ -384,6 +407,11 @@ const CadastroPaciente = () => {
     setIsAdding(true);
     setIsEditing(false);
     setSelectedRows(new Set());
+    
+    // Se o cache estiver habilitado, marcar para revalidação
+    if (isCacheEnabled) {
+      forceRevalidation();
+    }
   };
   
   // Handler para editar
@@ -420,7 +448,7 @@ const CadastroPaciente = () => {
     setIsAdding(false);
   };
   
-  // Handler para deletar
+  // Handler para deletar - Versão com cache
   const handleDelete = async () => {
     if (!selectedPatient) {
       showErrorAlert("Selecione um paciente", "Você precisa selecionar um paciente para excluir.");
@@ -435,9 +463,17 @@ const CadastroPaciente = () => {
     if (confirmed) {
       try {
         setLocalLoading(true);
+        
+        // Se o cache estiver habilitado, marcar para revalidação
+        if (isCacheEnabled) {
+          forceRevalidation();
+        }
+        
         await deletePatient(selectedPatient.id);
         showSuccessAlert("Paciente excluído com sucesso!");
         setSelectedRows(new Set());
+        
+        // Usar a função de atualização que lida com o cache
         await refreshDataAfterModification();
       } catch (error) {
         showErrorAlert("Erro ao excluir paciente", error.message);
@@ -532,7 +568,7 @@ const CadastroPaciente = () => {
   const handleRefreshPrestadores = async () => {
     try {
       setLocalLoading(true);
-      await loadPatients(true); // Usamos loadPatients em vez de loadReferenceData
+      await loadPatients(true);
       showSuccessAlert("Lista de prestadores atualizada");
     } catch (error) {
       showErrorAlert("Erro ao atualizar prestadores", error.message);
@@ -677,6 +713,31 @@ const CadastroPaciente = () => {
               </div>
             )}
           </div>
+          
+          {/* Controles de cache 
+          <div className="flex items-center gap-3 mr-4">*/}
+            {/* Botão de controle de cache 
+            <button
+              onClick={() => setShowCacheControl(true)}
+              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center"
+              title="Gerenciar Cache"
+            >
+              <Database size={16} className="text-gray-600 mr-1" />
+              <span className="text-xs text-gray-600">Cache</span>
+            </button>*/}
+            
+            {/* Indicador de fonte de dados
+            {dataSource && (
+              <div className="text-xs px-2 py-1 rounded-full bg-gray-50 text-gray-500">
+                Fonte: <span className={dataSource === 'cache' ? 'text-green-600' : 'text-blue-600'}>
+                  {dataSource === 'cache' ? 'Cache' : 'Servidor'}
+                </span>
+              </div>
+            )}*/}
+            
+            {/* Botão de atualização de dados 
+            <DataRefreshButton />
+          </div>*/}
           
           {/* Botões de ação (Adicionar, Editar, Excluir) */}
           <div className="button-container">
@@ -1107,6 +1168,14 @@ const CadastroPaciente = () => {
             </div>
           )}
         </div>
+      )}
+      
+      {/* Modal de controle de cache */}
+      {showCacheControl && (
+        <PatientProtocoloCacheControl 
+          onClose={() => setShowCacheControl(false)}
+          type="patient"
+        />
       )}
       
       {/* Indicador de atualização de cache */}
