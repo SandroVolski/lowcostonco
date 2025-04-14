@@ -3,7 +3,7 @@ import React, { createContext, useState, useContext, useEffect, useCallback } fr
 import axios from 'axios';
 import CacheService from '../services/CacheService'; // Add this import
 
-const API_BASE_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/PacientesEmTratamento"; // Sem barra no final
+const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api/PacientesEmTratamento"; // Sem barra no final
 
 // Cache keys for protocolos
 const CACHE_KEYS = {

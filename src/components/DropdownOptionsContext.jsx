@@ -8,7 +8,7 @@ const DropdownOptionsContext = createContext();
 export const useDropdownOptions = () => useContext(DropdownOptionsContext);
 
 
-const API_BASE_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/ServicoRelacionada";
+const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api/ServicoRelacionada"; //api.lowcostonco.com.br
 
 // Define dados estáticos para desenvolvimento enquanto as APIs não estão prontas
 const staticDropdownOptions = {

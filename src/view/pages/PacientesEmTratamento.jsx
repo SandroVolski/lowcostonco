@@ -6,9 +6,7 @@ import { Sidebar } from '../../components/Sidebar';
 import PageTransition from '../../components/PageTransition';
 import CadastroPaciente from './PacientesEmTratamento/CadastroPaciente';
 import CadastroProtocolo from './PacientesEmTratamento/CadastroProtocolo';
-import PreviaPaciente from '../../components/pacientes/PreviaPaciente';
-import NovaPreviaPaciente from '../../components/pacientes/NovaPreviaPaciente';
-import NovaPreviaView from './PacientesEmTratamento/NovaPreviaView'; // Importar o novo componente
+import NovaPreviaView from './PacientesEmTratamento/NovaPreviaView';
 import ConsultaPaciente from '../../components/pacientes/ConsultaPaciente';
 import CalculadoraPaciente from './PacientesEmTratamento/CalculadoraPaciente';
 import { PatientProvider } from '../../context/PatientContext';
@@ -74,60 +72,60 @@ export default function PacientesEmTratamento() {
           <div className="main-content">
             <div className="styled-container">
               <div className="patient-content">
-                <AnimatePresence mode="wait">
-                  {activeTab === 'cadastro' && (
-                    <PageTransition key="cadastro">
-                      <Header pageTitle={currentTitle} />
-                      <AnimatedTabContent>
-                        <CadastroPaciente />
-                      </AnimatedTabContent>
-                    </PageTransition>
-                  )}
-                  {activeTab === 'protocolo' && (
-                    <PageTransition key="protocolo">
-                      <Header pageTitle={currentTitle} />
-                      <AnimatedTabContent>
-                        <CadastroProtocolo />
-                      </AnimatedTabContent>
-                    </PageTransition>
-                  )}
+              <AnimatePresence mode="sync"> {/* Mudando de "wait" para "sync" */}
+                {activeTab === 'cadastro' && (
+                  <PageTransition key="cadastro-tab">
+                    <Header pageTitle={currentTitle} />
+                    <AnimatedTabContent>
+                      <CadastroPaciente />
+                    </AnimatedTabContent>
+                  </PageTransition>
+                )}
+                {activeTab === 'protocolo' && (
+                  <PageTransition key="protocolo-tab">
+                    <Header pageTitle={currentTitle} />
+                    <AnimatedTabContent>
+                      <CadastroProtocolo />
+                    </AnimatedTabContent>
+                  </PageTransition>
+                )}
 
-                  {activeTab === 'previa' && (
-                    <PageTransition key="previa">
-                      <Header pageTitle={currentTitle} />
-                      <AnimatedTabContent>
-                        <PreviaPaciente />
-                      </AnimatedTabContent>
-                    </PageTransition>
-                  )}
+                {activeTab === 'previa' && (
+                  <PageTransition key="previa-tab">
+                    <Header pageTitle={currentTitle} />
+                    <AnimatedTabContent>
+                      <NovaPreviaView mode="previa" />
+                    </AnimatedTabContent>
+                  </PageTransition>
+                )}
 
-                  {activeTab === 'nova-previa' && (
-                    <PageTransition key="nova-previa">
-                      <Header pageTitle={currentTitle} />
-                      <AnimatedTabContent>
-                        <NovaPreviaView />
-                      </AnimatedTabContent>
-                    </PageTransition>
-                  )}
+                {activeTab === 'nova-previa' && (
+                  <PageTransition key="nova-previa-tab">
+                    <Header pageTitle={currentTitle} />
+                    <AnimatedTabContent>
+                      <NovaPreviaView mode="nova" />
+                    </AnimatedTabContent>
+                  </PageTransition>
+                )}
 
-                  {activeTab === 'consultar' && (
-                    <PageTransition key="consultar">
-                      <Header pageTitle={currentTitle} />
-                      <AnimatedTabContent>
-                        <ConsultaPaciente />
-                      </AnimatedTabContent>
-                    </PageTransition>
-                  )}
+                {activeTab === 'consultar' && (
+                  <PageTransition key="consultar-tab">
+                    <Header pageTitle={currentTitle} />
+                    <AnimatedTabContent>
+                      <ConsultaPaciente />
+                    </AnimatedTabContent>
+                  </PageTransition>
+                )}
 
-                  {activeTab === 'calculadora' && (
-                    <PageTransition key="calculadora">
-                      <Header pageTitle={currentTitle} />
-                      <AnimatedTabContent>
-                        <CalculadoraPaciente />
-                      </AnimatedTabContent>
-                    </PageTransition>
-                  )}
-                </AnimatePresence>
+                {activeTab === 'calculadora' && (
+                  <PageTransition key="calculadora-tab">
+                    <Header pageTitle={currentTitle} />
+                    <AnimatedTabContent>
+                      <CalculadoraPaciente />
+                    </AnimatedTabContent>
+                  </PageTransition>
+                )}
+              </AnimatePresence>
               </div>
             </div>
           </div>

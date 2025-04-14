@@ -10,7 +10,7 @@ import DataRefreshButton from '../../../components/DataRefreshButton';
 import PatientProtocoloCacheControl from '../../../components/PatientProtocoloCacheControl';
 import './PacientesEstilos.css';
 
-const API_BASE_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/PacientesEmTratamento";
+const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api/PacientesEmTratamento";
 
 const CadastroProtocolo = () => {
   // Contexto com propriedades do cache

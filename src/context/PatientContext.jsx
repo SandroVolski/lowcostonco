@@ -4,7 +4,7 @@ import { useToast } from '../components/ui/Toast';
 import CacheService from '../services/CacheService'; // Add this import
 
 // API base URL
-const API_BASE_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/PacientesEmTratamento";
+const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api/PacientesEmTratamento";
 
 // Tempo de expiração do cache em ms (30 minutos)
 const CACHE_EXPIRY = 30 * 60 * 1000;
