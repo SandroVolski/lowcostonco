@@ -2,23 +2,43 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { usePatient } from '../../../context/PatientContext';
+import { usePrevias } from '../../../context/PreviasContext'; // New import for cache context
 import { useToast } from '../../../components/ui/Toast';
 import CIDSelection from '../../../components/pacientes/CIDSelection';
 import ProtocoloSelection from '../../../components/pacientes/ProtocoloSelection';
+import PreviasCacheControl from '../../../components/PreviasCacheControl'; // New import for cache control component
 import {
   Search, X, UserPlus, Save, Paperclip, Download, Trash2, Eye,
   Upload, Calendar, BarChart3, Clock, PlusCircle, ChevronDown,
   FilePlus, Clock8, FileText, CheckCircle, AlertCircle, 
   AlertTriangle, HelpCircle, Check, ChevronLeft, ChevronRight,
-  File, Info
+  File, Info, Database // Added Database icon for cache controls
 } from 'lucide-react';
 import './NovaPreviaView.css';
+// Import previasService as a fallback
 import { previasService } from '../../../services/previasService';
 
 const NovaPreviaView = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+  
+  // Using the cache context instead of direct service calls
+  const { 
+    getPreviasDoPatient, 
+    getPrevia, 
+    getCiclosDias, 
+    getAnexos,
+    createPrevia, 
+    updatePrevia, 
+    uploadAnexo, 
+    deleteAnexo,
+    refreshDataAfterModification,
+    isCacheEnabled,
+    dataSource,
+    totalRecords,
+    loading: previasContextLoading
+  } = usePrevias();
   
   // Estados para controle dos modais
   const [showSearchModal, setShowSearchModal] = useState(true);
@@ -37,6 +57,10 @@ const NovaPreviaView = () => {
 
   // Estados para navegação dos botões de atendimento
   const [visibleButtonsStart, setVisibleButtonsStart] = useState(0);
+  
+  // Novos estados para cache
+  //const [showCacheControl, setShowCacheControl] = useState(false);
+  //const [cacheRefreshed, setCacheRefreshed] = useState(false);
 
   const handlePreviewAttachment = (file) => {
     setPreviewImage(file);
@@ -85,14 +109,50 @@ const NovaPreviaView = () => {
   });
   
   // Estado para a página atual do histórico
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(0);
   
   // Estados para dados de consultas anteriores
   const [previousConsultations, setPreviousConsultations] = useState([]);
+
+  useEffect(() => {
+    // When previousConsultations are loaded, set current page to "Novo" 
+    // (but only if currentPage is still at the initial value)
+    if (previousConsultations.length > 0 && currentPage === 0) {
+      // Set to the "Novo" button value
+      setCurrentPage(previousConsultations.length + 1);
+      
+      // Reset the form to a clean state
+      setFormData({
+        guia: '',
+        protocolo: '',
+        cid: '',
+        ciclo: '',
+        dia: '',
+        dataSolicitacao: formatDate(new Date()),
+        parecer: '',
+        peso: '',
+        altura: '',
+        parecerGuia: '',
+        inconsistencia: '',
+        cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
+      });
+      
+      setAttachments([]);
+      setDataParecerRegistrado(null);
+      setTempoParaAnalise(null);
+    }
+  }, [previousConsultations, currentPage]);
   
   // Estado para controlar data de parecer e calcular tempo
   const [dataParecerRegistrado, setDataParecerRegistrado] = useState(null);
   const [tempoParaAnalise, setTempoParaAnalise] = useState(null);
+  
+  // Função para mostrar o indicador de atualização do cache
+  /*const showCacheRefreshIndicator = () => {
+    setCacheRefreshed(true);
+    // Esconder após 3 segundos
+    setTimeout(() => setCacheRefreshed(false), 3000);
+  };*/
   
   // Inicializar data atual para o formulário
   useEffect(() => {
@@ -125,11 +185,12 @@ const NovaPreviaView = () => {
     }
   }, [selectedPatient]);
 
+  // Modificado para usar o contexto com cache
   const loadPatientData = async (patientId) => {
     setIsLoadingPatient(true);
     try {
-      // Buscar as prévias do paciente
-      const previas = await previasService.getPreviasDoPatient(patientId);
+      // Buscar as prévias do paciente usando o contexto com cache
+      const previas = await getPreviasDoPatient(patientId);
       
       // Atualizar o estado de consultas anteriores
       if (previas && previas.length > 0) {
@@ -157,6 +218,11 @@ const NovaPreviaView = () => {
         });
         setPreviousConsultations([]);
       }
+      
+      // Exibir indicador de cache se os dados vieram do cache
+      //if (dataSource === 'cache') {
+      //  showCacheRefreshIndicator();
+      //}
     } catch (error) {
       console.error("Erro ao carregar dados do paciente:", error);
       toast({
@@ -171,9 +237,9 @@ const NovaPreviaView = () => {
 
   const loadWeightHistory = async (previas) => {
     try {
-      // Criar dados de peso a partir de todas as prévias
+      // Create weight data from all previas
       const allWeightHistory = previas
-        .filter(previa => previa.peso) // filtrar apenas as que têm peso
+        .filter(previa => previa.peso) // filter only those with weight
         .map(previa => ({
           id: previa.id,
           date: formatDateShort(new Date(previa.data_criacao)),
@@ -181,13 +247,18 @@ const NovaPreviaView = () => {
           protocolo: previa.protocolo,
           ciclo: previa.ciclo || '',
           dia: previa.dia || '',
-          parecer: previa.parecer || ''
-        }));
-
-      // Armazenar todos os dados e mostrar os 5 mais recentes inicialmente
+          parecer: previa.parecer || '',
+          // Store the original date object for sorting
+          dateObj: new Date(previa.data_criacao)
+        }))
+        // Sort by date in ascending order (oldest to newest)
+        .sort((a, b) => a.dateObj - b.dateObj);
+  
+      // Store all the data and show the oldest 5 initially
       setPatientHistory(prev => ({
         ...prev,
         allPesos: allWeightHistory,
+        // Show the first 5 (oldest) points instead of most recent
         pesos: allWeightHistory.slice(0, Math.min(5, allWeightHistory.length))
       }));
     } catch (error) {
@@ -200,19 +271,19 @@ const NovaPreviaView = () => {
     const { allPesos, pesos } = patientHistory;
     if (!allPesos || allPesos.length <= 5) return;
     
-    // Encontrar o primeiro peso exibido atualmente
+    // Find the first weight currently displayed
     const firstDisplayedIndex = allPesos.findIndex(p => p.id === pesos[0]?.id);
     if (firstDisplayedIndex === -1) return;
     
     if (direction === 'next' && firstDisplayedIndex + 5 < allPesos.length) {
-      // Avançar 5 posições ou até o final
+      // Move forward 5 positions or to the end
       const newStartIndex = Math.min(firstDisplayedIndex + 5, allPesos.length - 5);
       setPatientHistory(prev => ({
         ...prev,
         pesos: allPesos.slice(newStartIndex, newStartIndex + 5)
       }));
     } else if (direction === 'prev' && firstDisplayedIndex > 0) {
-      // Recuar 5 posições ou até o início
+      // Move back 5 positions or to the beginning
       const newStartIndex = Math.max(firstDisplayedIndex - 5, 0);
       setPatientHistory(prev => ({
         ...prev,
@@ -359,7 +430,7 @@ const NovaPreviaView = () => {
     }
   };
   
-  // Função para lidar com upload de arquivos
+  // Modificado para usar o contexto com cache
   const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files);
     
@@ -387,8 +458,8 @@ const NovaPreviaView = () => {
             variant: "default"
           });
           
-          // Fazer upload do arquivo
-          const result = await previasService.uploadAnexo(formData.id, file);
+          // Fazer upload do arquivo usando o contexto com cache
+          const result = await uploadAnexo(formData.id, file);
           
           // Adicionar o arquivo ao state de anexos
           const newAttachment = {
@@ -406,6 +477,9 @@ const NovaPreviaView = () => {
             description: `${file.name} enviado com sucesso`,
             variant: "success"
           });
+          
+          // Exibir indicador de cache
+          //showCacheRefreshIndicator();
         } catch (error) {
           console.error("Erro ao fazer upload:", error);
           toast({
@@ -418,15 +492,15 @@ const NovaPreviaView = () => {
     }
   };
   
-  // Função para excluir um anexo
+  // Modificado para usar o contexto com cache
   const handleDeleteAttachment = async (id) => {
     // Verificar se o anexo é do banco de dados ou local
     const isFromDB = typeof id === 'number' && !String(id).includes('.');
     
     if (isFromDB && formData.id) {
       try {
-        // Se for do banco, chamar API para excluir
-        await previasService.deleteAnexo(id);
+        // Se for do banco, chamar API com contexto para excluir
+        await deleteAnexo(id);
         
         setAttachments(prev => prev.filter(file => file.id !== id));
         
@@ -435,6 +509,9 @@ const NovaPreviaView = () => {
           description: "Anexo removido com sucesso",
           variant: "success"
         });
+        
+        // Exibir indicador de cache
+        //showCacheRefreshIndicator();
       } catch (error) {
         console.error("Erro ao excluir anexo:", error);
         toast({
@@ -460,7 +537,7 @@ const NovaPreviaView = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
   
-  // Função para salvar a prévia
+  // Modificado para usar o contexto com cache
   const handleSavePrevia = async () => {
     // Validar os campos essenciais
     if (!formData.guia || !formData.protocolo || !formData.cid) {
@@ -501,17 +578,17 @@ const NovaPreviaView = () => {
       
       // Determinar se é uma criação ou atualização
       if (formData.id) {
-        // Atualizar prévia existente
-        response = await previasService.updatePrevia(dadosPrevia);
+        // Atualizar prévia existente usando o contexto com cache
+        response = await updatePrevia(dadosPrevia);
       } else {
-        // Criar nova prévia
-        response = await previasService.createPrevia(dadosPrevia);
+        // Criar nova prévia usando o contexto com cache
+        response = await createPrevia(dadosPrevia);
         
         // Se a criação for bem-sucedida e tivermos anexos locais, fazer o upload
         if (response.id && attachments.length > 0) {
           for (const attachment of attachments) {
             if (attachment.file) {
-              await previasService.uploadAnexo(response.id, attachment.file);
+              await uploadAnexo(response.id, attachment.file);
             }
           }
         }
@@ -524,7 +601,12 @@ const NovaPreviaView = () => {
       });
       
       // Recarregar os dados do paciente para atualizar o histórico
-      loadPatientData(selectedPatient.id);
+      // Usando a função do contexto para atualizar dados considerando o cache
+      await refreshDataAfterModification(selectedPatient.id);
+      await loadPatientData(selectedPatient.id);
+      
+      // Exibir indicador de cache
+      //showCacheRefreshIndicator();
       
       // Se for uma nova prévia, limpar o formulário
       if (!formData.id) {
@@ -560,7 +642,7 @@ const NovaPreviaView = () => {
     }
   };
   
-  // Função para carregar uma página de consulta anterior
+  // Modificado para usar o contexto com cache
   const handleLoadPreviousPage = async (pageNumber) => {
     setCurrentPage(pageNumber);
     
@@ -596,19 +678,39 @@ const NovaPreviaView = () => {
     try {
       setLoadingSection(true); // Ativar animação de carregamento
       
-      const previaId = previousConsultations[pageNumber - 1].id;
+      // Verificar se temos consultas anteriores
+      if (!previousConsultations || previousConsultations.length === 0) {
+        throw new Error('Nenhuma consulta anterior disponível');
+      }
       
-      // Mostrar feedback de carregamento
+      // Verificar se o índice está dentro dos limites do array
+      if (pageNumber <= 0 || pageNumber > previousConsultations.length) {
+        throw new Error(`Índice inválido: ${pageNumber}`);
+      }
+  
+      // Acessar com segurança o objeto da consulta
+      const consultation = previousConsultations[pageNumber - 1];
+      if (!consultation || typeof consultation.id === 'undefined') {
+        throw new Error(`Consulta inválida no índice ${pageNumber - 1}`);
+      }
+  
+      // Agora podemos acessar o ID com segurança
+      const previaId = consultation.id;
+      
+      // Calcular o número exibido no botão (mesmo cálculo usado na renderização)
+      const numeroExibido = previousConsultations.length - pageNumber + 1;
+      
+      // Mostrar feedback de carregamento com o número EXIBIDO, não o índice
       toast({
         title: "Carregando atendimento",
-        description: `Carregando dados do atendimento ${pageNumber}...`,
+        description: `Carregando dados do atendimento ${numeroExibido}...`,
         variant: "default"
       });
       
-      // Carregar dados da prévia
-      const previaDetails = await previasService.getPrevia(previaId);
-      const ciclosDias = await previasService.getCiclosDias(previaId);
-      const anexos = await previasService.getAnexos(previaId);
+      // Carregar dados da prévia usando o contexto com cache
+      const previaDetails = await getPrevia(previaId);
+      const ciclosDias = await getCiclosDias(previaId);
+      const anexos = await getAnexos(previaId);
       
       // Atualizar o formulário com os dados carregados
       setFormData({
@@ -647,6 +749,11 @@ const NovaPreviaView = () => {
         setDataParecerRegistrado(null);
         setTempoParaAnalise(null);
       }
+      
+      // Exibir indicador de cache se os dados vieram do cache
+      //if (dataSource === 'cache') {
+      //  showCacheRefreshIndicator();
+      //}
       
     } catch (error) {
       console.error("Erro ao carregar detalhes da prévia:", error);
@@ -1060,10 +1167,11 @@ const NovaPreviaView = () => {
                 <AlertTriangle size={48} className="text-red-500 mb-4" />
                 <p className="text-red-600 text-center">{error}</p>
                 
+                <a
                   href={attachment?.id ? getDownloadUrl(attachment.id) : '#'}
                   download={attachment?.name}
                   className="mt-4 py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600"
-                <a>
+                >
                   Baixar o arquivo
                 </a>
               </div>
@@ -1660,6 +1768,21 @@ const NovaPreviaView = () => {
         )}
       </AnimatePresence>
       
+      {/* Modal de controle de cache 
+      {showCacheControl && (
+        <PreviasCacheControl 
+          onClose={() => setShowCacheControl(false)}
+        />
+      )}*/}
+      
+      {/* Indicador de atualização de cache 
+      {cacheRefreshed && (
+        <div className="fixed bottom-4 right-4 bg-green-100 text-green-800 px-4 py-2 rounded-lg shadow-lg flex items-center animate-fade-in">
+          <Database size={16} className="mr-2" />
+          <span>Dados atualizados com sucesso</span>
+        </div>
+      )}*/}
+      
       {/* Conteúdo principal (visível após selecionar um paciente) */}
       {selectedPatient && (
         <div className="nova-previa-grid">
@@ -1739,14 +1862,16 @@ const NovaPreviaView = () => {
                     </div>
                   </div>
                 </div>
+                
+                {/* Novo elemento: Indicador de fonte dos dados 
+                {dataSource && (
+                  <div className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                    Fonte: <span className={dataSource === 'cache' ? 'text-green-600' : 'text-blue-600'}>
+                      {dataSource === 'cache' ? 'Cache' : 'Servidor'}
+                    </span>
+                  </div>
+                )}*/}
               </div>
-              
-              {/* Indicador do intervalo de pesos sendo mostrado - Agora centralizado acima do gráfico 
-              {patientHistory.allPesos && patientHistory.allPesos.length > 0 && (
-                <div className="text-xs text-gray-500 text-center mb-4">
-                  Mostrando {patientHistory.pesos.length} de {patientHistory.allPesos.length} registros
-                </div>
-              )}*/}
               
               <WeightChart 
                 weightData={patientHistory.pesos} 
@@ -1763,6 +1888,16 @@ const NovaPreviaView = () => {
             
             <div className="card-header">
               <h3>Registro</h3>
+              
+              {/* Controle de cache adicionado ao cabeçalho */}
+              {/*<button
+                onClick={() => setShowCacheControl(true)}
+                className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center"
+                title="Gerenciar Cache"
+              >
+                <Database size={16} className="text-gray-600 mr-1" />
+                <span className="text-xs text-gray-600">Cache</span>
+              </button>*/}
             </div>
             
             <div className="form-grid">
@@ -1995,8 +2130,6 @@ const NovaPreviaView = () => {
                     exit={{ x: -100, opacity: 0 }}
                     transition={{ duration: 0.3 }}
                   >
-                    {/* Botão para novo atendimento (removido daqui, agora está junto com os outros botões) */}
-                    
                     {/* Botões para atendimentos visíveis em ordem decrescente */}
                     {[...previousConsultations]
                       .slice(visibleButtonsStart, visibleButtonsStart + Math.min(3, previousConsultations.length))
@@ -2012,7 +2145,9 @@ const NovaPreviaView = () => {
                           return (
                             <React.Fragment key={`fragment-${consultation.id}`}>
                               <button 
-                                className={`pagination-button bg-green-100 hover:bg-green-200 border-green-300 text-green-800 flex items-center justify-center`}
+                                className={`pagination-button bg-green-100 hover:bg-green-200 border-green-300 text-green-800 flex items-center justify-center ${
+                                  currentPage === previousConsultations.length + 1 ? 'active' : ''
+                                }`}
                                 onClick={() => handleLoadPreviousPage(previousConsultations.length + 1)}
                               >
                                 <PlusCircle size={14} className="mr-1" />
@@ -2138,6 +2273,16 @@ const NovaPreviaView = () => {
           border-radius: 4px;
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
           z-index: 5;
+        }
+        
+        /* Animação para o indicador de atualização do cache */
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-fade-in {
+          animation: fadeIn 0.3s ease-out;
         }
       `}</style>
     </motion.div>

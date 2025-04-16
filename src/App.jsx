@@ -14,6 +14,7 @@ import { AuthProvider } from './auth/AuthProvider';
 import { PatientProvider } from './context/PatientContext';
 import { ProtocoloProvider } from './context/ProtocoloContext';
 import ProtectedRoute from './auth/ProtectedRoute';
+import { PreviasProvider } from './context/PreviasContext';
 
 function App() {
   const location = useLocation(); // Obtém a localização atual
@@ -23,38 +24,40 @@ function App() {
         <ServiceProvider>
           <PatientProvider>
             <ProtocoloProvider>
-              <AnimatePresence mode="wait"> {/* Envolve as rotas com AnimatePresence */}
-                <Routes location={location} key={location.pathname}>
-                  <Route path="/" element={<Login />} />
-                  <Route element={<ProtectedRoute />}>
-                    <Route path="/ServicoRelacionada" element={<ServicoRelacionada />} />
-                    <Route path="/Home" element={<Home />} />
-                    
-                  </Route>
-                  <Route element={<ProtectedRoute />}>
-                    {/* Esta rota principal para PacientesEmTratamento captura parâmetros */}
-                    <Route path="/PacientesEmTratamento" element={<PacientesEmTratamento />} />
-                    
-                    {/* Essas rotas são redirecionamentos para usar o sistema de abas */}
-                    <Route 
-                      path="/CadastroPaciente" 
-                      element={<Navigate to="/PacientesEmTratamento?tab=cadastro" replace />} 
-                    />
-                    <Route 
-                      path="/CadastroProtocolo" 
-                      element={<Navigate to="/PacientesEmTratamento?tab=protocolo" replace />} 
-                    />
-                    <Route 
-                      path="/Calculadora"
-                      element={<Navigate to="/PacientesEmTratamento?tab=calculadora" replace />} 
-                    />
-                  </Route>
-                  <Route element={<ProtectedRoute />}>
-                    <Route path="/Empresas" element={<Empresas />} />
-                  </Route>
-                  <Route path="*" element={<Navigate to="/login" replace />} />
-                </Routes>
-              </AnimatePresence>
+              <PreviasProvider>
+                <AnimatePresence mode="wait"> {/* Envolve as rotas com AnimatePresence */}
+                  <Routes location={location} key={location.pathname}>
+                    <Route path="/" element={<Login />} />
+                    <Route element={<ProtectedRoute />}>
+                      <Route path="/ServicoRelacionada" element={<ServicoRelacionada />} />
+                      <Route path="/Home" element={<Home />} />
+                      
+                    </Route>
+                    <Route element={<ProtectedRoute />}>
+                      {/* Esta rota principal para PacientesEmTratamento captura parâmetros */}
+                      <Route path="/PacientesEmTratamento" element={<PacientesEmTratamento />} />
+                      
+                      {/* Essas rotas são redirecionamentos para usar o sistema de abas */}
+                      <Route 
+                        path="/CadastroPaciente" 
+                        element={<Navigate to="/PacientesEmTratamento?tab=cadastro" replace />} 
+                      />
+                      <Route 
+                        path="/CadastroProtocolo" 
+                        element={<Navigate to="/PacientesEmTratamento?tab=protocolo" replace />} 
+                      />
+                      <Route 
+                        path="/Calculadora"
+                        element={<Navigate to="/PacientesEmTratamento?tab=calculadora" replace />} 
+                      />
+                    </Route>
+                    <Route element={<ProtectedRoute />}>
+                      <Route path="/Empresas" element={<Empresas />} />
+                    </Route>
+                    <Route path="*" element={<Navigate to="/login" replace />} />
+                  </Routes>
+                </AnimatePresence>
+              </PreviasProvider>
             </ProtocoloProvider>
           </PatientProvider>
         </ServiceProvider>

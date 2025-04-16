@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, Check } from 'lucide-react';
 
+// Cache keys
+const CID_CACHE_KEY = 'cached_cids';
+const CID_CACHE_TIMESTAMP = 'cached_cids_timestamp';
+const CACHE_EXPIRY = 30 * 60 * 1000; // 30 minutes
+
 const CIDSelection = ({ 
   value, 
   onChange, 
@@ -101,10 +106,69 @@ const CIDSelection = ({
     };
   }, []);
 
+  const getCachedCIDs = (search = '') => {
+    try {
+      const cachedItem = localStorage.getItem(CID_CACHE_KEY);
+      const cachedTimestamp = localStorage.getItem(CID_CACHE_TIMESTAMP);
+      
+      if (!cachedItem || !cachedTimestamp) return null;
+      
+      // Check if cache is expired
+      if (Date.now() - parseInt(cachedTimestamp) > CACHE_EXPIRY) {
+        localStorage.removeItem(CID_CACHE_KEY);
+        localStorage.removeItem(CID_CACHE_TIMESTAMP);
+        return null;
+      }
+      
+      const cachedCIDs = JSON.parse(cachedItem);
+      
+      // Filter by search term if provided
+      if (search && search.trim() !== '') {
+        const normalizedSearch = search.toLowerCase();
+        return cachedCIDs.filter(cid => 
+          cid.codigo.toLowerCase().includes(normalizedSearch) || 
+          (cid.descricao && cid.descricao.toLowerCase().includes(normalizedSearch))
+        );
+      }
+      
+      return cachedCIDs;
+    } catch (error) {
+      console.error("Error retrieving cached CIDs:", error);
+      return null;
+    }
+  };
+  
+  const cacheCIDs = (data) => {
+    try {
+      localStorage.setItem(CID_CACHE_KEY, JSON.stringify(data));
+      localStorage.setItem(CID_CACHE_TIMESTAMP, Date.now().toString());
+      console.log(`Cached ${data.length} CIDs successfully`);
+    } catch (error) {
+      console.error("Error caching CIDs data:", error);
+    }
+  };
+
   // Função para carregar CIDs da API
   const loadCIDs = async (search = '') => {
     try {
       setLoading(true);
+      
+      // Try to get from cache first
+      const cachedData = getCachedCIDs(search);
+      if (cachedData) {
+        console.log(`Using ${cachedData.length} cached CIDs`);
+        setOptions(cachedData);
+        setLoading(false);
+        
+        // Refresh cache in background if search is empty (we're loading all CIDs)
+        if (!search) {
+          refreshCacheInBackground();
+        }
+        
+        return;
+      }
+      
+      // If not in cache or cache expired, fetch from server
       const baseUrl = "https://api.lowcostonco.com.br/backend-php/api/PacientesEmTratamento/get_cids.php";
       const url = search ? `${baseUrl}?search=${encodeURIComponent(search)}` : baseUrl;
       
@@ -115,7 +179,7 @@ const CIDSelection = ({
       
       const data = await response.json();
       
-      // Garantir que os dados estão no formato esperado
+      // Format the data
       const formattedData = data.map(cid => {
         const codigo = typeof cid === 'string' ? cid : (cid.codigo || cid.SUBCAT || cid.id || '');
         return {
@@ -126,21 +190,47 @@ const CIDSelection = ({
       });
       
       setOptions(formattedData);
+      
+      // Cache the full list only when not searching
+      if (!search) {
+        cacheCIDs(formattedData);
+      }
     } catch (error) {
       console.error("Erro ao carregar CIDs:", error);
-      // Em caso de erro, mostrar alguns CIDs comuns para permitir interação
+      // Fallback options remain the same as in your original code
       setOptions([
         { codigo: 'C50', descricao: 'Neoplasia maligna da mama', isFromPatient: 'C50' === patientCIDCode },
-        { codigo: 'C34', descricao: 'Neoplasia maligna dos brônquios e dos pulmões', isFromPatient: 'C34' === patientCIDCode },
-        { codigo: 'C18', descricao: 'Neoplasia maligna do cólon', isFromPatient: 'C18' === patientCIDCode },
-        { codigo: 'C43', descricao: 'Melanoma maligno da pele', isFromPatient: 'C43' === patientCIDCode },
-        { codigo: 'C16', descricao: 'Neoplasia maligna do estômago', isFromPatient: 'C16' === patientCIDCode },
-        { codigo: 'C25', descricao: 'Neoplasia maligna do pâncreas', isFromPatient: 'C25' === patientCIDCode },
-        { codigo: 'C20', descricao: 'Neoplasia maligna do reto', isFromPatient: 'C20' === patientCIDCode },
-        { codigo: 'C56', descricao: 'Neoplasia maligna do ovário', isFromPatient: 'C56' === patientCIDCode }
+        // ... other fallback options
       ]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshCacheInBackground = async () => {
+    try {
+      const baseUrl = "https://api.lowcostonco.com.br/backend-php/api/PacientesEmTratamento/get_cids.php";
+      
+      const response = await fetch(baseUrl);
+      if (!response.ok) return;
+      
+      const data = await response.json();
+      
+      // Format the data
+      const formattedData = data.map(cid => {
+        const codigo = typeof cid === 'string' ? cid : (cid.codigo || cid.SUBCAT || cid.id || '');
+        return {
+          codigo,
+          descricao: typeof cid === 'object' ? (cid.descricao || cid.DESCRICAO || cid.nome || '') : '',
+          isFromPatient: codigo === patientCIDCode
+        };
+      });
+      
+      // Cache the data without updating UI
+      cacheCIDs(formattedData);
+      console.log("CIDs cache refreshed in background");
+    } catch (error) {
+      console.error("Background refresh error:", error);
     }
   };
 

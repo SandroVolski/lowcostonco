@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, Check } from 'lucide-react';
 
+const PROTOCOLO_CACHE_KEY = 'cached_protocolos';
+const PROTOCOLO_CACHE_TIMESTAMP = 'cached_protocolos_timestamp';
+const CACHE_EXPIRY = 30 * 60 * 1000; // 30 minutes
+
 const ProtocoloSelection = ({ 
   value, 
   onChange, 
@@ -48,10 +52,69 @@ const ProtocoloSelection = ({
     };
   }, []);
 
+  const getCachedProtocolos = (search = '') => {
+    try {
+      const cachedItem = localStorage.getItem(PROTOCOLO_CACHE_KEY);
+      const cachedTimestamp = localStorage.getItem(PROTOCOLO_CACHE_TIMESTAMP);
+      
+      if (!cachedItem || !cachedTimestamp) return null;
+      
+      // Check if cache is expired
+      if (Date.now() - parseInt(cachedTimestamp) > CACHE_EXPIRY) {
+        localStorage.removeItem(PROTOCOLO_CACHE_KEY);
+        localStorage.removeItem(PROTOCOLO_CACHE_TIMESTAMP);
+        return null;
+      }
+      
+      const cachedProtocolos = JSON.parse(cachedItem);
+      
+      // Filter by search term if provided
+      if (search && search.trim() !== '') {
+        const normalizedSearch = search.toLowerCase();
+        return cachedProtocolos.filter(protocolo => 
+          protocolo.nome.toLowerCase().includes(normalizedSearch) || 
+          (protocolo.sigla && protocolo.sigla.toLowerCase().includes(normalizedSearch))
+        );
+      }
+      
+      return cachedProtocolos;
+    } catch (error) {
+      console.error("Error retrieving cached Protocolos:", error);
+      return null;
+    }
+  };
+  
+  const cacheProtocolos = (data) => {
+    try {
+      localStorage.setItem(PROTOCOLO_CACHE_KEY, JSON.stringify(data));
+      localStorage.setItem(PROTOCOLO_CACHE_TIMESTAMP, Date.now().toString());
+      console.log(`Cached ${data.length} Protocolos successfully`);
+    } catch (error) {
+      console.error("Error caching Protocolos data:", error);
+    }
+  };
+
   // Função para carregar protocolos da API
   const loadProtocolos = async (search = '') => {
     try {
       setLoading(true);
+      
+      // Try to get from cache first
+      const cachedData = getCachedProtocolos(search);
+      if (cachedData) {
+        console.log(`Using ${cachedData.length} cached Protocolos`);
+        setOptions(cachedData);
+        setLoading(false);
+        
+        // Refresh cache in background if search is empty (we're loading all protocols)
+        if (!search) {
+          refreshCacheInBackground();
+        }
+        
+        return;
+      }
+      
+      // If not in cache or cache expired, fetch from server
       const baseUrl = "https://api.lowcostonco.com.br/backend-php/api/PacientesEmTratamento/get_protocolos.php";
       const url = search ? `${baseUrl}?search=${encodeURIComponent(search)}` : baseUrl;
       
@@ -62,7 +125,7 @@ const ProtocoloSelection = ({
       
       const data = await response.json();
       
-      // Formatar os dados para o formato esperado pelo componente
+      // Format the data
       const formattedData = data.map(protocolo => ({
         id: protocolo.id || protocolo.id_protocolo,
         nome: protocolo.Protocolo_Nome,
@@ -71,16 +134,45 @@ const ProtocoloSelection = ({
       }));
       
       setOptions(formattedData);
+      
+      // Cache the full list only when not searching
+      if (!search) {
+        cacheProtocolos(formattedData);
+      }
     } catch (error) {
       console.error("Erro ao carregar protocolos:", error);
-      // Em caso de erro, mostrar alguns protocolos comuns para permitir interação
+      // Fallback options
       setOptions([
         { id: 1, nome: 'Protocolo A', sigla: 'PA', cid: 'C50' },
-        { id: 2, nome: 'Protocolo B', sigla: 'PB', cid: 'C34' },
-        { id: 3, nome: 'Protocolo C', sigla: 'PC', cid: 'C18' }
+        // ... other fallback options
       ]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshCacheInBackground = async () => {
+    try {
+      const baseUrl = "https://api.lowcostonco.com.br/backend-php/api/PacientesEmTratamento/get_protocolos.php";
+      
+      const response = await fetch(baseUrl);
+      if (!response.ok) return;
+      
+      const data = await response.json();
+      
+      // Format the data
+      const formattedData = data.map(protocolo => ({
+        id: protocolo.id || protocolo.id_protocolo,
+        nome: protocolo.Protocolo_Nome,
+        sigla: protocolo.Protocolo_Sigla,
+        cid: protocolo.CID
+      }));
+      
+      // Cache the data without updating UI
+      cacheProtocolos(formattedData);
+      console.log("Protocolos cache refreshed in background");
+    } catch (error) {
+      console.error("Background refresh error:", error);
     }
   };
 

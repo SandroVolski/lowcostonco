@@ -1,8 +1,47 @@
 // services/previasService.js
+import { usePrevias } from '../context/PreviasContext';
+
+// Original API URL remains the same
 const API_URL = "https://api.lowcostonco.com.br/backend-php/api/Previas";
 
+// Create a hook-based service that uses the context
+export const usePreviasService = () => {
+  const {
+    getPreviasDoPatient,
+    getPrevia,
+    getCiclosDias,
+    getAnexos,
+    createPrevia,
+    updatePrevia,
+    uploadAnexo,
+    deleteAnexo,
+    loading,
+    error,
+    isCacheEnabled,
+    dataSource
+  } = usePrevias();
+  
+  return {
+    // Expose the functions and states from the context
+    getPreviasDoPatient,
+    getPrevia,
+    getCiclosDias,
+    getAnexos,
+    createPrevia,
+    updatePrevia,
+    uploadAnexo,
+    deleteAnexo,
+    loading,
+    error,
+    isCacheEnabled,
+    dataSource
+  };
+};
+
+// Keep the original service for backward compatibility
 export const previasService = {
-  // Buscar prévias de um paciente
+  // These methods will now be proxies that just call the API directly
+  // Existing components can continue to use this
   getPreviasDoPatient: async (pacienteId) => {
     try {
       const response = await fetch(`${API_URL}/get_previas_by_paciente.php?paciente_id=${pacienteId}`);
@@ -14,7 +53,6 @@ export const previasService = {
     }
   },
   
-  // Buscar detalhes de uma prévia específica
   getPrevia: async (previaId) => {
     try {
       const response = await fetch(`${API_URL}/get_previa.php?id=${previaId}`);
@@ -26,7 +64,6 @@ export const previasService = {
     }
   },
   
-  // Buscar ciclos/dias de uma prévia
   getCiclosDias: async (previaId) => {
     try {
       const response = await fetch(`${API_URL}/get_ciclos_dias.php?previa_id=${previaId}`);
@@ -38,7 +75,6 @@ export const previasService = {
     }
   },
   
-  // Buscar anexos de uma prévia
   getAnexos: async (previaId) => {
     try {
       const response = await fetch(`${API_URL}/get_anexos.php?previa_id=${previaId}`);
@@ -50,7 +86,6 @@ export const previasService = {
     }
   },
   
-  // Criar uma nova prévia
   createPrevia: async (dadosPrevia) => {
     try {
       const response = await fetch(`${API_URL}/create_previa.php`, {
@@ -68,7 +103,6 @@ export const previasService = {
     }
   },
   
-  // Atualizar uma prévia existente
   updatePrevia: async (dadosPrevia) => {
     try {
       const response = await fetch(`${API_URL}/update_previa.php`, {
@@ -86,7 +120,6 @@ export const previasService = {
     }
   },
   
-  // Upload de arquivo para uma prévia
   uploadAnexo: async (previaId, arquivo) => {
     try {
       const formData = new FormData();
@@ -105,7 +138,6 @@ export const previasService = {
     }
   },
   
-  // Excluir um anexo
   deleteAnexo: async (anexoId) => {
     try {
       const response = await fetch(`${API_URL}/delete_anexo.php?id=${anexoId}`, {
