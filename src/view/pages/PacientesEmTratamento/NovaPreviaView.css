@@ -635,19 +635,25 @@
   background-color: #8cb369;
   color: white;
   border: none;
-  border-radius: 6px;
-  padding: 10px 16px;
+  border-radius: 4px; /* Reduzi o border-radius para um visual mais plano */
+  padding: 6px 24px; /* Reduzi a altura (6px em vez de 10px) e aumentei a largura (24px em vez de 16px) */
+  min-width: 120px; /* Define uma largura mínima para garantir que seja mais largo */
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
   align-items: center;
+  justify-content: center; /* Centraliza o conteúdo horizontalmente */
   gap: 8px;
+  height: 40px; /* Define uma altura fixa para garantir a consistência */
+  margin-top: 1.4rem;
 }
 
 .btn-primary-previa:hover {
-  background-color: #7ba058;
+  background-color: #c6d651;
+  transform: translateY(1px); /* Leve movimento para baixo ao passar o mouse */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Sombra sutil */
 }
 
 /* Estilos para o campo de anexo com visualização de arquivos */

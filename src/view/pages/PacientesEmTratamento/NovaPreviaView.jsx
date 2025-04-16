@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { usePatient } from '../../../context/PatientContext';
@@ -9,7 +9,8 @@ import {
   Search, X, UserPlus, Save, Paperclip, Download, Trash2, Eye,
   Upload, Calendar, BarChart3, Clock, PlusCircle, ChevronDown,
   FilePlus, Clock8, FileText, CheckCircle, AlertCircle, 
-  AlertTriangle, HelpCircle, Check
+  AlertTriangle, HelpCircle, Check, ChevronLeft, ChevronRight,
+  File, Info
 } from 'lucide-react';
 import './NovaPreviaView.css';
 import { previasService } from '../../../services/previasService';
@@ -30,8 +31,12 @@ const NovaPreviaView = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPatient, setIsLoadingPatient] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [loadingSection, setLoadingSection] = useState(false); // Para animação de carregamento nas seções
 
   const [previewImage, setPreviewImage] = useState(null);
+
+  // Estados para navegação dos botões de atendimento
+  const [visibleButtonsStart, setVisibleButtonsStart] = useState(0);
 
   const handlePreviewAttachment = (file) => {
     setPreviewImage(file);
@@ -75,7 +80,8 @@ const NovaPreviaView = () => {
     ultimaAnalise: '',
     quantidadeGuias: 0,
     protocolosDiferentes: 0,
-    pesos: []
+    pesos: [],
+    allPesos: [] // Para armazenar todos os pesos
   });
   
   // Estado para a página atual do histórico
@@ -115,8 +121,6 @@ const NovaPreviaView = () => {
   // Efeito para carregar histórico do paciente quando um paciente é selecionado
   useEffect(() => {
     if (selectedPatient) {
-      // Simular busca de histórico do paciente
-      // Em um caso real, isso seria uma chamada API
       loadPatientData(selectedPatient.id);
     }
   }, [selectedPatient]);
@@ -136,10 +140,11 @@ const NovaPreviaView = () => {
           ultimaAnalise: previas[0]?.data_criacao ? formatDate(new Date(previas[0].data_criacao)) : '',
           quantidadeGuias: previas.length,
           protocolosDiferentes: [...new Set(previas.map(p => p.protocolo))].length,
-          pesos: [] // Iremos popular isso depois ao carregar os detalhes
+          pesos: [], // Será populado em loadWeightHistory
+          allPesos: [] // Também será populado em loadWeightHistory
         });
         
-        // Carregar histórico de pesos (se necessário)
+        // Carregar histórico de pesos
         loadWeightHistory(previas);
       } else {
         // Se não houver prévias, limpar o histórico
@@ -147,7 +152,8 @@ const NovaPreviaView = () => {
           ultimaAnalise: '',
           quantidadeGuias: 0,
           protocolosDiferentes: 0,
-          pesos: []
+          pesos: [],
+          allPesos: []
         });
         setPreviousConsultations([]);
       }
@@ -165,27 +171,65 @@ const NovaPreviaView = () => {
 
   const loadWeightHistory = async (previas) => {
     try {
-      // Limitamos a 5 prévias para o histórico de pesos
-      const recentPrevias = previas.slice(0, 5);
-      
-      // Criar o array de pesos a partir das prévias
-      const weightHistory = recentPrevias.map(previa => ({
-        id: previa.id,
-        date: formatDateShort(new Date(previa.data_criacao)),
-        weight: previa.peso,
-        protocolo: previa.protocolo,
-        ciclo: previa.ciclo || '',
-        dia: previa.dia || '',
-        parecer: previa.parecer || ''
-      }));
-      
+      // Criar dados de peso a partir de todas as prévias
+      const allWeightHistory = previas
+        .filter(previa => previa.peso) // filtrar apenas as que têm peso
+        .map(previa => ({
+          id: previa.id,
+          date: formatDateShort(new Date(previa.data_criacao)),
+          weight: previa.peso,
+          protocolo: previa.protocolo,
+          ciclo: previa.ciclo || '',
+          dia: previa.dia || '',
+          parecer: previa.parecer || ''
+        }));
+
+      // Armazenar todos os dados e mostrar os 5 mais recentes inicialmente
       setPatientHistory(prev => ({
         ...prev,
-        pesos: weightHistory
+        allPesos: allWeightHistory,
+        pesos: allWeightHistory.slice(0, Math.min(5, allWeightHistory.length))
       }));
     } catch (error) {
       console.error("Erro ao carregar histórico de pesos:", error);
     }
+  };
+
+  // Função para navegar entre grupos de pesos no gráfico
+  const handleWeightHistoryNavigation = (direction) => {
+    const { allPesos, pesos } = patientHistory;
+    if (!allPesos || allPesos.length <= 5) return;
+    
+    // Encontrar o primeiro peso exibido atualmente
+    const firstDisplayedIndex = allPesos.findIndex(p => p.id === pesos[0]?.id);
+    if (firstDisplayedIndex === -1) return;
+    
+    if (direction === 'next' && firstDisplayedIndex + 5 < allPesos.length) {
+      // Avançar 5 posições ou até o final
+      const newStartIndex = Math.min(firstDisplayedIndex + 5, allPesos.length - 5);
+      setPatientHistory(prev => ({
+        ...prev,
+        pesos: allPesos.slice(newStartIndex, newStartIndex + 5)
+      }));
+    } else if (direction === 'prev' && firstDisplayedIndex > 0) {
+      // Recuar 5 posições ou até o início
+      const newStartIndex = Math.max(firstDisplayedIndex - 5, 0);
+      setPatientHistory(prev => ({
+        ...prev,
+        pesos: allPesos.slice(newStartIndex, newStartIndex + 5)
+      }));
+    }
+  };
+  
+  // Funções para navegar entre grupos de botões de atendimento
+  const navigateButtonsNext = () => {
+    setVisibleButtonsStart(prev => 
+      Math.min(prev + 3, Math.max(0, previousConsultations.length - 2))
+    );
+  };
+
+  const navigateButtonsPrev = () => {
+    setVisibleButtonsStart(prev => Math.max(0, prev - 3));
   };
   
   // Efeito para calcular tempo entre solicitação e parecer
@@ -217,45 +261,6 @@ const NovaPreviaView = () => {
     );
   }
   
-  // Função para simular carregamento do histórico do paciente
-  const simulateLoadPatientHistory = (patientId) => {
-    // Em um ambiente real, isso seria uma chamada API
-    setTimeout(() => {
-      // Gerar dados simulados de histórico
-      const lastDate = new Date();
-      lastDate.setDate(lastDate.getDate() - Math.floor(Math.random() * 30));
-      
-      const weightHistory = [];
-      const baseWeight = 70 + Math.random() * 10;
-      
-      // Gerar histórico de peso para os últimos 5 atendimentos
-      for (let i = 0; i < 5; i++) {
-        const date = new Date();
-        date.setDate(date.getDate() - (i * 30));
-        
-        // Peso varia aleatoriamente, mas com tendência a diminuir com o tempo
-        const weight = baseWeight - (Math.random() * i);
-        
-        weightHistory.push({
-          id: i + 1,
-          date: formatDateShort(date),
-          weight: weight.toFixed(1),
-          protocolo: `Protocolo ${String.fromCharCode(65 + (i % 3))}`,
-          ciclo: Math.floor(i / 2) + 1,
-          dia: (i % 7) + 1,
-          parecer: i === 0 ? 'Paciente demonstrou melhora nos sintomas' : ''
-        });
-      }
-      
-      setPatientHistory({
-        ultimaAnalise: formatDate(lastDate),
-        quantidadeGuias: Math.floor(Math.random() * 10) + 5,
-        protocolosDiferentes: Math.floor(Math.random() * 3) + 1,
-        pesos: weightHistory
-      });
-    }, 500);
-  };
-  
   // Função para formatar data curta (DD/MM/AA)
   function formatDateShort(date) {
     const day = String(date.getDate()).padStart(2, '0');
@@ -263,38 +268,6 @@ const NovaPreviaView = () => {
     const year = String(date.getFullYear()).slice(2);
     return `${day}/${month}/${year}`;
   }
-  
-  // Função para simular carregamento das consultas anteriores
-  const simulateLoadPreviousConsultations = (patientId) => {
-    // Em um ambiente real, isso seria uma chamada API
-    setTimeout(() => {
-      const consultations = [];
-      
-      for (let i = 0; i < 3; i++) {
-        const date = new Date();
-        date.setDate(date.getDate() - ((i + 1) * 15));
-        
-        consultations.push({
-          id: i + 1,
-          guia: `G${Math.floor(10000 + Math.random() * 90000)}`,
-          protocolo: `Protocolo ${String.fromCharCode(65 + (i % 3))}`,
-          cid: ['C50', 'C34', 'C18'][i % 3],
-          ciclo: Math.floor(i / 2) + 1,
-          dia: (i % 7) + 1,
-          dataSolicitacao: formatDate(date),
-          peso: (65 + Math.random() * 15).toFixed(1),
-          altura: (1.6 + Math.random() * 0.3).toFixed(2),
-          parecer: i === 0 
-            ? 'Paciente com boa resposta ao tratamento, manter esquema terapêutico'
-            : 'Seguir protocolo conforme prescrito',
-          parecerGuia: ["Favorável", "Desfavorável", "Inconclusivo", "Pendente"][i % 4],
-          inconsistencia: ["Completa", "Dados Faltantes", "Requer Análise", "Informações Inconsistentes"][i % 4]
-        });
-      }
-      
-      setPreviousConsultations(consultations);
-    }, 700);
-  };
   
   // Função para lidar com a seleção de um paciente
   const handleSelectPatient = (patient) => {
@@ -423,7 +396,7 @@ const NovaPreviaView = () => {
             name: result.nome_arquivo,
             size: result.tamanho,
             type: result.tipo,
-            download_url: `/api/previas/download_anexo.php?id=${result.id}`
+            download_url: `https://api.lowcostonco.com.br/backend-php/api/Previas/download_anexo.php?id=${result.id}`
           };
           
           setAttachments(prev => [...prev, newAttachment]);
@@ -575,9 +548,6 @@ const NovaPreviaView = () => {
         setDataParecerRegistrado(null);
         setTempoParaAnalise(null);
       }
-      
-      // Opcional: Redirecionar após salvar
-      // navigate('/PacientesEmTratamento');
     } catch (error) {
       console.error("Erro ao salvar prévia:", error);
       toast({
@@ -594,66 +564,99 @@ const NovaPreviaView = () => {
   const handleLoadPreviousPage = async (pageNumber) => {
     setCurrentPage(pageNumber);
     
-    // Verificar se temos prévias disponíveis
-    if (previousConsultations.length >= pageNumber) {
+    // Verificar se estamos criando um novo atendimento
+    if (pageNumber > previousConsultations.length) {
+      // Ativar animação de carregamento brevemente para feedback visual
+      setLoadingSection(true);
+      setTimeout(() => setLoadingSection(false), 300);
+      
+      // Limpar o formulário para um novo atendimento
+      setFormData({
+        guia: '',
+        protocolo: '',
+        cid: '',
+        ciclo: '',
+        dia: '',
+        dataSolicitacao: formatDate(new Date()),
+        parecer: '',
+        peso: '',
+        altura: '',
+        parecerGuia: '',
+        inconsistencia: '',
+        cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
+      });
+      
+      setAttachments([]);
+      setDataParecerRegistrado(null);
+      setTempoParaAnalise(null);
+      return;
+    }
+    
+    // Se não for um novo atendimento, carregar os dados da prévia existente
+    try {
+      setLoadingSection(true); // Ativar animação de carregamento
+      
       const previaId = previousConsultations[pageNumber - 1].id;
       
-      try {
-        // Carregar detalhes da prévia
-        const previaDetails = await previasService.getPrevia(previaId);
-        
-        // Carregar ciclos/dias associados
-        const ciclosDias = await previasService.getCiclosDias(previaId);
-        
-        // Carregar anexos
-        const anexos = await previasService.getAnexos(previaId);
-        
-        // Atualizar o formulário com os dados carregados
-        setFormData({
-          id: previaDetails.id,
-          paciente_id: previaDetails.paciente_id,
-          guia: previaDetails.guia,
-          protocolo: previaDetails.protocolo,
-          cid: previaDetails.cid,
-          ciclo: ciclosDias.length > 0 ? ciclosDias[0].ciclo : '',
-          dia: ciclosDias.length > 0 ? ciclosDias[0].dia : '',
-          dataSolicitacao: formatDateFromDB(previaDetails.data_solicitacao),
-          parecer: previaDetails.parecer,
-          peso: previaDetails.peso,
-          altura: previaDetails.altura,
-          parecerGuia: previaDetails.parecer_guia,
-          inconsistencia: previaDetails.inconsistencia,
-          cicloDiaEntries: ciclosDias
-        });
-        
-        // Atualizar anexos
-        const formattedAnexos = anexos.map(anexo => ({
-          id: anexo.id,
-          name: anexo.nome_arquivo,
-          size: anexo.tamanho,
-          type: anexo.tipo,
-          download_url: anexo.download_url
-        }));
-        
-        setAttachments(formattedAnexos);
-        
-        // Configurar data de parecer registrado
-        if (previaDetails.data_parecer_registrado) {
-          setDataParecerRegistrado(formatDateFromDB(previaDetails.data_parecer_registrado));
-          setTempoParaAnalise(previaDetails.tempo_analise);
-        } else {
-          setDataParecerRegistrado(null);
-          setTempoParaAnalise(null);
-        }
-        
-      } catch (error) {
-        console.error("Erro ao carregar detalhes da prévia:", error);
-        toast({
-          title: "Erro",
-          description: "Não foi possível carregar os detalhes do atendimento",
-          variant: "destructive"
-        });
+      // Mostrar feedback de carregamento
+      toast({
+        title: "Carregando atendimento",
+        description: `Carregando dados do atendimento ${pageNumber}...`,
+        variant: "default"
+      });
+      
+      // Carregar dados da prévia
+      const previaDetails = await previasService.getPrevia(previaId);
+      const ciclosDias = await previasService.getCiclosDias(previaId);
+      const anexos = await previasService.getAnexos(previaId);
+      
+      // Atualizar o formulário com os dados carregados
+      setFormData({
+        id: previaDetails.id,
+        paciente_id: previaDetails.paciente_id,
+        guia: previaDetails.guia,
+        protocolo: previaDetails.protocolo,
+        cid: previaDetails.cid,
+        ciclo: ciclosDias.length > 0 ? ciclosDias[0].ciclo : '',
+        dia: ciclosDias.length > 0 ? ciclosDias[0].dia : '',
+        dataSolicitacao: formatDateFromDB(previaDetails.data_solicitacao),
+        parecer: previaDetails.parecer,
+        peso: previaDetails.peso,
+        altura: previaDetails.altura,
+        parecerGuia: previaDetails.parecer_guia,
+        inconsistencia: previaDetails.inconsistencia,
+        cicloDiaEntries: ciclosDias.length > 0 ? ciclosDias : [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
+      });
+      
+      // Atualizar anexos
+      const formattedAnexos = anexos.map(anexo => ({
+        id: anexo.id,
+        name: anexo.nome_arquivo,
+        size: anexo.tamanho,
+        type: anexo.tipo,
+        download_url: anexo.download_url
+      }));
+      
+      setAttachments(formattedAnexos);
+      
+      // Configurar data de parecer registrado
+      if (previaDetails.data_parecer_registrado) {
+        setDataParecerRegistrado(formatDateFromDB(previaDetails.data_parecer_registrado));
+        setTempoParaAnalise(previaDetails.tempo_analise);
+      } else {
+        setDataParecerRegistrado(null);
+        setTempoParaAnalise(null);
       }
+      
+    } catch (error) {
+      console.error("Erro ao carregar detalhes da prévia:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os detalhes do atendimento",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingSection(false); // Desativar animação ao finalizar
     }
   };
 
@@ -695,18 +698,94 @@ const NovaPreviaView = () => {
     }
   };
   
-  // Componente para o gráfico de peso
-  const WeightChart = ({ weightData }) => {
-    if (!weightData || weightData.length === 0) return null;
+  // Componente de overlay de carregamento
+  const LoadingOverlay = ({ isLoading }) => {
+    if (!isLoading) return null;
     
-    // Em um caso real, usaríamos uma biblioteca como recharts
-    // Este é um gráfico simplificado para visualização
-    const maxWeight = Math.max(...weightData.map(d => parseFloat(d.weight))) + 2;
-    const minWeight = Math.min(...weightData.map(d => parseFloat(d.weight))) - 2;
+    return (
+      <motion.div 
+        className="absolute inset-0 bg-white bg-opacity-70 z-10 flex items-center justify-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+      >
+        <div className="flex flex-col items-center">
+          <div className="loading-spinner w-12 h-12 border-4 border-t-blue-500 mb-4"></div>
+          <p className="text-gray-700 font-medium">Carregando dados...</p>
+        </div>
+      </motion.div>
+    );
+  };
+  
+  // Componente para o gráfico de peso com zoom
+  const WeightChart = ({ weightData, allWeightData }) => {
+    // Estado para controlar o nível de zoom (1 = zoom mínimo, 10 = zoom máximo)
+    const [zoomLevel, setZoomLevel] = useState(5);
+    const chartRef = useRef(null);
+    
+    // Calcular quantos pontos mostrar com base no zoom
+    const pointsToShow = useMemo(() => {
+      if (!weightData || weightData.length === 0) return [];
+      
+      // Se não temos todos os dados ou poucos pontos, usar os dados originais
+      if (!allWeightData || allWeightData.length <= 5) return weightData;
+      
+      // Calcular quantos pontos mostrar com base no zoom
+      const maxPoints = allWeightData.length;
+      const minPoints = Math.min(3, maxPoints);
+      const pointsCount = Math.max(
+        minPoints,
+        Math.floor(maxPoints * (11 - zoomLevel) / 10)
+      );
+      
+      // Centralizar os pontos no meio do dataset
+      const midPoint = Math.floor(allWeightData.length / 2);
+      const startIndex = Math.max(0, midPoint - Math.floor(pointsCount / 2));
+      const endIndex = Math.min(allWeightData.length, startIndex + pointsCount);
+      
+      return allWeightData.slice(startIndex, endIndex);
+    }, [allWeightData, zoomLevel, weightData]);
+    
+    // Handler para o evento de scroll
+    const handleWheel = useCallback((e) => {
+      e.preventDefault();
+      
+      // Aumenta o zoom quando rola para cima, diminui quando rola para baixo
+      setZoomLevel(prev => {
+        const newZoom = e.deltaY > 0 
+          ? Math.max(1, prev - 1) // Diminuir zoom (mais pontos)
+          : Math.min(10, prev + 1); // Aumentar zoom (menos pontos)
+        return newZoom;
+      });
+    }, []);
+    
+    // Adicionar e remover o event listener
+    useEffect(() => {
+      const currentRef = chartRef.current;
+      if (currentRef) {
+        currentRef.addEventListener('wheel', handleWheel, { passive: false });
+      }
+      
+      return () => {
+        if (currentRef) {
+          currentRef.removeEventListener('wheel', handleWheel);
+        }
+      };
+    }, [handleWheel]);
+    
+    // Se não houver dados, não renderizar o gráfico
+    if (!pointsToShow || pointsToShow.length === 0) return null;
+    
+    // Cálculos para o gráfico
+    const maxWeight = Math.max(...pointsToShow.map(d => parseFloat(d.weight || 0))) + 2;
+    const minWeight = Math.min(...pointsToShow.map(d => parseFloat(d.weight || 0))) - 2;
     const range = maxWeight - minWeight;
     
     return (
-      <div className="chart-container">
+      <div className="chart-container relative" ref={chartRef}>
+        {/* Removido o indicador de zoom */}
+        
         {/* Eixo Y */}
         <div className="y-axis" style={{ position: 'absolute', left: '20px', top: '10px', bottom: '30px', width: '30px' }}>
           <div style={{ position: 'absolute', top: '0', left: '0' }}>{parseFloat(maxWeight).toFixed(1)}</div>
@@ -721,17 +800,17 @@ const NovaPreviaView = () => {
             height="100%" 
             style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible' }}
           >
-            {weightData.slice(0, -1).map((point, index) => {
-              const currentWeight = parseFloat(point.weight);
-              const nextWeight = parseFloat(weightData[index + 1].weight);
+            {pointsToShow.slice(0, -1).map((point, index) => {
+              const currentWeight = parseFloat(point.weight || 0);
+              const nextWeight = parseFloat(pointsToShow[index + 1].weight || 0);
               
               // Calcular posições verticais normalizadas (y cresce para baixo no SVG)
               const y1 = (1 - ((currentWeight - minWeight) / range)) * 100;
               const y2 = (1 - ((nextWeight - minWeight) / range)) * 100;
               
               // Calcular posições horizontais
-              const x1 = (index / (weightData.length - 1)) * 100;
-              const x2 = ((index + 1) / (weightData.length - 1)) * 100;
+              const x1 = (index / (pointsToShow.length - 1)) * 100;
+              const x2 = ((index + 1) / (pointsToShow.length - 1)) * 100;
               
               return (
                 <line
@@ -748,16 +827,16 @@ const NovaPreviaView = () => {
           </svg>
           
           {/* Pontos do gráfico */}
-          {weightData.map((point, index) => {
-            const weight = parseFloat(point.weight);
+          {pointsToShow.map((point, index) => {
+            const weight = parseFloat(point.weight || 0);
             // Calcular posição vertical normalizada
             const normalizedY = 1 - ((weight - minWeight) / range);
             // Calcular posição horizontal baseada no índice
-            const x = (index / (weightData.length - 1)) * 100;
+            const x = (index / (pointsToShow.length - 1)) * 100;
             
             return (
               <div 
-                key={index}
+                key={`point-${point.id}-${index}`}
                 className="weight-point"
                 style={{
                   position: 'absolute',
@@ -791,13 +870,13 @@ const NovaPreviaView = () => {
         
         {/* Eixo X (datas) */}
         <div className="x-axis" style={{ position: 'absolute', left: '60px', right: '20px', bottom: '10px', height: '20px' }}>
-          {weightData.map((point, index) => {
+          {pointsToShow.map((point, index) => {
             // Calcular posição horizontal baseada no índice
-            const x = (index / (weightData.length - 1)) * 100;
+            const x = (index / (pointsToShow.length - 1)) * 100;
             
             return (
               <div 
-                key={index}
+                key={`date-${point.id}-${index}`}
                 style={{
                   position: 'absolute',
                   left: `calc(${x}% - 20px)`,
@@ -811,6 +890,207 @@ const NovaPreviaView = () => {
               </div>
             );
           })}
+        </div>
+      </div>
+    );
+  };
+  
+  // Componente para visualização de anexos
+  const AttachmentViewer = ({ attachment, onClose }) => {
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [viewerType, setViewerType] = useState('iframe'); // iframe ou objectTag
+    
+    useEffect(() => {
+      setLoading(true);
+      setError(null);
+      
+      // Determinar o melhor visualizador com base no tipo de arquivo
+      if (attachment && attachment.type === 'application/pdf') {
+        // Tentar iframe primeiro, é mais compatível com a maioria dos navegadores
+        setViewerType('iframe');
+      }
+      
+      const timer = setTimeout(() => {
+        setLoading(false);
+      }, 1500);
+      
+      return () => clearTimeout(timer);
+    }, [attachment]);
+    
+    // Função para gerar URLs
+    const getViewUrl = (id) => {
+      return `https://api.lowcostonco.com.br/backend-php/api/Previas/view_anexo.php?id=${id}`;
+    };
+    
+    const getDownloadUrl = (id) => {
+      return `https://api.lowcostonco.com.br/backend-php/api/Previas/download_anexo.php?id=${id}`;
+    };
+    
+    // Manipulação de erros
+    const handleViewError = () => {
+      if (viewerType === 'iframe') {
+        // Se iframe falhou, tentar object tag
+        console.log("Iframe falhou, tentando object tag");
+        setViewerType('objectTag');
+      } else {
+        // Se ambos falharam, mostrar erro
+        setError("Não foi possível visualizar este documento. Tente fazer download.");
+      }
+      setLoading(false);
+    };
+    
+    // Renderizar conteúdo com base no tipo de arquivo
+    const renderContent = () => {
+      if (!attachment) return null;
+      
+      // URL para visualização
+      const viewUrl = getViewUrl(attachment.id);
+      const downloadUrl = getDownloadUrl(attachment.id);
+      
+      console.log("Tentando visualizar:", viewUrl);
+      
+      // Para imagens
+      if (attachment.type && attachment.type.startsWith('image/')) {
+        return (
+          <div className="flex justify-center">
+            <img 
+              src={viewUrl} 
+              alt={attachment.name}
+              className="max-w-full max-h-[70vh] object-contain"
+              onLoad={() => setLoading(false)}
+              onError={() => {
+                setLoading(false);
+                setError("Não foi possível carregar esta imagem.");
+              }}
+            />
+          </div>
+        );
+      }
+      
+      // Para PDFs
+      if (attachment.type === 'application/pdf') {
+        if (viewerType === 'iframe') {
+          return (
+            <div className="w-full h-[70vh]">
+              <iframe
+                src={viewUrl}
+                className="w-full h-full border-0"
+                title={attachment.name}
+                onLoad={() => setLoading(false)}
+                onError={handleViewError}
+              />
+            </div>
+          );
+        } else {
+          return (
+            <div className="w-full h-[70vh]">
+              <object
+                data={viewUrl}
+                type="application/pdf"
+                className="w-full h-full border-0"
+                title={attachment.name}
+                onLoad={() => setLoading(false)}
+                onError={() => {
+                  setLoading(false);
+                  setError("Não foi possível visualizar este PDF.");
+                }}
+              >
+                <div className="p-4 text-center">
+                  <p>Seu navegador não consegue exibir PDFs diretamente.</p>
+                  <a 
+                    href={downloadUrl} 
+                    download={attachment.name}
+                    className="mt-4 inline-block py-2 px-4 bg-blue-500 text-white rounded"
+                  >
+                    Baixar arquivo
+                  </a>
+                </div>
+              </object>
+            </div>
+          );
+        }
+      }
+      
+      // Para outros tipos de arquivo
+      return (
+        <div className="flex flex-col items-center justify-center h-[70vh]">
+          <File size={64} className="text-gray-400 mb-4" />
+          <p className="text-lg font-medium">{attachment.name}</p>
+          <p className="text-sm text-gray-500 mb-4">
+            Este tipo de arquivo ({attachment.type || 'desconhecido'}) não pode ser visualizado diretamente.
+          </p>
+          <a 
+            href={downloadUrl} 
+            download={attachment.name}
+            className="py-2 px-4 bg-green-500 text-white rounded-md hover:bg-green-600"
+          >
+            Baixar arquivo
+          </a>
+        </div>
+      );
+    };
+    
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white rounded-lg w-11/12 max-w-4xl overflow-hidden relative">
+          {/* Cabeçalho */}
+          <div className="flex justify-between items-center p-4 border-b">
+            <h3 className="text-lg font-medium truncate max-w-[80%]">
+              {attachment?.name || 'Visualizar anexo'}
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 focus:outline-none"
+            >
+              <X size={24} />
+            </button>
+          </div>
+          
+          {/* Corpo */}
+          <div className="relative">
+            {loading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 z-10">
+                <div className="loading-spinner w-12 h-12 border-4 border-t-blue-500"></div>
+              </div>
+            )}
+            
+            {error ? (
+              <div className="flex flex-col items-center justify-center p-8">
+                <AlertTriangle size={48} className="text-red-500 mb-4" />
+                <p className="text-red-600 text-center">{error}</p>
+                
+                  href={attachment?.id ? getDownloadUrl(attachment.id) : '#'}
+                  download={attachment?.name}
+                  className="mt-4 py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600"
+                <a>
+                  Baixar o arquivo
+                </a>
+              </div>
+            ) : (
+              <div className="p-4">
+                {renderContent()}
+              </div>
+            )}
+          </div>
+          
+          {/* Rodapé */}
+          <div className="p-4 border-t bg-gray-50 flex justify-between items-center">
+            <div className="text-sm text-gray-500">
+              {attachment?.size && <span className="mr-4">Tamanho: {attachment.size}</span>}
+              {attachment?.type && <span>Tipo: {attachment.type}</span>}
+            </div>
+            <div>
+              <a
+                href={attachment?.id ? getDownloadUrl(attachment.id) : '#'}
+                download={attachment?.name}
+                className="py-2 px-4 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 inline-flex items-center"
+              >
+                <Download size={16} className="mr-2" />
+                Baixar
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -898,10 +1178,11 @@ const NovaPreviaView = () => {
       // Depois atualizamos as entradas de acordo com o tipo selecionado
       if (type === 'fullCycle') {
         // Manter apenas a primeira entrada e marcar como ciclo completo
+        // Preservamos os valores de ciclo e dia mesmo no ciclo completo
         const updatedEntry = {
           ...(cicloDiaEntries[0] || { id: 1, ciclo: '', dia: '' }),
           fullCycle: true,
-          dia: '' // Dia não é necessário para ciclo completo
+          // Não apagamos mais o valor do dia, apenas ocultamos o campo
         };
         
         setCicloDiaEntries([updatedEntry]);
@@ -1183,7 +1464,11 @@ const NovaPreviaView = () => {
     };
     
     return (
-      <div className="registro-status-section card">
+      <div className="registro-status-section card relative">
+        <AnimatePresence>
+          {loadingSection && <LoadingOverlay isLoading={true} />}
+        </AnimatePresence>
+        
         <div className="card-header">
           <h3>Registro de Status</h3>
         </div>
@@ -1444,13 +1729,38 @@ const NovaPreviaView = () => {
             
             {/* Card com gráfico de peso */}
             <div className="grafico-card">
-              <h3 className="grafico-title">Histórico dos últimos 5 pesos</h3>
-              <WeightChart weightData={patientHistory.pesos} />
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center">
+                  <h3 className="grafico-title">Histórico de pesos</h3>
+                  <div className="relative ml-2 group flex items-center">
+                    <Info size={16} className="text-gray-500 cursor-help translate-y-[-13px]" />
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 w-48 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                      Use a roda do mouse para dar zoom no gráfico e visualizar mais detalhes
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Indicador do intervalo de pesos sendo mostrado - Agora centralizado acima do gráfico 
+              {patientHistory.allPesos && patientHistory.allPesos.length > 0 && (
+                <div className="text-xs text-gray-500 text-center mb-4">
+                  Mostrando {patientHistory.pesos.length} de {patientHistory.allPesos.length} registros
+                </div>
+              )}*/}
+              
+              <WeightChart 
+                weightData={patientHistory.pesos} 
+                allWeightData={patientHistory.allPesos}
+              />
             </div>
           </div>
           
           {/* Seção de registro */}
-          <div className="registro-section card">
+          <div className="registro-section card relative">
+            <AnimatePresence>
+              {loadingSection && <LoadingOverlay isLoading={true} />}
+            </AnimatePresence>
+            
             <div className="card-header">
               <h3>Registro</h3>
             </div>
@@ -1573,7 +1883,6 @@ const NovaPreviaView = () => {
               />
             </div>
             
-            
             <div className="form-field">
               <label htmlFor="parecer" className="form-label">Parecer</label>
               <textarea 
@@ -1618,24 +1927,24 @@ const NovaPreviaView = () => {
                       </div>
                       <div className="file-actions">
                         {file.download_url && (
-                          <a 
-                            href={file.download_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="file-action-button"
-                            title="Baixar anexo"
-                          >
-                            <Download size={16} />
-                          </a>
-                        )}
-                        {file.type && file.type.startsWith('image/') && file.download_url && (
-                          <button 
-                            className="file-action-button"
-                            onClick={() => handlePreviewAttachment(file)}
-                            title="Visualizar imagem"
-                          >
-                            <Eye size={16} />
-                          </button>
+                          <>
+                            <button 
+                              className="file-action-button"
+                              onClick={() => handlePreviewAttachment(file)}
+                              title="Visualizar anexo"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            <a 
+                              href={file.download_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="file-action-button"
+                              title="Baixar anexo"
+                            >
+                              <Download size={16} />
+                            </a>
+                          </>
                         )}
                         <button 
                           className="file-action-button"
@@ -1648,20 +1957,12 @@ const NovaPreviaView = () => {
                     </div>
                   ))}
 
+                  {/* Visualizador de anexos avançado */}
                   {previewImage && (
-                    <div className="modal-overlay" onClick={() => setPreviewImage(null)}>
-                      <div className="attachment-preview-modal" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                          <h3>{previewImage.name}</h3>
-                          <button className="close-button" onClick={() => setPreviewImage(null)}>
-                            <X size={20} />
-                          </button>
-                        </div>
-                        <div className="modal-body">
-                          <img src={previewImage.download_url} alt={previewImage.name} />
-                        </div>
-                      </div>
-                    </div>
+                    <AttachmentViewer
+                      attachment={previewImage}
+                      onClose={() => setPreviewImage(null)}
+                    />
                   )}
                 </div>
               )}
@@ -1673,16 +1974,85 @@ const NovaPreviaView = () => {
           
           {/* Footer com paginação e botões de ação */}
           <div className="form-footer">
-            <div className="pagination">
-              {[...Array(Math.max(3, previousConsultations.length))].map((_, index) => (
+            <div className="pagination-container flex items-center">
+              {/* Seta para esquerda (anterior) */}
+              {visibleButtonsStart > 0 && (
                 <button 
-                  key={index}
-                  className={`pagination-button ${currentPage === index + 1 ? 'active' : ''}`}
-                  onClick={() => handleLoadPreviousPage(index + 1)}
+                  className="pagination-nav-button mr-2"
+                  onClick={navigateButtonsPrev}
                 >
-                  Atendimento {index + 1}
+                  <ChevronLeft size={20} />
                 </button>
-              ))}
+              )}
+              
+              <div className="pagination flex overflow-hidden relative">
+                <AnimatePresence initial={false} mode="wait">
+                  <motion.div 
+                    key={visibleButtonsStart}
+                    className="flex"
+                    initial={{ x: 100, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: -100, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {/* Botão para novo atendimento (removido daqui, agora está junto com os outros botões) */}
+                    
+                    {/* Botões para atendimentos visíveis em ordem decrescente */}
+                    {[...previousConsultations]
+                      .slice(visibleButtonsStart, visibleButtonsStart + Math.min(3, previousConsultations.length))
+                      .map((consultation, index) => {
+                        // Obter o índice real do atendimento (em ordem crescente, onde 1 é o primeiro)
+                        const atendimentoNumero = index + visibleButtonsStart + 1;
+                        
+                        // Calcular o número invertido para exibição
+                        const numeroExibido = previousConsultations.length - atendimentoNumero + 1;
+                        
+                        // Adicionar botão "+ Novo" ao lado do primeiro botão
+                        if (index === 0 && visibleButtonsStart === 0) {
+                          return (
+                            <React.Fragment key={`fragment-${consultation.id}`}>
+                              <button 
+                                className={`pagination-button bg-green-100 hover:bg-green-200 border-green-300 text-green-800 flex items-center justify-center`}
+                                onClick={() => handleLoadPreviousPage(previousConsultations.length + 1)}
+                              >
+                                <PlusCircle size={14} className="mr-1" />
+                                Novo
+                              </button>
+                              <button 
+                                key={consultation.id}
+                                className={`pagination-button ${currentPage === atendimentoNumero ? 'active' : ''}`}
+                                onClick={() => handleLoadPreviousPage(atendimentoNumero)}
+                              >
+                                Atend. {numeroExibido}
+                              </button>
+                            </React.Fragment>
+                          );
+                        }
+                        
+                        return (
+                          <button 
+                            key={consultation.id}
+                            className={`pagination-button ${currentPage === atendimentoNumero ? 'active' : ''}`}
+                            onClick={() => handleLoadPreviousPage(atendimentoNumero)}
+                          >
+                            Atend. {numeroExibido}
+                          </button>
+                        );
+                      })
+                    }
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+              
+              {/* Seta para direita (próximo) */}
+              {visibleButtonsStart < Math.max(0, previousConsultations.length - 3) && (
+                <button 
+                  className="pagination-nav-button ml-2"
+                  onClick={navigateButtonsNext}
+                >
+                  <ChevronRight size={20} />
+                </button>
+              )}
             </div>
             
             <div className="button-group">
@@ -1707,6 +2077,69 @@ const NovaPreviaView = () => {
           </div>
         </div>
       )}
+
+      {/* CSS para elementos adicionados */}
+      <style jsx>{`
+        .pagination-container {
+          display: flex;
+          align-items: center;
+        }
+        
+        .pagination {
+          display: flex;
+          overflow: hidden;
+          width: auto;
+        }
+        
+        .pagination-button {
+          min-width: 72px;
+          margin: 0 4px;
+          margin-bottom: 25px
+        }
+        
+        .pagination-nav-button {
+          background-color: #f3f4f6;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        
+        .pagination-nav-button:hover {
+          background-color: #e5e7eb;
+        }
+        
+        .loading-spinner {
+          display: inline-block;
+          width: 18px;
+          height: 18px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-radius: 50%;
+          border-top-color: #fff;
+          animation: spin 1s ease-in-out infinite;
+          margin-right: 8px;
+        }
+        
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        
+        .zoom-indicator {
+          position: absolute;
+          top: 5px;
+          right: 5px;
+          padding: 4px 8px;
+          background-color: rgba(255, 255, 255, 0.8);
+          border-radius: 4px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          z-index: 5;
+        }
+      `}</style>
     </motion.div>
   );
 };

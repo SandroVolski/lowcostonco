@@ -1,5 +1,5 @@
 // services/previasService.js
-const API_URL = "https://api.lowcostonco.com.br/backend-php/api/previas";
+const API_URL = "https://api.lowcostonco.com.br/backend-php/api/Previas";
 
 export const previasService = {
   // Buscar prévias de um paciente
@@ -72,7 +72,7 @@ export const previasService = {
   updatePrevia: async (dadosPrevia) => {
     try {
       const response = await fetch(`${API_URL}/update_previa.php`, {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
