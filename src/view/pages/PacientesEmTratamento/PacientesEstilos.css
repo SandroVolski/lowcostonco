@@ -69,8 +69,8 @@
   
   /* Estilo para linha selecionada */
   .data-table tbody tr.selected {
-    background-color: #f26b6b !important;
-    color: #f1f1f1 !important;
+    background-color: rgba(198, 214, 81, 0.5) !important; /* Changed to softer green */
+    color: #35524a !important;
     font-weight: 500;
     position: relative;
   }
@@ -412,7 +412,7 @@
 }
 
 .data-table tbody tr.selected {
-  background-color: rgba(242, 107, 107, 0.8) !important;
+  /*background-color: rgba(242, 107, 107, 0.8) !important; COR DA LINHA*/ 
 
 }
 
@@ -580,13 +580,14 @@
 
 /* Estilos para a linha selecionada com opacidade ajustada */
 .data-table tbody tr.selected-row {
-  background-color: rgba(242, 107, 107, 0.8) !important;
+  background-color: rgba(198, 214, 81, 0.5) !important; /* Changed to softer green */
+  color: #35524a !important;
   position: relative;
 }
 
 .data-table tbody tr.selected-row td {
   font-weight: 500;
-  color: #f1f1f1 !important;
+  color: #35524a !important;
   color: #2d3748;
 }
 

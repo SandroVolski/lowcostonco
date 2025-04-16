@@ -8,6 +8,7 @@ import {
 import { showConfirmAlert, showSuccessAlert, showErrorAlert, showWarningAlert } from '../../../utils/CustomAlerts';
 import DataRefreshButton from '../../../components/DataRefreshButton';
 import PatientProtocoloCacheControl from '../../../components/PatientProtocoloCacheControl';
+import CIDSelection from '../../../components/pacientes/CIDSelection';
 import './PacientesEstilos.css';
 
 const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api/PacientesEmTratamento";
@@ -1391,14 +1392,29 @@ const CadastroProtocolo = () => {
             
             <div className="form-group flex-1 min-w-[250px]">
               <label htmlFor="cid" className="form-label">CID Associado</label>
-              <input 
-                type="text"
-                id="cid"
-                name="CID"
-                value={formData.CID || ''}
-                onChange={handleInputChange}
-                className="form-input"
-                placeholder="Pode ser mais de um, separados por vírgula"
+              <CIDSelection
+                value={formData.CID}
+                onChange={(selectedCIDs) => {
+                  // Handle single or multiple CIDs
+                  if (Array.isArray(selectedCIDs) && selectedCIDs.length > 0) {
+                    // If it's an array of objects with codigo property
+                    const cidValues = selectedCIDs.map(cid => 
+                      typeof cid === 'string' ? cid : cid.codigo
+                    ).join(',');
+                    
+                    setFormData(prev => ({
+                      ...prev,
+                      CID: cidValues
+                    }));
+                  } else if (selectedCIDs === null || selectedCIDs.length === 0) {
+                    // Clear the CID value
+                    setFormData(prev => ({
+                      ...prev,
+                      CID: ''
+                    }));
+                  }
+                }}
+                placeholder="Selecione um ou mais CIDs..."
               />
             </div>
           </div>

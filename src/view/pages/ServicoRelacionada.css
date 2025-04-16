@@ -198,6 +198,18 @@
   transition: all 0.3s ease;
 }
 
+/* Evitar hover em linhas selecionadas */
+.data-table tbody > tr.selected:hover,
+.data-table tbody > tr:hover[style*="background-color: rgba(198, 214, 81, 0.5)"] {
+  background-color: rgba(198, 214, 81, 0.5) !important;
+  color: #35524a !important;
+}
+
+/* Aplicar hover apenas em linhas não selecionadas */
+.data-table tbody > tr:not(.selected):not([style*="background-color: rgba(198, 214, 81, 0.5)"]):hover {
+  background-color: #E4E9C0 !important;
+}
+
 .pesquisa-icone:hover {
   transform: scale(1.1);
   color: #f26b6b;

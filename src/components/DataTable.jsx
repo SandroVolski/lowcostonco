@@ -124,7 +124,7 @@ const EditableCell = ({
         className="select-styled w-full p-1 border rounded"
         data-dropdown-type={dropdownType} // Adicionando atributo para identificar o tipo de dropdown
         style={{
-          color: '#f1f1f1', 
+          color: '#35524a', 
           zIndex: 1000,
           backgroundColor: '#f68484',
           border: '1px solid rgba(255, 255, 255, 0.5)',
@@ -132,7 +132,7 @@ const EditableCell = ({
           textAlign: 'left' // Garantir alinhamento à esquerda
         }}
       >
-        <option value="" style={{ color: '#333', textAlign: 'left', paddingLeft: '5px' }}>Selecione...</option>
+        <option value="" style={{ color: '#35524a', textAlign: 'left', paddingLeft: '5px' }}>Selecione...</option>
         {dropdownOptions?.map((option) => (
           <option 
             key={`${option.value}-${option.label}`} 
@@ -161,7 +161,7 @@ const EditableCell = ({
       className="w-full p-1 border rounded"
       style={{
         backgroundColor: '#f68484',
-        color: '#f1f1f1',
+        color: '#35524a',
         borderColor: 'rgba(255, 255, 255, 0.5)',
         textAlign: 'center'
       }}
@@ -742,7 +742,7 @@ export const DataTable = forwardRef(({
           startEditing('new-row', field, cellValue, isDropdownField, actualDropdownType);
         }}
       >
-        {displayValue || <span style={{color: '#f1f1f1'}}>Selecione...</span>}
+        {displayValue || <span style={{color: '#35524a'}}>Selecione...</span>}
         {isDropdownField && (
           <span style={{
             position: 'absolute',
@@ -766,7 +766,7 @@ export const DataTable = forwardRef(({
             
             {/* Exibir valor selecionado abaixo do select */}
             {newServiceData.PrincipioAtivo && (
-              <div className="text-xs mt-1" style={{color: '#f1f1f1'}}>
+              <div className="text-xs mt-1" style={{color: '#35524a'}}>
                 Selecionado: {newServiceData.PrincipioAtivo}
               </div>
             )}
@@ -787,7 +787,7 @@ export const DataTable = forwardRef(({
             
             {/* Exibir valor selecionado abaixo do select */}
             {newServiceData.UnidadeFracionamento && (
-              <div className="text-xs mt-1" style={{color: '#f1f1f1'}}>
+              <div className="text-xs mt-1" style={{color: '#35524a'}}>
                 Selecionado: {newServiceData.UnidadeFracionamentoDescricao || newServiceData.Descricao || newServiceData.UnidadeFracionamento}
               </div>
             )}
@@ -808,7 +808,7 @@ export const DataTable = forwardRef(({
             
             {/* Exibir valor selecionado abaixo do select */}
             {newServiceData.TaxaFinalidade && (
-              <div className="text-xs mt-1" style={{color: '#f1f1f1'}}>
+              <div className="text-xs mt-1" style={{color: '#35524a'}}>
                 Selecionado: {newServiceData.TaxaFinalidade}
               </div>
             )}
@@ -828,7 +828,7 @@ export const DataTable = forwardRef(({
             
             {/* Exibir valor selecionado abaixo do select com finalidade */}
             {newServiceData.tabela && (
-              <div className="text-xs mt-1" style={{color: '#f1f1f1'}}>
+              <div className="text-xs mt-1" style={{color: '#35524a'}}>
                 Selecionado: {newServiceData.finalidade 
                   ? `${newServiceData.tabela} + ${newServiceData.finalidade}` 
                   : newServiceData.tabela}
@@ -880,7 +880,7 @@ export const DataTable = forwardRef(({
           <div onClick={(e) => e.stopPropagation()}>
             {renderEditableAddCell(header, 'idViaAdministracao', 'ViaAdministracao')}
             {newServiceData.ViaAdministracao && (
-              <div className="text-xs text-gray-200 mt-1">
+              <div className="text-xs mt-1" style={{color:'#35524a'}}>
                 {newServiceData.ViaAdministracao}
               </div>
             )}
@@ -891,7 +891,7 @@ export const DataTable = forwardRef(({
           <div onClick={(e) => e.stopPropagation()}>
             {renderEditableAddCell(header, 'idClasseFarmaceutica', 'ClasseFarmaceutica')}
             {newServiceData.ClasseFarmaceutica && (
-              <div className="text-xs text-gray-200 mt-1">
+              <div className="text-xs mt-1" style={{ color:'#35524a'}}>
                 {newServiceData.ClasseFarmaceutica}
               </div>
             )}
@@ -902,7 +902,7 @@ export const DataTable = forwardRef(({
           <div onClick={(e) => e.stopPropagation()}>
             {renderEditableAddCell(header, 'idArmazenamento', 'Armazenamento')}
             {newServiceData.Armazenamento && (
-              <div className="text-xs text-gray-200 mt-1">
+              <div className="text-xs mt-1" style={{ color:'#35524a'}}>
                 {newServiceData.Armazenamento}
               </div>
             )}
@@ -919,7 +919,7 @@ export const DataTable = forwardRef(({
           <div onClick={(e) => e.stopPropagation()}>
             {renderEditableAddCell(header, 'idMedicamento', 'tipo_medicamento')}
             {newServiceData.tipo_medicamento && (
-              <div className="text-xs text-gray-200 mt-1">
+              <div className="text-xs mt-1" style={{ color:'#35524a'}}>
                 {newServiceData.tipo_medicamento}
               </div>
             )}
@@ -930,7 +930,7 @@ export const DataTable = forwardRef(({
           <div onClick={(e) => e.stopPropagation()}>
             {renderEditableAddCell(header, 'idFatorConversao', 'FatorConversao')}
             {newServiceData.Fator_Conversão && (
-              <div className="text-xs text-gray-200 mt-1">
+              <div className="text-xs mt-1" style={{ color:'#35524a'}}>
                 {newServiceData.Fator_Conversão}
               </div>
             )}
@@ -1010,7 +1010,7 @@ export const DataTable = forwardRef(({
                 onClick={(e) => e.stopPropagation()}
                 className="text-right py-1"
               >
-                <span className="text-xs text-gray-200">Auto</span>
+                <span className="text-xs" style={{ color:'#35524a'}}>Auto</span>
               </div>
             )}
           </>
@@ -1242,7 +1242,7 @@ export const DataTable = forwardRef(({
                           'UnidadeFracionamento'
                         )}
                         {editedData.Unidade_Fracionamento && !expandedHeaders.has(header) && (
-                          <div className="text-xs text-gray-200 mt-1">
+                          <div className="text-xs mt-1" style={{ color:'#35524a'}}>
                             Modificado: {editedData.UnidadeFracionamentoDescricao || editedData.Unidade_Fracionamento}
                           </div>
                         )}
@@ -1260,7 +1260,7 @@ export const DataTable = forwardRef(({
                           'Taxas'
                         )}
                         {editedData.finalidade && !expandedHeaders.has(header) && (
-                          <div className="text-xs text-gray-200 mt-1">
+                          <div className="text-xs mt-1" style={{ color:'#35524a'}}>
                             Modificado: {editedData.finalidade}
                           </div>
                         )}
@@ -1278,7 +1278,7 @@ export const DataTable = forwardRef(({
                           'Tabela'
                         )}
                         {editedData.tabela && !expandedHeaders.has(header) && (
-                          <div className="text-xs text-gray-200 mt-1">
+                          <div className="text-xs mt-1" style={{ color:'#35524a'}}>
                             Modificado: {editedData.tabela}
                           </div>
                         )}
@@ -1427,7 +1427,7 @@ export const DataTable = forwardRef(({
                         'ViaAdministracao'
                       )}
                       {editedData.Via_Administração && (
-                        <div className="text-xs text-gray-200 mt-1">
+                        <div className="text-xs mt-1" style={{ color:'#35524a'}}>
                           {editedData.Via_Administração}
                         </div>
                       )}
@@ -1445,7 +1445,7 @@ export const DataTable = forwardRef(({
                         'ClasseFarmaceutica'
                       )}
                       {editedData.Classe_Farmaceutica && (
-                        <div className="text-xs text-gray-200 mt-1">
+                        <div className="text-xs mt-1" style={{ color:'#35524a'}}>
                           {editedData.Classe_Farmaceutica}
                         </div>
                       )}
@@ -1596,10 +1596,10 @@ export const DataTable = forwardRef(({
               <tr
                 key={row.id}
                 onClick={(e) => handleRowClick(rowId, e)}
-                className={`cursor-pointer-aqui ${isSelected ? '' : 'hover:bg-gray-300'}`}
+                className={`cursor-pointer-aqui ${isSelected ? 'selected' : ''}`}
                 style={{
-                  backgroundColor: isSelected ? '#f26b6b' : undefined,
-                  color: isSelected ? '#f1f1f1' : undefined
+                  backgroundColor: isSelected ? 'rgba(198, 214, 81, 0.5)' : undefined,
+                  color: isSelected ? '#35524a' : undefined
                 }}
               >
                 {row.getVisibleCells()

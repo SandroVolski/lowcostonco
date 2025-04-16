@@ -5,6 +5,7 @@ import { AnimatePresence } from "framer-motion";
 import Home from "./view/pages/Home";
 import ServicoRelacionada from "./view/pages/ServicoRelacionada";
 import PacientesEmTratamento from "./view/pages/PacientesEmTratamento";
+import Empresas from './view/pages/Empresas';
 import Login from "./view/pages/Login";
 
 import { ToastProvider } from "./components/ui/Toast";
@@ -47,6 +48,9 @@ function App() {
                       path="/Calculadora"
                       element={<Navigate to="/PacientesEmTratamento?tab=calculadora" replace />} 
                     />
+                  </Route>
+                  <Route element={<ProtectedRoute />}>
+                    <Route path="/Empresas" element={<Empresas />} />
                   </Route>
                   <Route path="*" element={<Navigate to="/login" replace />} />
                 </Routes>

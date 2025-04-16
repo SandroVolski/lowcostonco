@@ -543,8 +543,8 @@
 .data-table tr.adding-row {
   position: relative;
   z-index: 5; /* Acima das outras linhas */
-  background-color: #f26b6b !important;
-  border: 2px solid #f7c59f !important;
+  background-color: rgba(198, 214, 81, 0.5) !important;
+  
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); /* Sombra suave para elevação */
   transform: translateY(-1px); /* Ligeira elevação visual */
   opacity: 1 !important; /* Garantir visibilidade total */
@@ -765,7 +765,7 @@ input:-moz-placeholder {
 }
 
 .data-table input{
-  background-color: #f26b6b !important;
+  background-color: rgba(198, 214, 81, 0.5) !important;
 }
 
 /* Remover gradiente em hover */
@@ -839,12 +839,12 @@ input:-moz-placeholder {
   position: relative;
   z-index: 50;
   color: #333 !important; /* Texto escuro para contraste */
-  background-color: #f68484 !important;
+  background-color: rgba(198, 214, 81, 0.5) !important;
 }
 
 /* 4. Fundo para campos preenchidos automaticamente */
 .auto-filled-field {
-  background-color: #f68484 !important;
+  background-color: rgba(198, 214, 81, 0.5) !important;
   color: #f1f1f1 !important;
   border-color: rgba(255, 255, 255, 0.3) !important;
 }
@@ -907,7 +907,7 @@ select:hover {
 
 .editable-cell select,
 .editable-cell-trigger {
-  background-color: #f68484 !important; /* Fundo consistente */
+  background-color: rgba(198, 214, 81, 0.5) !important;
   border: 1px solid rgba(255, 255, 255, 0.5) !important; /* Borda visível sempre */
   border-radius: 4px !important;
   min-height: 28px !important;
@@ -971,6 +971,7 @@ select option {
   height: 28px !important; /* Altura consistente */
   box-sizing: border-box !important;
   vertical-align: middle !important;
+  color: #35524a !important;
 }
 
 /* 8. Garantir melhor visibilidade para selects em diferentes estados */
@@ -979,9 +980,10 @@ select option {
   appearance: menulist !important;
   -webkit-appearance: menulist !important;
   -moz-appearance: menulist !important;
-  background-color: #f68484 !important;
-  color: #f1f1f1 !important;
+  background-color: rgba(198, 214, 81, 0.5) !important;
+  color: #35524a !important;
 }
+
 
 
 

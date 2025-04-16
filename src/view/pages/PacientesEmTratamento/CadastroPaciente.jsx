@@ -5,6 +5,7 @@ import { showConfirmAlert, showSuccessAlert, showErrorAlert, showWarningAlert } 
 import DataRefreshButton from '../../../components/DataRefreshButton';
 import PrestadorSearch from '../../../components/pacientes/PrestadorSearch';
 import PatientProtocoloCacheControl from '../../../components/PatientProtocoloCacheControl';
+import CIDSelection from '../../../components/pacientes/CIDSelection';
 import './PacientesEstilos.css';
 
 const CadastroPaciente = () => {
@@ -973,13 +974,29 @@ const CadastroPaciente = () => {
             
             <div className="form-group flex-1 min-w-[250px]">
               <label htmlFor="cid" className="form-label">CID</label>
-              <input 
-                type="text"
-                id="cid"
-                name="CID"
+              <CIDSelection
                 value={formData.CID}
-                onChange={handleInputChange}
-                className="form-input"
+                onChange={(selectedCIDs) => {
+                  // Handle single or multiple CIDs
+                  if (Array.isArray(selectedCIDs) && selectedCIDs.length > 0) {
+                    // If it's an array of objects with codigo property
+                    const cidValues = selectedCIDs.map(cid => 
+                      typeof cid === 'string' ? cid : cid.codigo
+                    ).join(',');
+                    
+                    setFormData(prev => ({
+                      ...prev,
+                      CID: cidValues
+                    }));
+                  } else if (selectedCIDs === null || selectedCIDs.length === 0) {
+                    // Clear the CID value
+                    setFormData(prev => ({
+                      ...prev,
+                      CID: ''
+                    }));
+                  }
+                }}
+                placeholder="Selecione o CID..."
               />
             </div>
           </div>

@@ -68,7 +68,7 @@ export function Sidebar() {
         { icon: Calculator, label: "Calculadora", path: "/PacientesEmTratamento?tab=calculadora" }
       ]
     },
-    { icon: Database, label: "Empresas", path: "#" },
+    { icon: Database, label: "Empresas", path: "/Empresas" },
   ];
 
   const bottomItems = [

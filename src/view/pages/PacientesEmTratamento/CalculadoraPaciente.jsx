@@ -245,7 +245,7 @@ const CalculadoraPaciente = () => {
           setLimiteSuperior(superiorMgKg.toFixed(2));
           setDentroFaixa(dentroFaixaMgKg);
           
-          // Calcular mg/kg apenas para referência
+          // Calcular mg/kg com o resultado do cálculo, não apenas o valor do protocolo
           setMgKgResult(doseProtocoloNum.toFixed(2));
           break;
         
