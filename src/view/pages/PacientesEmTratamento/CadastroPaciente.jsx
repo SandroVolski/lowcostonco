@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePatient } from '../../../context/PatientContext';
-import { Plus, Edit, Trash2, Search, X, Save, ArrowUpWideNarrow, ArrowDownWideNarrow, Database, ChevronDown, Calendar } from 'lucide-react';
+import { 
+  Plus, Edit, Trash2, Search, X, Save, 
+  ArrowUpWideNarrow, ArrowDownWideNarrow, Database, 
+  ChevronDown, Calendar, Grid, List, Filter, User,
+  Activity, Bookmark, Clock, Users, Info, SlidersHorizontal
+} from 'lucide-react';
 import { showConfirmAlert, showSuccessAlert, showErrorAlert, showWarningAlert } from '../../../utils/CustomAlerts';
 import DataRefreshButton from '../../../components/DataRefreshButton';
 import PrestadorSearch from '../../../components/pacientes/PrestadorSearch';
@@ -44,7 +49,8 @@ const CadastroPaciente = () => {
   const [sortOrder, setSortOrder] = useState("asc");
   const [sortField, setSortField] = useState("Nome");
   const [searchType, setSearchType] = useState("nome");
-  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' ou 'list'
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   
   // Novos estados para cache
   const [showCacheControl, setShowCacheControl] = useState(false);
@@ -337,7 +343,7 @@ const CadastroPaciente = () => {
   
   // Submissão de formulário - Versão com cache
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     
     // Formatar datas para o formato que a API espera
     const formattedData = formatDatesForApi(formData);
@@ -382,11 +388,7 @@ const CadastroPaciente = () => {
   };
   
   // Funções para alternância da ordenação
-  const handleSortChange = (e) => {
-    setSortOrder(e.target.value);
-  };
-  
-  const handleSort = (field) => {
+  const handleSortChange = (field) => {
     // Se o campo já está selecionado, inverte a direção
     if (field === sortField) {
       setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -397,17 +399,13 @@ const CadastroPaciente = () => {
     }
   };
   
-  const handleResetSort = () => {
-    setSortField('Nome');
-    setSortOrder('asc');
-  };
-  
   // Handler para adicionar
   const handleAdd = () => {
     resetForm();
     setIsAdding(true);
     setIsEditing(false);
     setSelectedRows(new Set());
+    selectPatient(null);
     
     // Se o cache estiver habilitado, marcar para revalidação
     if (isCacheEnabled) {
@@ -447,6 +445,7 @@ const CadastroPaciente = () => {
     
     setIsEditing(true);
     setIsAdding(false);
+    setIsDetailsOpen(false);
   };
   
   // Handler para deletar - Versão com cache
@@ -473,6 +472,7 @@ const CadastroPaciente = () => {
         await deletePatient(selectedPatient.id);
         showSuccessAlert("Paciente excluído com sucesso!");
         setSelectedRows(new Set());
+        selectPatient(null);
         
         // Usar a função de atualização que lida com o cache
         await refreshDataAfterModification();
@@ -502,24 +502,23 @@ const CadastroPaciente = () => {
     resetForm();
   };
   
-  // Aliases para simplificar
-  const handleCancelAdd = () => handleCancel();
-  const handleSaveNew = () => handleSubmit(new Event('submit'));
-  const handleSave = () => handleSubmit(new Event('submit'));
-  
-  // Handler para seleção de linha
-  const handleRowClick = (patientId) => {
-    if (isEditing || isAdding) return; // Não permite selecionar durante a edição/adição
-    
-    // Se clicar na linha já selecionada, desselecioná-la
-    if (selectedRows.has(patientId) && selectedPatient?.id === patientId) {
-      setSelectedRows(new Set()); // Limpa o conjunto de linhas selecionadas
-      selectPatient(null); // Importante: limpa a seleção no contexto
+  // Handler para seleção de paciente
+  const handleSelectPatient = (patientId) => {
+    // Se clicar no mesmo paciente, desselecioná-lo
+    if (selectedPatient && selectedPatient.id === patientId) {
+      setSelectedRows(new Set());
+      selectPatient(null);
+      setIsDetailsOpen(false);
     } else {
-      // Caso contrário, selecionar a linha
       setSelectedRows(new Set([patientId]));
       selectPatient(patientId);
     }
+  };
+  
+  // Handler para mostrar detalhes do paciente
+  const showPatientDetails = (patientId) => {
+    selectPatient(patientId);
+    setIsDetailsOpen(true);
   };
   
   // Handler para pesquisa
@@ -577,615 +576,616 @@ const CadastroPaciente = () => {
       setLocalLoading(false);
     }
   };
-  
-  return (
-    <div className="patient-container">
-      <div className="mb-6 flex justify-between items-center encimatabela">
-        {/* Área de ordenação */}
-        <div className="organize-container">
-          <h2 className="organize-text">Ordenação</h2>
-          <div className="custom-select">
-            <select 
-              className="select-style" 
-              value={sortOrder} 
-              onChange={handleSortChange}
-            >
-              <option value="asc">Crescente</option>
-              <option value="desc">Decrescente</option>
-            </select>
+
+  // Componente de Card para cada paciente
+  const PatientCard = ({ patient }) => {
+    const isSelected = selectedPatient && selectedPatient.id === patient.id;
+    
+    const getGenderIcon = (gender) => {
+      if (gender === 'M') return <div className="gender-icon male"><User size={14} /></div>;
+      if (gender === 'F') return <div className="gender-icon female"><User size={14} /></div>;
+      return null;
+    };
+    
+    return (
+      <div 
+        className={`patient-card ${isSelected ? 'selected' : ''}`}
+        onClick={() => handleSelectPatient(patient.id)}
+      >
+        <div className="card-header">
+          <div className="patient-code">{patient.Paciente_Codigo}</div>
+          {getGenderIcon(patient.Sexo)}
+        </div>
+        
+        <div className="patient-name">{patient.Nome}</div>
+        
+        <div className="patient-info">
+          <div className="info-row">
+            <Calendar size={14} />
+            <span>{patient.Nascimento} {patient.Idade ? `(${patient.Idade} anos)` : ''}</span>
+          </div>
+          <div className="info-row">
+            <Activity size={14} />
+            <span>CID: {patient.CID}</span>
+          </div>
+          <div className="info-row">
+            <Bookmark size={14} />
+            <span>{patient.Operadora}</span>
+          </div>
+          <div className="info-row">
+            <Clock size={14} />
+            <span>Início: {patient.Data_Inicio_Tratamento || 'N/D'}</span>
           </div>
         </div>
         
-        {/* Mostrar informação sobre ordenação atual */}
-        {sortField !== 'Nome' && (
-          <div className="px-3 py-1 rounded-md flex items-center ordenacao" style={{color: '#575654', background: '#E4E9C0'}}>
-            <span className="text-sm">
-              Ordenado por: <strong style={{color: '#f26b6b'}} >{sortField}</strong> ({sortOrder === 'asc' ? 'crescente' : 'decrescente'})
-            </span>
-            <button 
-              className="ml-2 text-blue-600 hover:text-blue-800" 
-              onClick={handleResetSort}
-              title="Resetar ordenação"
-            >
-              <X size={16} />
+        <div className="card-actions">
+          <button 
+            className="action-button-pacientes info"
+            onClick={(e) => { e.stopPropagation(); showPatientDetails(patient.id); }}
+            title="Ver detalhes"
+          >
+            <Info size={16} />
+          </button>
+          <button 
+            className="action-button-pacientes edit"
+            onClick={(e) => { e.stopPropagation(); selectPatient(patient.id); handleEdit(); }}
+            title="Editar paciente"
+          >
+            <Edit size={16} />
+          </button>
+        </div>
+      </div>
+    );
+  };
+  
+  // Componente de linha para visão de lista (atualizado com todos os campos)
+  const PatientListItem = ({ patient }) => {
+    const isSelected = selectedPatient && selectedPatient.id === patient.id;
+    
+    return (
+      <div 
+        className={`patient-list-item ${isSelected ? 'selected' : ''}`}
+        onClick={() => handleSelectPatient(patient.id)}
+      >
+        <div className="list-item-code">{patient.Paciente_Codigo}</div>
+        <div className="list-item-name">{patient.Nome}</div>
+        <div className="list-item-prestador">{patient.Prestador_Nome_Fantasia || patient.Prestador || 'N/D'}</div>
+        <div className="list-item-gender">{patient.Sexo}</div>
+        <div className="list-item-birthday">{patient.Nascimento}</div>
+        <div className="list-item-age">{patient.Idade || 'N/D'}</div>
+        <div className="list-item-provider">{patient.Operadora}</div>
+        <div className="list-item-first-request">{patient.Data_Inicio_Tratamento || 'N/D'}</div>
+        <div className="list-item-cid">{patient.CID}</div>
+        
+        <div className="list-item-actions">
+          <button 
+            className="action-button-pacientes info"
+            onClick={(e) => { e.stopPropagation(); showPatientDetails(patient.id); }}
+            title="Ver detalhes"
+          >
+            <Info size={16} />
+          </button>
+          <button 
+            className="action-button-pacientes edit"
+            onClick={(e) => { e.stopPropagation(); selectPatient(patient.id); handleEdit(); }}
+            title="Editar paciente"
+          >
+            <Edit size={16} />
+          </button>
+        </div>
+      </div>
+    );
+  };
+  
+  // Modal de detalhes do paciente
+  const PatientDetails = () => {
+    if (!selectedPatient || !isDetailsOpen) return null;
+    
+    const currentPatient = filteredPatients.find(p => p.id === selectedPatient.id) || selectedPatient;
+    
+    return (
+      <div className="modal-overlay" onClick={() => setIsDetailsOpen(false)}>
+        <div className="patient-details-modal" onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <h2>Detalhes do Paciente</h2>
+            <button className="close-button" onClick={() => setIsDetailsOpen(false)}>
+              <X size={20} />
             </button>
           </div>
-        )}
-        
-        <div className="flex items-center gap-4">
-          {/* Área de pesquisa */}
-          <div className="flex flex-col">
-            <div className="search-container">
-              <div className="search-bar">
-                <button
-                  onClick={executeSearch}
-                  className={`pesquisa-icone ${searchTerm ? 'search-icon-blinking' : ''}`}
-                  title="Clique para pesquisar"
-                >
-                  <Search size={18} />
-                </button>
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder={`Pesquisar por ${getSearchTypeName(searchType)}...`}
-                  className="border pesquisa"
-                  defaultValue={searchTerm}
-                  onInput={handleInput}
-                  onKeyDown={handleKeyDown}
-                />
-                {searchTerm && (
-                  <button 
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    onClick={handleClearSearch}
-                    title="Limpar pesquisa"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
+          
+          <div className="details-content">
+            <div className="patient-avatar">
+              <div className="avatar-placeholder">
+                <User size={48} />
               </div>
-              
-              {/* Botão para expandir/recolher opções de pesquisa */}
-              <button 
-                onClick={() => setIsSearchExpanded(!isSearchExpanded)} 
-                className="text-xs text-gray-600 mt-1 ml-2 hover:text-green-700 flex items-center"
-              >
-                <span>{isSearchExpanded ? 'Ocultar opções' : 'Opções de busca'}</span>
-                <ChevronDown size={14} className={`ml-1 transform transition-transform ${isSearchExpanded ? 'rotate-180' : ''}`} />
-              </button>
-              
-              {/* Seletor do tipo de pesquisa - mostrar apenas quando expandido */}
-              {isSearchExpanded && (
-              <div className="search-type-selector mt-2 flex items-center">
-                <div className="text-xs mr-2 text-gray-600">Buscar por:</div>
-                <div className="flex flex-wrap space-x-3">
-                  <label className={`cursor-pointer flex items-center ${searchType === 'nome' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
-                    <input
-                      type="radio"
-                      name="searchType"
-                      value="nome"
-                      checked={searchType === 'nome'}
-                      onChange={() => handleSearchTypeChange('nome')}
-                      className="mr-1 h-3 w-3"
-                    />
-                    <span className="text-xs">Nome</span>
-                  </label>
-                  
-                  <label className={`cursor-pointer flex items-center ${searchType === 'codigo' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
-                    <input
-                      type="radio"
-                      name="searchType"
-                      value="codigo"
-                      checked={searchType === 'codigo'}
-                      onChange={() => handleSearchTypeChange('codigo')}
-                      className="mr-1 h-3 w-3"
-                    />
-                    <span className="text-xs">Código</span>
-                  </label>
-                  
-                  <label className={`cursor-pointer flex items-center ${searchType === 'cid' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
-                    <input
-                      type="radio"
-                      name="searchType"
-                      value="cid"
-                      checked={searchType === 'cid'}
-                      onChange={() => handleSearchTypeChange('cid')}
-                      className="mr-1 h-3 w-3"
-                    />
-                    <span className="text-xs">CID</span>
-                  </label>
-                </div>
-              </div>
-            )}
+              <h3>{currentPatient.Nome}</h3>
+              <div className="patient-id">{currentPatient.Paciente_Codigo}</div>
             </div>
             
-            {/* Indicador de resultados da pesquisa */}
-            {searchTerm && (
-              <div className="text-xs text-gray-600 mt-1 ml-2 pesquisatinha">
-                {filteredPatients.length === 0 ? (
-                  <span className="text-red-500">Nenhum resultado encontrado. Tente refinar sua busca.</span>
-                ) : (
-                  <span>
-                    {`${filteredPatients.length} resultados encontrados para "${searchTerm}"`}
-                    <span className="search-type-badge search-type-${searchType}">
-                      {getSearchTypeName(searchType)}
-                    </span>
-                  </span>
-                )}
+            <div className="details-grid">
+              <div className="detail-group">
+                <div className="detail-label">Operadora</div>
+                <div className="detail-value">{currentPatient.Operadora}</div>
               </div>
-            )}
-          </div>
-          
-          {/* Controles de cache 
-          <div className="flex items-center gap-3 mr-4">*/}
-            {/* Botão de controle de cache 
-            <button
-              onClick={() => setShowCacheControl(true)}
-              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center"
-              title="Gerenciar Cache"
-            >
-              <Database size={16} className="text-gray-600 mr-1" />
-              <span className="text-xs text-gray-600">Cache</span>
-            </button>*/}
-            
-            {/* Indicador de fonte de dados
-            {dataSource && (
-              <div className="text-xs px-2 py-1 rounded-full bg-gray-50 text-gray-500">
-                Fonte: <span className={dataSource === 'cache' ? 'text-green-600' : 'text-blue-600'}>
-                  {dataSource === 'cache' ? 'Cache' : 'Servidor'}
-                </span>
+              
+              <div className="detail-group">
+                <div className="detail-label">Prestador</div>
+                <div className="detail-value">{currentPatient.Prestador_Nome_Fantasia || currentPatient.Prestador || 'N/D'}</div>
               </div>
-            )}*/}
+              
+              <div className="detail-group">
+                <div className="detail-label">Sexo</div>
+                <div className="detail-value">{currentPatient.Sexo === 'M' ? 'Masculino' : 'Feminino'}</div>
+              </div>
+              
+              <div className="detail-group">
+                <div className="detail-label">Data de Nascimento</div>
+                <div className="detail-value">{currentPatient.Nascimento}</div>
+              </div>
+              
+              <div className="detail-group">
+                <div className="detail-label">Idade</div>
+                <div className="detail-value">{currentPatient.Idade ? `${currentPatient.Idade} anos` : 'N/D'}</div>
+              </div>
+              
+              <div className="detail-group">
+                <div className="detail-label">CID</div>
+                <div className="detail-value">{currentPatient.CID}</div>
+              </div>
+              
+              <div className="detail-group">
+                <div className="detail-label">Data da Primeira Solicitação</div>
+                <div className="detail-value">{currentPatient.Data_Inicio_Tratamento || 'N/D'}</div>
+              </div>
+              
+              <div className="detail-group">
+                <div className="detail-label">ID Interno</div>
+                <div className="detail-value">{currentPatient.id}</div>
+              </div>
+            </div>
             
-            {/* Botão de atualização de dados 
-            <DataRefreshButton />
-          </div>*/}
-          
-          {/* Botões de ação (Adicionar, Editar, Excluir) */}
-          <div className="button-container">
-            {selectedRows.size > 0 ? (
-              <>
-                {isEditing ? (
-                  <button 
-                    className="btn btn-danger" 
-                    onClick={handleCancel}
-                    disabled={localLoading}
-                  >
-                    Cancelar
-                  </button>
-                ) : (
-                  <button 
-                    className="btn btn-danger" 
-                    onClick={handleDelete}
-                    disabled={localLoading}
-                  >
-                    <Trash2 className="w-5 h-5" /> Excluir
-                  </button>
-                )}
-                {isEditing ? (
-                  <button 
-                    className="btn btn-success" 
-                    onClick={handleSave}
-                    disabled={localLoading}
-                  >
-                    {localLoading ? 'Salvando...' : 'Salvar'}
-                  </button>
-                ) : (
-                  <button 
-                    className="btn btn-warning" 
-                    onClick={handleEdit}
-                    disabled={localLoading}
-                  >
-                    <Edit className="w-5 h-5" /> Alterar
-                  </button>
-                )}
-              </>
-            ) : (
-              isAdding ? (
-                <>
-                  <button 
-                    className="btn btn-danger" 
-                    onClick={handleCancelAdd}
-                    disabled={localLoading}
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    className="btn btn-success" 
-                    onClick={handleSaveNew}
-                    disabled={localLoading}
-                  >
-                    {localLoading ? (
-                      <>
-                        <span className="animate-spin mr-2 h-4 w-4 border-b-2 border-white rounded-full"></span>
-                        Salvando...
-                      </>
-                    ) : 'Salvar'}
-                  </button>
-                </>
-              ) : (
-                <button 
-                  className="button buttontxt btn-primary" 
-                  onClick={handleAdd}
-                  disabled={localLoading}
-                >
-                  <Plus /> Adicionar
-                </button>
-              )
-            )}
+            <div className="details-actions">
+              <button 
+                className="edit-button"
+                onClick={() => { setIsDetailsOpen(false); handleEdit(); }}
+              >
+                <Edit size={16} /> Editar
+              </button>
+              <button 
+                className="delete-button"
+                onClick={() => { setIsDetailsOpen(false); handleDelete(); }}
+              >
+                <Trash2 size={16} /> Excluir
+              </button>
+            </div>
           </div>
         </div>
       </div>
-      
-      {/* Formulário de edição/adição SIMPLIFICADO */}
-      {(isAdding || isEditing) && (
-        <form onSubmit={handleSubmit} className="patient-form bg-white p-4 rounded-lg mb-4">
-          <div className="form-row flex flex-wrap gap-4 mb-4">
-            <div className="form-group flex-1 min-w-[250px]">
-              <label htmlFor="operadora" className="form-label">Operadora</label>
-              <select 
-                id="operadora"
-                name="Operadora"
-                value={formData.Operadora}
-                onChange={handleInputChange}
-                className="form-select"
-                required
-              >
-                <option value="">Selecione uma operadora</option>
-                {operadoras.map(op => (
-                  <option key={op.id} value={op.nome}>{op.nome}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="form-group flex-1 min-w-[250px]">
-              <label htmlFor="prestador" className="form-label flex justify-between">
-                <span>Prestador</span>
-                {prestadores.length > 0 && (
+    );
+  };
+  
+  // Renderização do formulário de adição/edição
+  const renderPatientForm = () => {
+    if (!isAdding && !isEditing) return null;
+    
+    return (
+      <div className="modal-overlay" onClick={handleCancel}>
+        <div className="patient-form-modal" onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <h2>{isEditing ? 'Editar Paciente' : 'Adicionar Paciente'}</h2>
+            <button className="close-button" onClick={handleCancel}>
+              <X size={20} />
+            </button>
+          </div>
+          
+          <div className="form-container">
+            <div className="form-grid">
+              <div className="form-group">
+                <label htmlFor="operadora">Operadora</label>
+                <select
+                  id="operadora"
+                  name="Operadora"
+                  value={formData.Operadora}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="">Selecione uma operadora</option>
+                  {operadoras.map(op => (
+                    <option key={op.id} value={op.nome}>{op.nome}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="form-group prestador-container">
+                <label htmlFor="prestador">Prestador</label>
+                <div className="prestador-wrapper">
+                  <PrestadorSearch 
+                    prestadores={prestadores}
+                    selectedPrestador={formData.Prestador}
+                    onSelect={handlePrestadorSelect}
+                    required={true}
+                  />
+                </div>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="codigo">Código do Paciente</label>
+                <input
+                  type="text"
+                  id="codigo"
+                  name="Paciente_Codigo"
+                  value={formData.Paciente_Codigo}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="nome">Nome do Paciente</label>
+                <input
+                  type="text"
+                  id="nome"
+                  name="Nome"
+                  value={formData.Nome}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="sexo">Sexo</label>
+                <select
+                  id="sexo"
+                  name="Sexo"
+                  value={formData.Sexo}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="">Selecione</option>
+                  <option value="F">Feminino</option>
+                  <option value="M">Masculino</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="dataNascimento">Data de Nascimento</label>
+                <div className="date-input-container">
+                  <input 
+                    type="text"
+                    id="dataNascimentoText"
+                    value={nascimentoText}
+                    onChange={(e) => setNascimentoText(e.target.value)}
+                    onPaste={(e) => handleDatePaste(e, setNascimentoText)}
+                    placeholder="DD/MM/AAAA"
+                    className="date-input"
+                  />
+                  <input 
+                    type="date"
+                    id="dataNascimento"
+                    name="Nascimento"
+                    value={formData.Nascimento}
+                    onChange={(e) => {
+                      // Atualiza o formData
+                      handleInputChange(e);
+                      // Atualiza também o campo de texto visível com o formato DD/MM/YYYY
+                      const dateValue = e.target.value; // Formato YYYY-MM-DD
+                      if (dateValue) {
+                        const [year, month, day] = dateValue.split('-');
+                        setNascimentoText(`${day}/${month}/${year}`);
+                      } else {
+                        setNascimentoText('');
+                      }
+                    }}
+                    className="date-input-hidden"
+                  />
                   <button 
-                    type="button" 
-                    onClick={handleRefreshPrestadores}
-                    className="text-xs text-blue-500 hover:text-blue-700"
-                    title="Atualizar lista de prestadores"
+                    type="button"
+                    className="date-picker-button"
+                    onClick={() => document.getElementById('dataNascimento').showPicker()}
                   >
-                    Atualizar lista
+                    <Calendar size={18} />
                   </button>
+                </div>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="dataInicioTratamento">Data da Primeira Solicitação</label>
+                <div className="date-input-container">
+                  <input 
+                    type="text"
+                    id="dataInicioTratamentoText"
+                    value={dataInicioText}
+                    onChange={(e) => setDataInicioText(e.target.value)}
+                    onPaste={(e) => handleDatePaste(e, setDataInicioText)}
+                    placeholder="DD/MM/AAAA"
+                    className="date-input"
+                  />
+                  <input 
+                    type="date"
+                    id="dataInicioTratamento"
+                    name="Data_Inicio_Tratamento"
+                    value={formData.Data_Inicio_Tratamento}
+                    onChange={(e) => {
+                      // Atualiza o formData
+                      handleInputChange(e);
+                      // Atualiza também o campo de texto visível
+                      const dateValue = e.target.value;
+                      if (dateValue) {
+                        const [year, month, day] = dateValue.split('-');
+                        setDataInicioText(`${day}/${month}/${year}`);
+                      } else {
+                        setDataInicioText('');
+                      }
+                    }}
+                    className="date-input-hidden"
+                  />
+                  <button 
+                    type="button"
+                    className="date-picker-button"
+                    onClick={() => document.getElementById('dataInicioTratamento').showPicker()}
+                  >
+                    <Calendar size={18} />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="cid">CID</label>
+                <CIDSelection
+                  value={formData.CID}
+                  onChange={(selectedCIDs) => {
+                    // Handle single or multiple CIDs
+                    if (Array.isArray(selectedCIDs) && selectedCIDs.length > 0) {
+                      // If it's an array of objects with codigo property
+                      const cidValues = selectedCIDs.map(cid => 
+                        typeof cid === 'string' ? cid : cid.codigo
+                      ).join(',');
+                      
+                      setFormData(prev => ({
+                        ...prev,
+                        CID: cidValues
+                      }));
+                    } else if (selectedCIDs === null || selectedCIDs.length === 0) {
+                      // Clear the CID value
+                      setFormData(prev => ({
+                        ...prev,
+                        CID: ''
+                      }));
+                    }
+                  }}
+                  placeholder="Selecione o CID..."
+                />
+              </div>
+            </div>
+            
+            <div className="form-actions">
+              <button type="button" className="cancel-button" onClick={handleCancel}>
+                Cancelar
+              </button>
+              <button 
+                type="button" 
+                className="save-button" 
+                onClick={handleSubmit}
+                disabled={localLoading}
+              >
+                {localLoading ? (
+                  <>
+                    <span className="spinner-small"></span>
+                    {isEditing ? 'Atualizando...' : 'Salvando...'}
+                  </>
+                ) : (
+                  isEditing ? 'Atualizar' : 'Salvar'
                 )}
-              </label>
-              {/* Novo componente de pesquisa de prestadores */}
-              <PrestadorSearch 
-                prestadores={prestadores}
-                selectedPrestador={formData.Prestador}
-                onSelect={handlePrestadorSelect}
-                required={true}
-              />
-            </div>
-            
-            <div className="form-group flex-1 min-w-[250px]">
-              <label htmlFor="codigoPaciente" className="form-label">Código do Paciente</label>
-              <input 
-                type="text"
-                id="codigoPaciente"
-                name="Paciente_Codigo"
-                value={formData.Paciente_Codigo}
-                onChange={handleInputChange}
-                className="form-input"
-                required
-              />
-            </div>
-          </div>
-          
-          <div className="form-row flex flex-wrap gap-4 mb-4">
-            <div className="form-group flex-1 min-w-[250px]">
-              <label htmlFor="nomePaciente" className="form-label">Nome do Paciente</label>
-              <input 
-                type="text"
-                id="nomePaciente"
-                name="Nome"
-                value={formData.Nome}
-                onChange={handleInputChange}
-                className="form-input"
-                required
-              />
-            </div>
-            
-            <div className="form-group flex-1 min-w-[250px]">
-              <label htmlFor="sexo" className="form-label">Sexo</label>
-              <select 
-                id="sexo"
-                name="Sexo"
-                value={formData.Sexo}
-                onChange={handleInputChange}
-                className="form-select"
-                required
-              >
-                <option value="">Selecione</option>
-                <option value="F">Feminino</option>
-                <option value="M">Masculino</option>
-              </select>
-            </div>
-            
-            <div className="form-group flex-1 min-w-[250px]">
-              <label htmlFor="dataNascimento" className="form-label">Data de Nascimento</label>
-              <div className="relative flex">
-                {/* Campo de texto para permitir colar */}
-                <input 
-                  type="text"
-                  id="dataNascimentoText"
-                  value={nascimentoText}
-                  onChange={(e) => setNascimentoText(e.target.value)}
-                  onPaste={(e) => handleDatePaste(e, setNascimentoText)}
-                  className="form-input pr-12"
-                  placeholder="DD/MM/AAAA"
-                />
-                {/* Campo date oculto que mantém o valor para o formulário */}
-                <input 
-                  type="date"
-                  id="dataNascimento"
-                  name="Nascimento"
-                  value={formData.Nascimento}
-                  onChange={handleInputChange}
-                  className="absolute w-0 h-0 opacity-0"
-                />
-                <button 
-                  type="button"
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  onClick={() => document.getElementById('dataNascimento').showPicker()}
-                  title="Abrir calendário"
-                >
-                  <Calendar size={18} />
-                </button>
-              </div>
-            </div>
-          </div>
-          
-          <div className="form-row flex flex-wrap gap-4 mb-4">
-            <div className="form-group flex-1 min-w-[250px]">
-              <label htmlFor="dataInicioTratamento" className="form-label">Data de Início do Tratamento</label>
-              <div className="relative flex">
-                {/* Campo de texto para permitir colar */}
-                <input 
-                  type="text"
-                  id="dataInicioTratamentoText"
-                  value={dataInicioText}
-                  onChange={(e) => setDataInicioText(e.target.value)}
-                  onPaste={(e) => handleDatePaste(e, setDataInicioText)}
-                  className="form-input pr-12"
-                  placeholder="DD/MM/AAAA"
-                />
-                {/* Campo date oculto que mantém o valor para o formulário */}
-                <input 
-                  type="date"
-                  id="dataInicioTratamento"
-                  name="Data_Inicio_Tratamento"
-                  value={formData.Data_Inicio_Tratamento}
-                  onChange={handleInputChange}
-                  className="absolute w-0 h-0 opacity-0"
-                />
-                <button 
-                  type="button"
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  onClick={() => document.getElementById('dataInicioTratamento').showPicker()}
-                  title="Abrir calendário"
-                >
-                  <Calendar size={18} />
-                </button>
-              </div>
-            </div>
-            
-            <div className="form-group flex-1 min-w-[250px]">
-              <label htmlFor="cid" className="form-label">CID</label>
-              <CIDSelection
-                value={formData.CID}
-                onChange={(selectedCIDs) => {
-                  // Handle single or multiple CIDs
-                  if (Array.isArray(selectedCIDs) && selectedCIDs.length > 0) {
-                    // If it's an array of objects with codigo property
-                    const cidValues = selectedCIDs.map(cid => 
-                      typeof cid === 'string' ? cid : cid.codigo
-                    ).join(',');
-                    
-                    setFormData(prev => ({
-                      ...prev,
-                      CID: cidValues
-                    }));
-                  } else if (selectedCIDs === null || selectedCIDs.length === 0) {
-                    // Clear the CID value
-                    setFormData(prev => ({
-                      ...prev,
-                      CID: ''
-                    }));
-                  }
-                }}
-                placeholder="Selecione o CID..."
-              />
-            </div>
-          </div>
-        </form>
-      )}
-      
-      {/* Lista de pacientes */}
-      {!isAdding && !isEditing && (
-        <div className="table-container h-[calc(100vh-250px)] overflow-auto">
-          {loading ? (
-            <div className="flex justify-center items-center h-full">
-              <img src="/images/loadingcorreto-semfundo.gif" alt="Carregando..." className="w-12 h-12" />
-            </div>
-          ) : error ? (
-            <div className="flex flex-col items-center justify-center h-64 gap-4">
-              <p className="text-red-500">Erro: {error}</p>
-              <button
-                onClick={() => loadPatients(true)}
-                className="button buttontxt flex items-center gap-2"
-              >
-                Tentar novamente
               </button>
             </div>
-          ) : filteredPatients.length > 0 ? (
-            <table className="data-table w-full">
-              <thead>
-                <tr>
-                  <th onClick={() => handleSort('id')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'id' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'id' ? '#f26b6b' : 'inherit' }}>
-                        ID
-                      </span>
-                      {sortField === 'id' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => handleSort('Operadora')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'Operadora' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'Operadora' ? '#f26b6b' : 'inherit' }}>
-                        Operadora
-                      </span>
-                      {sortField === 'Operadora' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => handleSort('Prestador_Nome_Fantasia')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'Prestador_Nome_Fantasia' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'Prestador_Nome_Fantasia' ? '#f26b6b' : 'inherit' }}>
-                        Prestador
-                      </span>
-                      {sortField === 'Prestador_Nome_Fantasia' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => handleSort('Paciente_Codigo')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'Paciente_Codigo' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'Paciente_Codigo' ? '#f26b6b' : 'inherit' }}>
-                        Código
-                      </span>
-                      {sortField === 'Paciente_Codigo' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => handleSort('Nome')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'Nome' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'Nome' ? '#f26b6b' : 'inherit' }}>
-                        Nome
-                      </span>
-                      {sortField === 'Nome' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => handleSort('Nascimento')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'Nascimento' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'Nascimento' ? '#f26b6b' : 'inherit' }}>
-                        Data Nasc.
-                      </span>
-                      {sortField === 'Nascimento' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => handleSort('Idade')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'Idade' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'Idade' ? '#f26b6b' : 'inherit' }}>
-                        Idade
-                      </span>
-                      {sortField === 'Idade' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => handleSort('Sexo')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'Sexo' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'Sexo' ? '#f26b6b' : 'inherit' }}>
-                        Sexo
-                      </span>
-                      {sortField === 'Sexo' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => handleSort('Data_Inicio_Tratamento')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'Data_Inicio_Tratamento' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'Data_Inicio_Tratamento' ? '#f26b6b' : 'inherit' }}>
-                        Início Trat.
-                      </span>
-                      {sortField === 'Data_Inicio_Tratamento' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => handleSort('CID')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'CID' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'CID' ? '#f26b6b' : 'inherit' }}>
-                        CID
-                      </span>
-                      {sortField === 'CID' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                </tr> 
-              </thead>
-              <tbody>
-                {(orderedPatients.length > 0 ? orderedPatients : filteredPatients).map(patient => (
-                  <tr 
-                    key={patient.id}
-                    onClick={() => handleRowClick(patient.id)}
-                    className={selectedPatient?.id === patient.id ? 'selected' : ''}
-                  >
-                    <td>{patient.id}</td>
-                    <td>{patient.Operadora}</td>
-                    <td>{patient.Prestador_Nome_Fantasia || patient.Prestador || 'N/D'}</td>
-                    <td>{patient.Paciente_Codigo}</td>
-                    <td>{patient.Nome}</td>
-                    <td>{patient.Nascimento}</td>
-                    <td>{patient.Idade || 'N/D'}</td>
-                    <td>{patient.Sexo}</td>
-                    <td>{patient.Data_Inicio_Tratamento || 'N/D'}</td>
-                    <td>{patient.CID}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-64 gap-4">
-              <p className="text-gray-500">
-                {searchTerm ? "Nenhum resultado encontrado para esta pesquisa" : "Não há pacientes cadastrados"}
-              </p>
-            </div>
-          )}
+          </div>
         </div>
-      )}
+      </div>
+    );
+  };
+  
+  return (
+    <div className="patient-dashboard">
+      {/* Barra superior com ações */}
+      <div className="dashboard-header">
+        <div className="view-toggle">
+          <button 
+            className={`view-button ${viewMode === 'grid' ? 'active' : ''}`}
+            onClick={() => setViewMode('grid')}
+            title="Visualização em grade"
+          >
+            <Grid size={18} />
+          </button>
+          <button 
+            className={`view-button ${viewMode === 'list' ? 'active' : ''}`}
+            onClick={() => setViewMode('list')}
+            title="Visualização em lista"
+          >
+            <List size={18} />
+          </button>
+        </div>
+        
+        <div className="search-container-pacientes">
+          <div className="search-bar-pacientes">
+            <Search size={18} className="search-icon-pacientes" />
+            <input 
+              ref={searchInputRef}
+              type="text" 
+              placeholder={`Pesquisar por ${getSearchTypeName(searchType)}...`}
+              defaultValue={searchTerm}
+              onInput={handleInput}
+              onKeyDown={handleKeyDown}
+            />
+            {searchTerm && (
+              <button className="clear-search-pacientes" onClick={handleClearSearch}>
+                <X size={16} />
+              </button>
+            )}
+          </div>
+          
+          <div className="search-options">
+            {/* Opções de pesquisa sempre visíveis */}
+            <div className="search-types">
+              <label className={searchType === 'nome' ? 'active' : ''}>
+                <input 
+                  type="radio" 
+                  name="searchType" 
+                  checked={searchType === 'nome'} 
+                  onChange={() => handleSearchTypeChange('nome')} 
+                />
+                <span>Nome</span>
+              </label>
+              <label className={searchType === 'codigo' ? 'active' : ''}>
+                <input 
+                  type="radio" 
+                  name="searchType" 
+                  checked={searchType === 'codigo'} 
+                  onChange={() => handleSearchTypeChange('codigo')} 
+                />
+                <span>Código</span>
+              </label>
+              <label className={searchType === 'cid' ? 'active' : ''}>
+                <input 
+                  type="radio" 
+                  name="searchType" 
+                  checked={searchType === 'cid'} 
+                  onChange={() => handleSearchTypeChange('cid')} 
+                />
+                <span>CID</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        
+        <div className="sort-container-pacientes">
+          <div className="sort-label">
+            <SlidersHorizontal size={14} /> Ordenar por
+          </div>
+          <div className="sort-options">
+            <select 
+              value={sortField}
+              onChange={(e) => handleSortChange(e.target.value)}
+            >
+              <option value="Nome">Nome</option>
+              <option value="Idade">Idade</option>
+              <option value="Nascimento">Data de Nascimento</option>
+              <option value="Data_Inicio_Tratamento">Data Início</option>
+              <option value="Operadora">Operadora</option>
+              <option value="CID">CID</option>
+            </select>
+            <button 
+              className="sort-order-button"
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            >
+              {sortOrder === 'asc' ? <ArrowUpWideNarrow size={16} /> : <ArrowDownWideNarrow size={16} />}
+            </button>
+          </div>
+        </div>
+        
+        <div className="controls-container">
+          <DataRefreshButton />
+          
+          <button className="add-patient-button" onClick={handleAdd}>
+            <Plus size={16} />
+            <span>Adicionar</span>
+          </button>
+        </div>
+      </div>
+      
+      {/* Barra de informações */}
+      <div className="info-bar">
+        <div className="patient-count">
+          <Users size={16} />
+          <span>
+            {filteredPatients.length} {filteredPatients.length === 1 ? 'paciente' : 'pacientes'}
+            {searchTerm && ` encontrado${filteredPatients.length === 1 ? '' : 's'} para "${searchTerm}"`}
+          </span>
+        </div>
+        
+        {selectedPatient && (
+          <div className="selected-info">
+            <span>Selecionado:</span>
+            <strong>{selectedPatient.Nome}</strong>
+            <div className="selected-actions">
+              <button 
+                className="action-button-pacientes"
+                onClick={handleEdit}
+                disabled={isEditing}
+              >
+                <Edit size={16} /> Editar
+              </button>
+              <button 
+                className="action-button-pacientes"
+                onClick={handleDelete}
+              >
+                <Trash2 size={16} /> Excluir
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Lista de pacientes - visão de grid ou lista */}
+      <div className="patients-container">
+        {loading || localLoading ? (
+          <div className="loading-state">
+            <div className="spinner"></div>
+            <p>Carregando pacientes...</p>
+          </div>
+        ) : error ? (
+          <div className="error-state">
+            <p className="error-message">Erro: {error}</p>
+            <button className="reload-button" onClick={() => loadPatients(true)}>
+              Tentar novamente
+            </button>
+          </div>
+        ) : filteredPatients.length === 0 ? (
+          <div className="empty-state">
+            <Users size={48} />
+            <p>Nenhum paciente encontrado</p>
+            {searchTerm && (
+              <button className="clear-search-button" onClick={handleClearSearch}>
+                Limpar pesquisa
+              </button>
+            )}
+          </div>
+        ) : (
+          viewMode === 'grid' ? (
+            <div className="patients-grid">
+              {(orderedPatients.length > 0 ? orderedPatients : filteredPatients).map(patient => (
+                <PatientCard key={patient.id} patient={patient} />
+              ))}
+            </div>
+          ) : (
+            <div className="patients-list">
+              <div className="list-header">
+                <div className="list-header-code">Código</div>
+                <div className="list-header-name">Nome</div>
+                <div className="list-header-prestador">Prestador</div>
+                <div className="list-header-gender">Sexo</div>
+                <div className="list-header-birthday">Data Nasc.</div>
+                <div className="list-header-age">Idade</div>
+                <div className="list-header-provider">Operadora</div>
+                <div className="list-header-first-request">1ª Solic.</div>
+                <div className="list-header-cid">CID</div>
+                <div className="list-header-actions">Ações</div>
+              </div>
+              
+              <div className="list-body">
+                {(orderedPatients.length > 0 ? orderedPatients : filteredPatients).map(patient => (
+                  <PatientListItem key={patient.id} patient={patient} />
+                ))}
+              </div>
+            </div>
+          )
+        )}
+      </div>
+      
+      {/* Formulário modal */}
+      {renderPatientForm()}
+      
+      {/* Modal de detalhes */}
+      <PatientDetails />
       
       {/* Modal de controle de cache */}
       {showCacheControl && (
@@ -1197,8 +1197,8 @@ const CadastroPaciente = () => {
       
       {/* Indicador de atualização de cache */}
       {cacheRefreshed && (
-        <div className="fixed bottom-4 right-4 bg-green-100 text-green-800 px-4 py-2 rounded-lg shadow-lg flex items-center animate-fade-in">
-          <Database size={16} className="mr-2" />
+        <div className="cache-updated-indicator">
+          <Database size={16} />
           <span>Dados atualizados com sucesso</span>
         </div>
       )}

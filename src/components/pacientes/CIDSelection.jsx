@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, Check } from 'lucide-react';
+import { Search, X, Check, Plus } from 'lucide-react';
 
 // Cache keys
 const CID_CACHE_KEY = 'cached_cids';
@@ -19,7 +19,7 @@ const CIDSelection = ({
   const [selectedCIDs, setSelectedCIDs] = useState([]);
   const dropdownRef = useRef(null);
   
-  // Rastrear o CID que veio do paciente para estilização
+  // Removed state for oncology CIDs control
   const [patientCIDCode, setPatientCIDCode] = useState(null);
 
   // Inicializar com o CID do paciente se disponível
@@ -106,6 +106,50 @@ const CIDSelection = ({
     };
   }, []);
 
+  // Função para criar novo CID
+  const handleCreateNewCID = () => {
+    const codigo = prompt("Digite o código do CID:");
+    if (!codigo) return;
+    
+    const descricao = prompt("Digite a descrição do CID:");
+    if (!descricao) return;
+    
+    const newCID = { codigo, descricao };
+    
+    // Adicionar aos options localmente
+    setOptions(prev => [...prev, newCID]);
+    
+    // Selecionar automaticamente o novo CID
+    handleSelectCID(newCID);
+    
+    // Opcional: enviar para o backend
+    // Aqui você poderia adicionar código para salvar o CID no backend
+    saveCIDToDatabase(newCID);
+  };
+  
+  // Função simulada para salvar CID no banco de dados
+  const saveCIDToDatabase = async (cid) => {
+    try {
+      // Simulação de chamada de API
+      console.log("Salvando novo CID no banco:", cid);
+      
+      // Em uma implementação real, aqui seria uma chamada de API
+      // const response = await fetch("url-do-backend/api/salvar-cid", {
+      //   method: "POST",
+      //   headers: { "Content-Type": "application/json" },
+      //   body: JSON.stringify(cid)
+      // });
+      
+      // Atualizar cache
+      const cachedData = getCachedCIDs();
+      if (cachedData) {
+        cacheCIDs([...cachedData, cid]);
+      }
+    } catch (error) {
+      console.error("Erro ao salvar CID:", error);
+    }
+  };
+
   const getCachedCIDs = (search = '') => {
     try {
       const cachedItem = localStorage.getItem(CID_CACHE_KEY);
@@ -169,7 +213,7 @@ const CIDSelection = ({
       }
       
       // If not in cache or cache expired, fetch from server
-      const baseUrl = "https://api.lowcostonco.com.br/backend-php/api/PacientesEmTratamento/get_cids.php";
+      const baseUrl = "https://apiteste.lowcostonco.com.br/backend-php/api/PacientesEmTratamento/get_cids.php";
       const url = search ? `${baseUrl}?search=${encodeURIComponent(search)}` : baseUrl;
       
       const response = await fetch(url);
@@ -209,7 +253,7 @@ const CIDSelection = ({
 
   const refreshCacheInBackground = async () => {
     try {
-      const baseUrl = "https://api.lowcostonco.com.br/backend-php/api/PacientesEmTratamento/get_cids.php";
+      const baseUrl = "https://apiteste.lowcostonco.com.br/backend-php/api/PacientesEmTratamento/get_cids.php";
       
       const response = await fetch(baseUrl);
       if (!response.ok) return;
@@ -341,8 +385,8 @@ const CIDSelection = ({
       {/* Dropdown para seleção de CIDs */}
       {isOpen && (
         <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-          <div className="p-2 border-b">
-            <div className="relative">
+          <div className="p-2 border-b flex justify-between items-center">
+            <div className="relative flex-grow">
               <Search size={18} className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
@@ -353,6 +397,7 @@ const CIDSelection = ({
                 autoFocus
               />
             </div>
+            {/* Removed oncology CIDs filter button */}
           </div>
 
           {loading ? (
@@ -385,6 +430,11 @@ const CIDSelection = ({
                         CID do Paciente
                       </span>
                     )}
+                    {cid.codigo.startsWith('C') && (
+                      <span className="ml-2 text-xs text-[#9e2b2b] bg-[#fad7d7] px-1 py-0.5 rounded">
+                        Oncológico
+                      </span>
+                    )}
                   </div>
                   {selectedCIDs.some(item => item.codigo === cid.codigo) && (
                     <Check size={16} className={cid.isFromPatient ? "text-[#9e2b2b]" : "text-[#8cb369]"} />
@@ -393,8 +443,21 @@ const CIDSelection = ({
               ))}
             </ul>
           ) : (
-            <div className="p-4 text-center text-gray-500">
-              {searchTerm ? 'Nenhum CID encontrado com este termo' : 'Nenhum CID disponível'}
+            <div className="p-4 text-center">
+              {searchTerm ? (
+                <div>
+                  <p className="text-gray-500 mb-2">Nenhum CID encontrado com este termo</p>
+                  <button 
+                    onClick={handleCreateNewCID}
+                    className="px-3 py-1 bg-green-100 text-green-800 rounded-md hover:bg-green-200 flex items-center mx-auto"
+                  >
+                    <Plus size={14} className="mr-1" />
+                    Cadastrar Novo CID
+                  </button>
+                </div>
+              ) : (
+                'Nenhum CID disponível'
+              )}
             </div>
           )}
         </div>

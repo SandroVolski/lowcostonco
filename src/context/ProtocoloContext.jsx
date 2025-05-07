@@ -3,7 +3,7 @@ import React, { createContext, useState, useContext, useEffect, useCallback } fr
 import axios from 'axios';
 import CacheService from '../services/CacheService'; // Add this import
 
-const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api/PacientesEmTratamento"; // Sem barra no final
+const API_BASE_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/PacientesEmTratamento"; // Sem barra no final
 
 // Cache keys for protocolos
 const CACHE_KEYS = {
@@ -73,7 +73,36 @@ export const ProtocoloProvider = ({ children }) => {
     console.log("Protocolos cache cleared manually");
     setNeedsRevalidation(true);
   };
+
+  // No início do ProtocoloContext.jsx, após as importações
+  const UNIDADES_MEDIDA_PREDEFINIDAS = [
+    { id: 'Mg', sigla: 'Mg', nome: 'Miligrama' },
+    { id: 'Mg2', sigla: 'Mg2', nome: 'Miligrama por m²' },
+    { id: 'MgKg', sigla: 'MgKg', nome: 'Miligrama por quilograma' },
+    { id: 'AUC', sigla: 'AUC', nome: 'Área sob a curva' }
+  ];
+
+// Função para converter intervalo de dias para lista individual
+const convertIntervaloDiasParaLista = (diasValue) => {
+  // Se não for um intervalo (não contém '-'), retorna como está
+  if (!diasValue || !diasValue.includes('-')) {
+    return diasValue;
+  }
   
+  // Se for um intervalo (ex: D5-D10), converter para lista individual
+  const [inicio, fim] = diasValue.split('-');
+  const inicioNum = parseInt(inicio.replace('D', ''));
+  const fimNum = parseInt(fim.replace('D', ''));
+  
+  // Gerar lista de dias entre início e fim
+  const diasIndividuais = [];
+  for (let i = inicioNum; i <= fimNum; i++) {
+    diasIndividuais.push(`D${i}`);
+  }
+  
+  return diasIndividuais.join(',');
+};
+
   const clearServicosCache = (protocoloId = null) => {
     if (protocoloId) {
       // Clear specific protocolo servicos
@@ -451,45 +480,39 @@ export const ProtocoloProvider = ({ children }) => {
     }
   }, []);
 
-  // Enhanced loadProtocoloServicos function with caching
+  // No ProtocoloContext.jsx, modifique esta função
   const loadProtocoloServicos = useCallback(async (protocoloId) => {
-    if (!protocoloId) return [];
+    if (!protocoloId) {
+      console.error("ID do protocolo não fornecido");
+      return [];
+    }
 
     try {
       setLoading(true);
+      console.log(`Carregando serviços para protocolo ID: ${protocoloId}`);
       
-      // Try to get cached servicos first
-      if (isCacheEnabled) {
-        const cachedServicos = getCachedServicos(protocoloId);
-        
-        if (cachedServicos) {
-          console.log(`Using cached servicos for protocolo ${protocoloId}`);
-          setProtocoloServicos(cachedServicos);
-          setLoading(false);
-          return cachedServicos;
-        }
-      }
+      // Garantir que o ID seja um número
+      const idProtocolo = parseInt(protocoloId);
       
-      // If no cache, load from server
-      console.log(`Loading servicos for protocolo ${protocoloId} from server`);
-      const response = await axios.get(`${API_BASE_URL}/get_servicos_protocolo.php?id_protocolo=${protocoloId}`);
+      // Verificar o formato exato da URL no console
+      const url = `${API_BASE_URL}/get_servicos_protocolo.php?id_protocolo=${idProtocolo}`;
+      console.log("URL de requisição:", url);
+      
+      const response = await axios.get(url);
       const data = response.data;
       
-      // Cache the servicos
-      if (isCacheEnabled) {
-        cacheServicos(protocoloId, data);
-      }
-      
+      console.log(`Serviços carregados para protocolo ${idProtocolo}:`, data);
       setProtocoloServicos(data);
       return data;
     } catch (err) {
       console.error("Erro ao carregar serviços do protocolo:", err);
+      console.error("Detalhes:", err.response?.data || err.message);
       setProtocoloServicos([]);
       return [];
     } finally {
       setLoading(false);
     }
-  }, [isCacheEnabled]);
+  }, []);
 
   // Enhanced loadProtocolos function with caching
   const loadProtocolos = useCallback(async (forceRefresh = false) => {
@@ -596,52 +619,47 @@ export const ProtocoloProvider = ({ children }) => {
     }
   }, [isCacheEnabled]);
 
-  // Enhanced loadProtocoloDetails with caching
   const loadProtocoloDetails = useCallback(async (protocoloId) => {
     if (!protocoloId) return null;
     
     try {
-      // Load the servicos for this protocolo
-      await loadProtocoloServicos(protocoloId);
+      console.log(`Carregando detalhes do protocolo ${protocoloId}`);
       
-      // Check if the protocolo is already in our state
+      // Carregar serviços para este protocolo
+      const servicos = await loadProtocoloServicos(protocoloId);
+      console.log(`Serviços carregados:`, servicos);
+      
+      // Buscar protocolo do estado atual
       const existingProtocolo = protocolos.find(p => {
-        const currentId = p.id_protocolo || p.id;
-        return currentId === protocoloId;
+        const id = p.id_protocolo || p.id;
+        return parseInt(id) === parseInt(protocoloId);
       });
       
       if (existingProtocolo) {
-        // Use the existing protocolo data
-        setSelectedProtocolo(existingProtocolo);
-        return existingProtocolo;
+        // Adicionar serviços como medicamentos ao protocolo
+        const protocoloCompleto = {
+          ...existingProtocolo,
+          medicamentos: servicos
+        };
+        
+        setSelectedProtocolo(protocoloCompleto);
+        return protocoloCompleto;
       }
       
-      // If not in state, load from server
-      console.log(`Loading protocolo details for ID ${protocoloId} from server`);
+      // Se não estiver no estado, buscar da API
       const response = await axios.get(`${API_BASE_URL}/get_protocolo_by_id.php?id=${protocoloId}`);
-      const protocoloDetails = response.data;
       
-      // Update the selected protocolo
+      // Adicionar serviços como medicamentos
+      const protocoloDetails = {
+        ...response.data,
+        medicamentos: servicos
+      };
+      
+      // Atualizar estado
       setSelectedProtocolo(protocoloDetails);
-      
-      // Also add to the state if not already there
-      setProtocolos(prev => {
-        const exists = prev.some(p => {
-          const currentId = p.id_protocolo || p.id;
-          return currentId === protocoloId;
-        });
-        
-        if (!exists) {
-          return [...prev, protocoloDetails];
-        }
-        
-        return prev;
-      });
-      
       return protocoloDetails;
     } catch (err) {
       console.error("Erro ao carregar detalhes do protocolo:", err);
-      setError(err.message || 'Erro ao carregar detalhes do protocolo');
       return null;
     }
   }, [protocolos, loadProtocoloServicos]);
@@ -783,25 +801,96 @@ export const ProtocoloProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      // Send to server
-      const response = await axios.post(`${API_BASE_URL}/add_protocolo.php`, protocoloData);
-      const newProtocolo = response.data;
+      // Extrair medicamentos antes de enviar o protocolo
+      // Filtrar apenas medicamentos com nome não vazio
+      const medicamentos = protocoloData.medicamentos ? 
+        [...protocoloData.medicamentos].filter(med => med.nome && med.nome.trim() !== '') : 
+        [];
       
-      // Update local state
-      setProtocolos(prev => [...prev, newProtocolo]);
-      setFilteredProtocolos(prev => [...prev, newProtocolo]);
+      const protocoloSemMedicamentos = { ...protocoloData };
+      delete protocoloSemMedicamentos.medicamentos;
       
-      // Update cache
-      addProtocoloToCache(newProtocolo);
+      // 1. Primeiro, criar apenas o protocolo
+      console.log("Enviando protocolo:", protocoloSemMedicamentos);
+      const response = await axios.post(`${API_BASE_URL}/add_protocolo.php`, protocoloSemMedicamentos);
+      const novoProtocolo = response.data;
+      console.log("Protocolo criado com sucesso:", novoProtocolo);
       
-      return newProtocolo.id;
+      // 2. Adicionar cada medicamento usando add_servico_protocolo.php (apenas se houver medicamentos)
+      const medicamentosAdicionados = [];
+      
+      if (medicamentos.length > 0) {
+        console.log(`Adicionando ${medicamentos.length} medicamentos ao protocolo ${novoProtocolo.id}`);
+        
+        for (const med of medicamentos) {
+          try {
+            console.log(`Processando medicamento ${med.nome} para o protocolo ${novoProtocolo.id}`);
+            
+            // Processar dias de administração
+            let diasProcessados = med.dias_adm || '';
+            if (diasProcessados.includes('-')) {
+              const [inicio, fim] = diasProcessados.split('-');
+              const inicioNum = parseInt(inicio.replace('D', ''));
+              const fimNum = parseInt(fim.replace('D', ''));
+              
+              const diasIndividuais = [];
+              for (let i = inicioNum; i <= fimNum; i++) {
+                diasIndividuais.push(`D${i}`);
+              }
+              
+              diasProcessados = diasIndividuais.join(',');
+            }
+            
+            // Mapear campos do medicamento para o formato esperado
+            const servicoData = {
+              id_servico: 1, // Valor padrão
+              nome: med.nome,
+              dose: med.dose || '',
+              unidade_medida: med.unidade_medida || '', // Enviar diretamente a sigla
+              via_administracao: med.via_adm || '',
+              dias_aplicacao: diasProcessados,
+              frequencia: med.frequencia || '',
+              observacoes: ''
+            };
+            
+            // Chamar endpoint add_servico_protocolo.php com ID do protocolo na URL
+            const medResponse = await axios.post(
+              `${API_BASE_URL}/add_servico_protocolo.php?id_protocolo=${novoProtocolo.id}`, 
+              servicoData
+            );
+            
+            console.log("Medicamento adicionado:", medResponse.data);
+            medicamentosAdicionados.push(medResponse.data);
+          } catch (medError) {
+            console.error(`Erro ao adicionar medicamento ${med.nome}:`, medError);
+          }
+        }
+        
+        console.log(`${medicamentosAdicionados.length} medicamentos adicionados com sucesso`);
+      } else {
+        console.log("Protocolo criado sem medicamentos");
+      }
+      
+      // 3. Atualizar estados e cache
+      const protocoloCompleto = {
+        ...novoProtocolo,
+        medicamentos: medicamentosAdicionados
+      };
+      
+      setProtocolos(prev => [...prev, protocoloCompleto]);
+      setFilteredProtocolos(prev => [...prev, protocoloCompleto]);
+      
+      // Atualizar cache
+      addProtocoloToCache(protocoloCompleto);
+      
+      return novoProtocolo.id;
     } catch (err) {
       console.error("Erro ao adicionar protocolo:", err);
       throw new Error(err.response?.data?.message || err.message || 'Erro ao adicionar protocolo');
     } finally {
       setLoading(false);
     }
-  }, []);
+  });
 
   // Enhanced updateProtocolo with cache update
   const updateProtocolo = useCallback(async (id, protocoloData) => {
@@ -896,7 +985,6 @@ export const ProtocoloProvider = ({ children }) => {
     }
   }, [selectedProtocolo, protocolos]);
 
-  // Enhanced addServicoToProtocolo with cache update
   const addServicoToProtocolo = useCallback(async (protocoloId, servicoData) => {
     try {
       setLoading(true);
@@ -905,24 +993,39 @@ export const ProtocoloProvider = ({ children }) => {
       console.log("Adding service to protocolo:", protocoloId);
       console.log("Service data:", JSON.stringify(servicoData, null, 2));
       
-      // Clean data to ensure all required fields are present
-      const cleanedData = {
-        id_servico: servicoData.id_servico || 1,
-        Servico_Codigo: servicoData.Servico_Codigo || "",
-        Dose: servicoData.Dose || "",
-        Dose_M: servicoData.Dose_M || "",
-        Dose_Total: servicoData.Dose_Total || "",
-        Dias_de_Aplic: servicoData.Dias_de_Aplic || "",
-        Via_de_Adm: servicoData.Via_de_Adm || "",
-        observacoes: servicoData.observacoes || ""
+      // Converter unidade_medida de sigla para ID, se necessário
+      let diasProcessados = servicoData.dias_aplicacao || servicoData.dias_adm || '';
+      if (diasProcessados.includes('-')) {
+        const [inicio, fim] = diasProcessados.split('-');
+        const inicioNum = parseInt(inicio.replace('D', ''));
+        const fimNum = parseInt(fim.replace('D', ''));
+        
+        const diasIndividuais = [];
+        for (let i = inicioNum; i <= fimNum; i++) {
+          diasIndividuais.push(`D${i}`);
+        }
+        
+        diasProcessados = diasIndividuais.join(',');
+      }
+
+      // Mapear corretamente todos os campos
+      const dataToSend = {
+        id_servico: 1, // Valor padrão
+        nome: servicoData.nome || '',
+        dose: servicoData.dose || null,
+        unidade_medida: servicoData.unidade_medida || '', // Enviar diretamente a sigla
+        via_administracao: servicoData.via_administracao || servicoData.via_adm || null,
+        dias_aplicacao: diasProcessados,
+        frequencia: servicoData.frequencia || null,
+        observacoes: servicoData.observacoes || ''
       };
       
-      console.log("Cleaned data:", JSON.stringify(cleanedData, null, 2));
+      console.log("Dados para envio:", dataToSend);
       
-      // Call API with cleaned data
+      // Call API with properly mapped data
       const response = await axios.post(
         `${API_BASE_URL}/add_servico_protocolo.php?id_protocolo=${protocoloId}`, 
-        cleanedData
+        dataToSend
       );
       
       console.log("Service added successfully:", response.data);
@@ -933,7 +1036,7 @@ export const ProtocoloProvider = ({ children }) => {
       // Update cache with the new servico
       if (response.data && response.data.id) {
         addServicoToCache(protocoloId, {
-          ...cleanedData,
+          ...dataToSend,
           id: response.data.id
         });
       }
@@ -953,41 +1056,63 @@ export const ProtocoloProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      // Log details
-      console.log("Updating service in protocolo:", protocoloId);
-      console.log("Service ID:", servicoId);
-      console.log("Service data:", JSON.stringify(servicoData, null, 2));
+      // Log detalhado para debugging
+      console.log("Atualizando serviço:");
+      console.log("- ID do protocolo:", protocoloId);
+      console.log("- ID do serviço:", servicoId);
+      console.log("- Dados:", JSON.stringify(servicoData, null, 2));
       
-      // Prepare data for submission
+      let diasProcessados = servicoData.dias_aplicacao || servicoData.dias_adm || '';
+      if (diasProcessados.includes('-')) {
+        const [inicio, fim] = diasProcessados.split('-');
+        const inicioNum = parseInt(inicio.replace('D', ''));
+        const fimNum = parseInt(fim.replace('D', ''));
+        
+        const diasIndividuais = [];
+        for (let i = inicioNum; i <= fimNum; i++) {
+          diasIndividuais.push(`D${i}`);
+        }
+        
+        diasProcessados = diasIndividuais.join(',');
+      }
+
+      // Mapear corretamente os campos (similar ao addServicoToProtocolo)
       const dataToSend = {
-        ...servicoData,
-        id: servicoId,
-        id_protocolo: protocoloId
+        nome: servicoData.nome || '',
+        dose: servicoData.dose || null,
+        unidade_medida: servicoData.unidade_medida || '', // Enviar diretamente a sigla
+        via_administracao: servicoData.via_administracao || servicoData.via_adm || null,
+        dias_aplicacao: diasProcessados,
+        frequencia: servicoData.frequencia || null,
+        observacoes: servicoData.observacoes || ''
       };
       
-      // Call API to update the service
-      const response = await axios.put(
-        `${API_BASE_URL}/update_servico_protocolo.php?id_protocolo=${protocoloId}&id=${servicoId}`, 
-        dataToSend
-      );
+      console.log("Dados formatados para envio:", dataToSend);
       
-      console.log("Service updated successfully:", response.data);
+      // URL correta para a requisição
+      const url = `${API_BASE_URL}/update_servico_protocolo.php?id_protocolo=${protocoloId}&id=${servicoId}`;
+      console.log("URL da requisição:", url);
       
-      // Update the local state of services
+      // Fazer a requisição PUT com os dados mapeados
+      const response = await axios.put(url, dataToSend);
+      
+      console.log("Resposta do servidor:", response.data);
+      
+      // Atualizar o estado local dos serviços
       setProtocoloServicos(prev => 
-        prev.map(s => s.id == servicoId ? { ...s, ...servicoData } : s)
+        prev.map(s => s.id == servicoId ? { ...s, ...dataToSend } : s)
       );
       
-      // Update cache
+      // Atualizar cache
       updateServicoInCache(protocoloId, {
-        ...servicoData,
+        ...dataToSend,
         id: servicoId
       });
       
       return response.data;
     } catch (err) {
-      console.error("Error updating service in protocolo:", err);
-      console.error("Error details:", err.response?.data || "No additional details");
+      console.error("Erro ao atualizar serviço:", err);
+      console.error("Detalhes do erro:", err.response?.data);
       throw new Error(err.message || 'Erro ao atualizar serviço do protocolo');
     } finally {
       setLoading(false);

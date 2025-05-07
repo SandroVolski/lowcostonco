@@ -12,7 +12,7 @@
     font-style: normal;
   }
 
-  body {
+  /*body {
     font-family: 'CodecPro';
     margin-bottom: 7% !important;
   }
@@ -25,17 +25,16 @@
   
   .main-content {
     flex: 1;
-    margin-left: 16rem; /* Equivalente a ml-64 */
-    padding: 1.5rem; /* Equivalente a p-6 */
+    margin-left: 16rem; 
+    padding: 1.5rem; 
     height: calc(100vh - 64px);
-  }
+  }*/
 
   .encimatabela{
     margin-top: 0rem;
   }
 
 
-  /* Organizador */
   .organize-container {
     display: flex;
     flex-direction: column;
@@ -55,14 +54,14 @@
     position: relative;
     display: inline-block;
     width: 100%;
-    overflow: hidden; /* Importante: esconde qualquer elemento que ultrapasse */
+    overflow: hidden;
   }
   
   .select-style {
-    margin-top: 0; /* Removido o margin-top: 100px que estava marcado como "TIRAR" */
-    appearance: none !important; /* Força a remoção da seta nativa */
-    -webkit-appearance: none !important; /* Para Safari/Chrome */
-    -moz-appearance: none !important; /* Para Firefox */
+    margin-top: 0; 
+    appearance: none !important; 
+    -webkit-appearance: none !important; 
+    -moz-appearance: none !important; 
     background-color: transparent;
     border: none;
     padding: 8px 24px 8px 0px;
@@ -73,13 +72,12 @@
     width: 100%;
   }
 
-  /* Estiliza as opções dentro do select */
+ 
   .select-style option {
-      background-color: white; /* Fundo padrão */
-      color: black; /* Cor padrão do texto */
+      background-color: white; 
+      color: black; 
   }
 
-  /* Quando a opção estiver selecionada */
   .select-style option:checked {
       background-color: #8cb369;
       color: white;
@@ -106,30 +104,28 @@
     pointer-events: none;
   }
 
-  /* Pesquisa */
   .search-bar {
     position: relative;
-    width: 16rem; /* 64 */
+    width: 16rem; 
   }
   
   .search-bar input {
     width: 100%;
     padding: 0.5rem 2.5rem 0.5rem 1rem;
     border: 2px solid #c6d651;
-    border-radius: 2rem; /* Equivalente a rounded-md */
+    border-radius: 2rem; 
     padding-left: 1rem;
     white-space: nowrap;
     overflow: hidden;
   }
 
   .search-bar input::placeholder {
-    font-size: 0.9rem; /* Reduz o tamanho da fonte do placeholder */
-    color: #718096; /* Uma cor mais escura para melhor legibilidade */
+    font-size: 0.9rem; 
+    color: #718096; 
     white-space: nowrap;
     overflow: hidden;
   }
   
-  /* Efeito de marquee para o placeholder */
   @keyframes marquee {
     0% {
       text-indent: 100%;
@@ -143,7 +139,6 @@
     text-overflow: clip;
   }
 
-  /* Quando o campo está em foco mas vazio, aplica o efeito de marquee */
   .search-bar input:placeholder-shown:focus::placeholder {
     animation: marquee 8s linear infinite;
     white-space: nowrap;
@@ -152,7 +147,6 @@
     width: 100%;
   }
   
-  /* Aplica a animação apenas quando o campo está em foco */
   .search-bar input:focus::placeholder {
     animation: marquee 8s linear infinite alternate;
     overflow: hidden;
@@ -160,14 +154,14 @@
 
   .pesquisa-icone {
     color: #c6d651 !important;
-    position: absolute;       /* Fixa o elemento na tela */
-    margin-left: 14.7rem ;           /* Distância da direita (ajuste conforme necessário) */
+    position: absolute;      
+    margin-left: 14.7rem ;           
     margin-bottom: 0.1rem;
-            /* Valor alto para garantir que fique sobre outros elementos */
-    cursor: pointer;       /* Muda o cursor para indicar que é clicável */
+           
+    cursor: pointer;      
   }
 
-  /* Estilo para fazer a lupa piscar quando houver texto */
+  
 @keyframes blink {
   0% { 
     transform: scale(1);
@@ -198,14 +192,12 @@
   transition: all 0.3s ease;
 }
 
-/* Evitar hover em linhas selecionadas */
 .data-table tbody > tr.selected:hover,
 .data-table tbody > tr:hover[style*="background-color: rgba(198, 214, 81, 0.5)"] {
   background-color: rgba(198, 214, 81, 0.5) !important;
   color: #35524a !important;
 }
 
-/* Aplicar hover apenas em linhas não selecionadas */
 .data-table tbody > tr:not(.selected):not([style*="background-color: rgba(198, 214, 81, 0.5)"]):hover {
   background-color: #E4E9C0 !important;
 }
@@ -220,9 +212,9 @@
     right: 1rem;
     top: 49%;
     transform: translateY(-50%);
-    color: #6b7280; /* text-gray-500 */
-    width: 16px;  /* Reduzindo o tamanho da lupa */
-    height: 16px; /* Reduzindo o tamanho da lupa */
+    color: #6b7280;
+    width: 16px; 
+    height: 16px; 
     pointer-events: none;
   }
   
@@ -247,45 +239,37 @@
 
   .button-container {
     display: flex;
-    justify-content: center; /* Centraliza horizontalmente */
-    align-items: center; /* Centraliza verticalmente */
+    justify-content: center;
+    align-items: center;
     
-    bottom: 3rem; /* Alinha na parte inferior */
-    right: 2rem; /* Alinha à direita */
+    bottom: 3rem; 
+    right: 2rem;
 }
 
   .buttontxt {
-    color: #f1f1f1; /* Cor do texto */
+    color: #f1f1f1; 
     border: none;
-    border-radius: 8px; /* Bordas arredondadas */
-    padding: 5px 20px; /* Aumentei o padding para deixar o botão maior */
-    font-size: 20px; /* Aumentei o tamanho da fonte */
+    border-radius: 8px; 
+    padding: 5px 20px;
+    font-size: 20px; 
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 12px; /* Aumentei o espaço entre o ícone e o texto */
-    transition: background-color 0.3s ease; /* Transição suave */
+    gap: 12px; 
+    transition: background-color 0.3s ease; 
     font-size: 1.2rem;
     font-family: 'CodecPro';
   }
   
   .buttontxt:hover {
-    background-color: #8cb369; /* Cor de fundo ao passar o mouse */
+    background-color: #8cb369; 
   }
-  
 
-
-
-
-
-
-
-/* Estilo do contêiner estilizado */
 .styled-container {
   background-color: #f1f1f1;
   border-radius: 20px;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
-  padding: 2rem 2rem 0.5rem 2rem; /* Topo, Direita, Inferior, Esquerda - reduzido o padding inferior */
+  padding: 2rem 2rem 0.5rem 2rem; 
   width: 75%;
   margin: 5rem auto 0;
   position: absolute;
@@ -294,23 +278,10 @@
   margin-bottom: 3rem;
 }
   
-  /* Ajuste para o conteúdo interno */
   .styled-container > * {
-    margin-top: 0.01rem; /* Ajuste esse valor para "puxar" o conteúdo para cima */
+    margin-top: 0.01rem; 
   }
 
-
-
-
-
-
-
-
-
-
-  /* Formulario de Adicionar */
-
-  /* Estilos para o modal */
 .modal {
   position: fixed;
   top: 50%;
@@ -391,7 +362,6 @@
 }
 
 
-/* Estilo para a tabela */
 .data-table {
   width: 100%;
   text-align: left;
@@ -400,7 +370,6 @@
   color: #575654;
 }
 
-/* Cabeçalho da tabela */
 .data-table thead {
   background: linear-gradient(360deg, #c6d651 10%, #8cb369 100%) !important;
   color: #f1f1f1;
@@ -412,14 +381,12 @@
   z-index: 20;
 }
 
-/* Células do cabeçalho */
 .data-table thead th {
   padding: 12px 16px;
   white-space: nowrap;
   color: #f1f1f1;
 }
 
-/* Células congeladas no cabeçalho */
 .data-table thead th.frozen {
   position: sticky;
   left: 0;
@@ -427,12 +394,10 @@
   z-index: 10;
 }
 
-/* Corpo da tabela */
 .data-table tbody {
   background-color: #f1f1f1;
 }
 
-/* Células do corpo da tabela */
 .data-table td {
   padding: 8px 16px;
   border-bottom: 1px solid #ddd;
@@ -443,7 +408,6 @@
   vertical-align: middle;
 }
 
-/* Células de entrada de texto */
 .data-table input[type="text"] {
   border: none;
   background-color: transparent;
@@ -496,27 +460,23 @@
 
 .ordenacao {
   
-  overflow: hidden; /* Esconde conteúdo extra */
-  text-overflow: ellipsis; /* Mostra reticências para texto truncado */
+  overflow: hidden;
+  text-overflow: ellipsis; 
  
-  position: absolute; /* Retira o elemento do fluxo normal */
+  position: absolute; 
   margin-top: 1.6rem;
   margin-left: 7.5rem;
-  z-index: 5; /* Garante que fique acima dos outros elementos */
+  z-index: 5; 
 }
 
 .ordenacao strong {
-  max-width: 100px; /* Limita o tamanho do texto do campo */
+  max-width: 100px; 
   display: inline-block;
   overflow: hidden;
   text-overflow: ellipsis;
   vertical-align: bottom;
 }
 
-
-
-/* POPOUT ADICAO */
-/* Estilo para o overlay (fundo escurecido) */
 .success-popup-overlay {
   position: fixed;
   top: 0;
@@ -538,7 +498,6 @@
   visibility: visible;
 }
 
-/* Estilo para o container do popup */
 .success-popup {
   width: 320px;
   background-color: #f1f1f1;
@@ -553,7 +512,6 @@
   transform: translateY(0);
 }
 
-/* Estilo para o cabeçalho do popup */
 .success-popup-header {
   background: linear-gradient(90deg, #c6d651 10%, #8cb369 100%);
   color: #f1f1f1;
@@ -563,7 +521,6 @@
   font-size: 18px;
 }
 
-/* Estilo para o corpo do popup */
 .success-popup-body {
   padding: 20px;
   text-align: center;
@@ -571,7 +528,6 @@
   color: #333;
 }
 
-/* Estilo para o ID */
 .success-popup-id {
   font-weight: normal;
   color: #666;
@@ -579,7 +535,6 @@
   margin-left: 5px;
 }
 
-/* Botão de fechar (opcional) */
 .success-popup-close {
   display: block;
   width: 100%;
@@ -597,7 +552,6 @@
   background-color: #e5e5e5;
 }
 
-/* Animação de entrada */
 @keyframes popup-in {
   0% {
     opacity: 0;
@@ -609,13 +563,11 @@
   }
 }
 
-/* Classe para aplicar a animação */
 .popup-animate-in {
   animation: popup-in 0.3s forwards;
 }
 
 
-/* Adicione estes estilos ao seu arquivo CSS existente */
 
 .search-container {
   display: flex;
@@ -675,28 +627,24 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Estilização dos botões de rádio */
 .search-type-selector input[type="radio"] {
-  accent-color: #8cb369; /* Cor azul para botões selecionados */
+  accent-color: #8cb369; 
 }
 
 .search-type-selector label:hover {
   color: #8cb369 !important;
 }
 
-/* Animação sutil para transição de cores ao passar o mouse */
 .search-type-selector label {
   transition: color 0.2s ease;
 }
 
-/* Estilo para resultados da pesquisa */
 .search-results-info {
   margin-top: 4px;
   font-size: 0.75rem;
   color: #4b5563;
 }
 
-/* Estilo para badge de tipo de pesquisa */
 .search-type-badge {
   display: inline-block;
   background-color: #e5e7eb;
@@ -707,7 +655,6 @@
   font-weight: 600;
 }
 
-/* Estilos para diferentes tipos de pesquisa */
 .search-type-code {
   background-color: #E4E9C0;
   color: #f26b6b;
@@ -746,9 +693,7 @@
 
 
 
-/* Adicione este CSS ao seu arquivo ServicoRelacionada.css */
 
-/* Estilos para o badge de tipo de busca */
 .search-type-badge {
   display: inline-block;
   padding: 2px 6px;
@@ -758,55 +703,50 @@
   font-weight: 500;
 }
 
-/* Cores específicas para cada tipo de busca */
 .search-type-auto {
-  background-color: #e2e8f0; /* Cinza claro */
+  background-color: #e2e8f0; 
   color: #4a5568;
 }
 
 .search-type-code {
-  background-color: #ebf8ff; /* Azul claro */
+  background-color: #ebf8ff; 
   color: #2c5282;
 }
 
 .search-type-active {
-  background-color: #e6fffa; /* Verde azulado claro */
+  background-color: #e6fffa;
   color: #2c7a7b;
 }
 
 .search-type-active_registro {
-  background-color: #faf5ff; /* Roxo claro */
+  background-color: #faf5ff; 
   color: #6b46c1;
   border: 1px dashed #9f7aea;
 }
 
 .search-type-description {
-  background-color: #fffaf0; /* Amarelo claro */
+  background-color: #fffaf0; 
   color: #c05621;
 }
 
 .search-type-all {
-  background-color: #f0fff4; /* Verde claro */
+  background-color: #f0fff4; 
   color: #276749;
 }
 
-/* Estilo para a pesquisa ativa */
 .pesquisa.searching {
   border-color: #4299e1;
   box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.15);
 }
 
-/* Estilizar radio buttons com cores que combinam com os badges */
 .search-type-selector input[type="radio"]:checked + span {
   font-weight: 600;
 }
 
-/* Radio button de P. Ativo (Registro) */
 .search-type-selector input[type="radio"][value="active_registro"]:checked + span {
   color: #6b46c1;
 }
 
-/* Adicionar um tooltip ao passar o mouse na opção de P. Ativo (Registro) */
 .search-type-selector label {
   position: relative;
 }
@@ -826,7 +766,6 @@
 }
 
 
-/* Animação para fade-in */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -836,7 +775,6 @@
   animation: fadeIn 0.3s ease forwards;
 }
 
-/* Animação de pulse para o indicador de atualização */
 @keyframes pulse {
   0% { opacity: 0.8; }
   50% { opacity: 1; }
@@ -847,7 +785,6 @@
   animation: pulse 1.5s ease infinite;
 }
 
-/* Estilos para o indicador de fonte de dados */
 .data-source-indicator {
   display: flex;
   align-items: center;
@@ -869,7 +806,6 @@
   color: #3b82f6;
 }
 
-/* Estilos para o indicador de refresh */
 .refresh-indicator {
   position: fixed;
   bottom: 1rem;
@@ -884,4 +820,1031 @@
   gap: 0.5rem;
   z-index: 50;
   animation: fadeIn 0.3s ease, pulse 2s ease infinite;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* NOVO DESIGN COM CORREÇÕES */
+/* Estilos base */
+/* NOVO DESIGN COM CORREÇÕES */
+/* Estilos base */
+.sr-styled-container {
+  background-color: #f1f1f1;
+  border-radius: 20px;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  width: 95%;
+  margin: 20px auto;
+  position: relative;
+  height: calc(100vh - 80px); /* Aumentado para ocupar mais espaço vertical */
+  min-height: 700px; /* Altura mínima para garantir espaço suficiente */
+  display: flex;
+  flex-direction: column;
+  margin-top: 5rem !important;
+  margin-left: 10rem !important;
+}
+
+/* Centralização da página */
+.sr-styled-container.sr-centered {
+  max-width: 1200px;
+  margin: 20px auto;
+}
+
+/* Área de pesquisa - melhorada */
+.sr-search-container {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.sr-search-bar {
+  position: relative;
+  width: 400px;
+  transition: width 0.3s ease;
+}
+
+.sr-search-bar:focus-within {
+  width: 450px;
+}
+
+.sr-search-input {
+  width: 100%;
+  padding: 12px 40px 12px 45px;
+  border-radius: 30px;
+  border: 2px solid #e0e0e0;
+  background-color: #f9f9f9;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  font-size: 15px;
+  transition: all 0.3s ease;
+  color: #444;
+}
+
+.sr-search-input:focus {
+  border-color: #8cb369;
+  background-color: white;
+  box-shadow: 0 4px 15px rgba(140, 179, 105, 0.2);
+  outline: none;
+}
+
+.sr-search-input::placeholder {
+  color: #888;
+  font-style: italic;
+}
+
+.sr-search-button {
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #8cb369;
+  transition: all 0.2s ease;
+  padding: 5px;
+  border-radius: 50%;
+}
+
+.sr-search-button:hover {
+  background-color: rgba(140, 179, 105, 0.1);
+}
+
+.sr-clear-search-button {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #888;
+  padding: 5px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.sr-clear-search-button:hover {
+  background-color: rgba(242, 107, 107, 0.1);
+  color: #f26b6b;
+}
+
+/* Sugestões de busca - autocomplete */
+.sr-suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border-radius: 0 0 15px 15px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  max-height: 320px;
+  overflow-y: auto;
+  margin-top: 5px;
+  border: 1px solid #e0e0e0;
+  border-top: 2px solid #8cb369;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sr-suggestion-item {
+  padding: 12px 15px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 14px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+}
+
+.sr-suggestion-item:hover {
+  background-color: #f0f5eb;
+}
+
+.sr-suggestion-item:last-child {
+  border-bottom: none;
+  border-radius: 0 0 15px 15px;
+}
+
+.sr-suggestion-item .sr-suggestion-icon {
+  margin-right: 10px;
+  color: #8cb369;
+}
+
+/* Estilos para os controles de pesquisa */
+.sr-search-controls {
+  display: flex;
+  align-items: center;
+}
+
+.sr-search-filters-button {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 20px;
+  margin-left: 10px;
+  transition: all 0.2s ease;
+}
+
+.sr-search-filters-button:hover {
+  background-color: #f0f5eb;
+  color: #8cb369;
+}
+
+.sr-search-filters-button svg {
+  margin-right: 5px;
+}
+
+/* Status da pesquisa */
+.sr-search-status {
+  font-size: 12px;
+  color: #666;
+  margin-top: 5px;
+  position: absolute;
+  top: 100%;
+  left: 15px;
+}
+
+/* Painel de filtros */
+.sr-search-filters-panel {
+  background-color: white;
+  border-radius: 15px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+  padding: 15px;
+  margin-bottom: 20px;
+  animation: slideDown 0.3s ease;
+  border: 1px solid #e0e0e0;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sr-search-filter-group {
+  margin-bottom: 10px;
+}
+
+.sr-search-filter-group:last-child {
+  margin-bottom: 0;
+}
+
+.sr-search-filter-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #555;
+  font-size: 14px;
+}
+
+.sr-search-filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.sr-filter-option {
+  background-color: #f5f5f5;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #555;
+  transition: all 0.2s ease;
+}
+
+.sr-filter-option:hover {
+  background-color: #f0f5eb;
+  color: #8cb369;
+}
+
+.sr-filter-option.sr-active {
+  background-color: #8cb369;
+  color: white;
+}
+
+/* Highlight para serviço selecionado */
+.sr-selected-service-highlight {
+  background: linear-gradient(90deg, #e4e9c0 0%, #f8f9f1 100%);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border-left: 4px solid #8cb369;
+  transition: all 0.3s ease;
+}
+
+.sr-highlight-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sr-highlight-code {
+  font-weight: 600;
+  color: #35524a;
+  font-size: 16px;
+  margin-right: 20px;
+}
+
+.sr-highlight-name {
+  font-weight: 500;
+  color: #35524a;
+  font-size: 16px;
+  flex: 1;
+  position: relative;
+}
+
+/* Adicionado para mostrar descrição comercial/abreviada */
+.sr-highlight-description {
+  font-size: 14px;
+  font-weight: 400;
+  color: #666;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.sr-highlight-info {
+  display: flex;
+  align-items: center;
+  color: #8cb369;
+  font-size: 12px;
+  background: rgba(140, 179, 105, 0.1);
+  padding: 4px 8px;
+  border-radius: 12px;
+}
+
+.sr-info-icon {
+  margin-right: 4px;
+}
+
+/* Área de conteúdo principal - CORREÇÃO AQUI */
+.sr-content-container {
+  display: flex;
+  flex-direction: row; /* Garante que os elementos fiquem lado a lado */
+  gap: 20px;
+  overflow: hidden;
+  height: 100%;
+}
+
+/* Lista de serviços */
+.sr-service-list-container {
+  width: 300px;
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0; /* Impede que a lista de serviços encolha */
+}
+
+/* Título da lista sem mostrar contagem */
+.sr-service-list-title {
+  padding: 15px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  border-bottom: 1px solid #eee;
+  background-color: #f8f8f8;
+}
+
+.sr-service-list {
+  overflow-y: auto;
+  flex: 1;
+  padding-bottom: 10px; /* Espaço extra no final da lista */
+}
+
+.sr-service-item {
+  padding: 10px 15px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sr-service-item:hover {
+  background-color: #f8f8f8;
+}
+
+.sr-service-item.sr-selected {
+  background-color: #e4e9c0;
+}
+
+/* Código na lista de serviços */
+.sr-service-item-code {
+  font-weight: 600;
+  min-width: 50px;
+}
+
+/* Descrição na lista de serviços (agora mostrando Princípio Ativo) */
+.sr-service-item-desc {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0 10px;
+  font-style: italic;
+}
+
+.sr-service-item-status {
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  color: white;
+}
+
+.sr-service-item-status.sr-active {
+  background-color: #8cb369;
+}
+
+.sr-service-item-status.sr-inactive {
+  background-color: #f26b6b;
+}
+
+/* Área de detalhes */
+.sr-details-container {
+  flex: 1;
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Botões de navegação */
+.sr-navigation-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 10px;
+  gap: 10px;
+  background-color: #f8f8f8;
+  border-bottom: 1px solid #eee;
+}
+
+/* NOVA CLASSE: Centralizar abas quando em modo de edição/adição */
+.sr-navigation-buttons.sr-centered {
+  justify-content: center;
+}
+
+.sr-nav-button {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  background-color: #e0e0e0;
+  color: #333;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 15px;
+}
+
+.sr-highlight-label {
+  font-weight: normal; /* Garante que os rótulos não estejam em negrito */
+}
+
+.sr-highlight-value {
+  font-weight: bold; /* Coloca os valores em negrito */
+}
+
+.sr-nav-button:hover {
+  background-color: #d0d0d0;
+}
+
+.sr-nav-button.sr-active {
+  background-color: #8cb369;
+  color: white;
+}
+
+/* Conteúdo da seção */
+.sr-section-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.sr-section-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sr-field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.sr-field-container {
+  flex: 1;
+  min-width: 200px;
+}
+
+.sr-field-container.sr-full-width {
+  width: 100%;
+  flex-basis: 100%;
+}
+
+.sr-field-container label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #555;
+}
+
+.sr-form-input,
+.sr-form-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 14px;
+  background-color: #fff;
+  transition: all 0.2s ease;
+}
+
+.sr-form-input:focus,
+.sr-form-select:focus {
+  outline: none;
+  border-color: #8cb369;
+  box-shadow: 0 0 0 2px rgba(140, 179, 105, 0.2);
+}
+
+.sr-form-select {
+  text-align: left;   /* Alinhamento à esquerda para todos os selects */
+  padding: 8px 12px;  /* Espaçamento interno adequado */
+  color: #333;        /* Cor de texto escura para garantir contraste */
+}
+
+.sr-form-select option {
+  text-align: left;   /* Alinhamento à esquerda para todas as opções */
+  padding: 4px 8px;   /* Espaçamento adequado */
+}
+
+/* NOVA CLASSE: Estilo para campos em modo de edição com borda verde à esquerda */
+.sr-form-input.sr-editing,
+.sr-form-select.sr-editing {
+  border-left: 3px solid #8cb369;
+  color: #35524a;
+  padding-left: 12px;
+  background-color: #f9f9f9;
+}
+
+/* Melhorias para o campo read-only */
+.sr-field-value {
+  background-color: #f9f9f9;
+  padding: 8px 12px;
+  border-radius: 5px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  word-break: break-word;
+  font-size: 14px;
+}
+
+.sr-field-value.sr-read-only {
+  background-color: #f0f5eb;
+  color: #35524a;
+  border-left: 3px solid #8cb369;
+}
+
+/* Toggle switch para Ativo/Inativo */
+.sr-toggle-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.sr-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
+
+.sr-toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.sr-toggle-label {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 34px;
+}
+
+.sr-toggle-label:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .sr-toggle-label {
+  background-color: #8cb369;
+}
+
+input:checked + .sr-toggle-label:before {
+  transform: translateX(26px);
+}
+
+/* Status indicator */
+.sr-status-indicator {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-weight: 500;
+  font-size: 14px;
+  color: white;
+  text-align: center;
+  min-width: 80px;
+}
+
+.sr-status-indicator.sr-active {
+  background-color: #8cb369;
+}
+
+.sr-status-indicator.sr-inactive {
+  background-color: #f26b6b;
+}
+
+/* Botões de ação */
+.sr-action-buttons {
+  display: flex;
+  justify-content: center;
+  padding: 15px;
+  gap: 10px;
+  border-top: 1px solid #eee;
+  background-color: #f8f8f8;
+}
+
+.sr-action-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sr-action-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sr-add-button {
+  background-color: #8cb369;
+  color: white;
+}
+
+.sr-add-button:hover:not(:disabled) {
+  background-color: #7a9c58;
+}
+
+.sr-edit-button {
+  background-color: #c6d651;
+  color: white;
+}
+
+.sr-edit-button:hover:not(:disabled) {
+  background-color: #b5c348;
+}
+
+.sr-delete-button {
+  background-color: #f26b6b;
+  color: white;
+}
+
+.sr-delete-button:hover:not(:disabled) {
+  background-color: #e45a5a;
+}
+
+.sr-save-button {
+  background-color: #8cb369;
+  color: white;
+}
+
+.sr-save-button:hover:not(:disabled) {
+  background-color: #7a9c58;
+}
+
+.sr-cancel-button {
+  background-color: #e0e0e0;
+  color: #333;
+}
+
+.sr-cancel-button:hover:not(:disabled) {
+  background-color: #d0d0d0;
+}
+
+/* Mensagens e indicadores */
+.sr-loading-indicator,
+.sr-error-message,
+.sr-empty-data-message,
+.sr-no-selection-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  text-align: center;
+  color: #777;
+  height: 100%;
+}
+
+.sr-no-selection-message {
+  color: #8cb369;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 90%;
+  background: #f8f9f1;
+  border-radius: 8px;
+  padding: 30px;
+}
+
+.sr-no-selection-message {
+  p{
+    margin-top: 30px;
+    margin-bottom: 20px;
+  }
+}
+
+.sr-loading-img {
+  width: 40px;
+  height: 40px;
+}
+
+.sr-no-selection-message {
+  display: flex;
+  flex-direction: column; /* Garante que fique um abaixo do outro */
+  align-items: center; /* Centraliza horizontalmente */
+  text-align: center;
+  margin-top: 20px;
+}
+
+.sr-no-selection-message p {
+  font-size: 18px;
+}
+
+.sr-loading-gif {
+  width: 120px; /* ou 500px se quiser o tamanho original */
+  height: auto;
+}
+
+
+/* Indicador de atualização de cache */
+.sr-cache-refresh-indicator {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 10px 15px;
+  background-color: #8cb369;
+  color: white;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  animation: fadeIn 0.3s ease;
+}
+
+.sr-refresh-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Responsividade */
+@media (max-width: 992px) {
+  .sr-content-container {
+    flex-direction: column;
+  }
+  
+  .sr-service-list-container {
+    width: 100%;
+    max-height: 300px;
+  }
+  
+  .sr-highlight-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .sr-highlight-info {
+    align-self: flex-end;
+    margin-top: 8px;
+  }
+}
+
+/* ESTILIZAÇÃO DO SCROLLBAR PARA TODO O SISTEMA */
+/* Aplicando para todos os elementos com scrollbar */
+*::-webkit-scrollbar {
+  width: 12px; /* Largura do scrollbar */
+  height: 12px; /* Altura para scrollbars horizontais */
+}
+
+*::-webkit-scrollbar-track {
+  background: #d5dab3; /* Cor de fundo da área do scrollbar */
+  border-radius: 10px; /* Bordas arredondadas */
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #8cb369; /* Cor do scrollbar */
+  border-radius: 10px; /* Bordas arredondadas */
+  border: 3px solid #f1f1f1; /* Espaço entre o scrollbar e a borda */
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #c6d651; /* Cor do scrollbar ao passar o mouse */
+}
+
+/* Estiliza o canto da barra de rolagem (Chrome, Safari, Edge) */
+*::-webkit-scrollbar-corner {
+  background-color: #f1f1f1;
+}
+
+
+/* Estilos para o botão "Carregar mais" */
+.sr-load-more-container {
+  padding: 15px;
+  text-align: center;
+  border-top: 1px solid #eee;
+}
+
+.sr-load-more-button {
+  background-color: #f0f5eb;
+  border: 1px solid #8cb369;
+  color: #8cb369;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.sr-load-more-button:hover:not(:disabled) {
+  background-color: #e4e9c0;
+  color: #7a9c58;
+}
+
+.sr-load-more-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Estilos para a área de ordenação */
+.sr-sorting-container {
+  padding: 10px 15px;
+  border-bottom: 1px solid #eee;
+  background-color: #f8f8f8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sr-sorting-header {
+  display: flex;
+  align-items: center;
+}
+
+.sr-sorting-header h4 {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.sr-sorting-options {
+  display: flex;
+  align-items: center;
+}
+
+.sr-sort-select {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 15px;
+  background-color: white;
+  font-size: 13px;
+  color: #444;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 150px;
+}
+
+.sr-sort-select:focus {
+  outline: none;
+  border-color: #8cb369;
+  box-shadow: 0 0 0 2px rgba(140, 179, 105, 0.2);
+}
+
+/* Ajustes na lista de serviços para acomodar as novas funcionalidades */
+.sr-service-list {
+  overflow-y: auto;
+  max-height: calc(100% - 40px); /* Ajustado para acomodar o botão de "Carregar mais" */
+}
+
+/* Contador de resultados */
+.sr-results-counter {
+  font-size: 12px;
+  color: #666;
+  padding: 5px 15px;
+  border-bottom: 1px solid #eee;
+  background-color: #f8f8f8;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .sr-sorting-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+
+/* Container para barra de pesquisa e status */
+.sr-search-bar-container {
+  flex: 1;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Controles de busca e ordenação */
+.sr-search-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* Container para o seletor de ordenação */
+.sr-sort-container {
+  position: relative;
+}
+
+/* Estilos específicos para o seletor de ordenação */
+.sr-sort-select {
+  padding: 10px 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 30px;
+  background-color: #f9f9f9;
+  font-size: 14px;
+  color: #444;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 170px;
+  appearance: none; /* Remove o estilo padrão de seta do select */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  /*background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238cb369' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  */background-repeat: no-repeat;
+  background-position: right 15px center;
+  padding-right: 40px;
+}
+
+.sr-sort-select:focus {
+  outline: none;
+  border-color: #8cb369;
+  box-shadow: 0 4px 15px rgba(140, 179, 105, 0.2);
+}
+
+.sr-sort-select:hover {
+  background-color: #f0f5eb;
+}
+
+/* Ajuste no status da pesquisa para posicionar corretamente */
+.sr-search-status {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px !important;
+  padding-left: 15px;
+}
+
+/* Ajuste de responsividade */
+@media (max-width: 768px) {
+  .sr-search-container {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .sr-search-bar-container {
+    max-width: 100%;
+    width: 100%;
+  }
+  
+  .sr-search-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .sr-sort-container {
+    flex: 1;
+  }
+  
+  .sr-sort-select {
+    width: 100%;
+  }
 }

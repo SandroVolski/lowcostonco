@@ -1,15 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, Check } from 'lucide-react';
+import { Search, X, Check, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const PROTOCOLO_CACHE_KEY = 'cached_protocolos';
 const PROTOCOLO_CACHE_TIMESTAMP = 'cached_protocolos_timestamp';
 const CACHE_EXPIRY = 30 * 60 * 1000; // 30 minutes
+
+// Cache key for saving form data when navigating to protocol registration
+const PREVIA_FORM_CACHE_KEY = 'previa_form_temp_data';
 
 const ProtocoloSelection = ({ 
   value, 
   onChange, 
   placeholder = "Selecione o protocolo..." 
 }) => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [options, setOptions] = useState([]);
@@ -115,7 +120,7 @@ const ProtocoloSelection = ({
       }
       
       // If not in cache or cache expired, fetch from server
-      const baseUrl = "https://api.lowcostonco.com.br/backend-php/api/PacientesEmTratamento/get_protocolos.php";
+      const baseUrl = "https://apiteste.lowcostonco.com.br/backend-php/api/PacientesEmTratamento/get_protocolos.php";
       const url = search ? `${baseUrl}?search=${encodeURIComponent(search)}` : baseUrl;
       
       const response = await fetch(url);
@@ -153,7 +158,7 @@ const ProtocoloSelection = ({
 
   const refreshCacheInBackground = async () => {
     try {
-      const baseUrl = "https://api.lowcostonco.com.br/backend-php/api/PacientesEmTratamento/get_protocolos.php";
+      const baseUrl = "https://apiteste.lowcostonco.com.br/backend-php/api/PacientesEmTratamento/get_protocolos.php";
       
       const response = await fetch(baseUrl);
       if (!response.ok) return;
@@ -198,6 +203,35 @@ const ProtocoloSelection = ({
     if (onChange) {
       onChange(null);
     }
+  };
+  
+  // Função para redirecionar para cadastro de protocolo
+  const handleAddNewProtocolo = () => {
+    // Cacheamos os dados do formulário atual para preservar ao retornar
+    try {
+      // Get the current form data from the parent form if available
+      const formElement = dropdownRef.current?.closest('form');
+      let formData = {};
+      
+      if (formElement) {
+        // Create FormData object from the form
+        const formDataObj = new FormData(formElement);
+        
+        // Convert FormData to a simple object
+        for (let [key, value] of formDataObj.entries()) {
+          formData[key] = value;
+        }
+        
+        // Store in localStorage
+        localStorage.setItem(PREVIA_FORM_CACHE_KEY, JSON.stringify(formData));
+        console.log('Form data cached before navigation');
+      }
+    } catch (error) {
+      console.error('Failed to cache form data:', error);
+    }
+    
+    // Navigate to the protocol registration page
+    navigate('/PacientesEmTratamento?tab=protocolo');
   };
 
   // Exibição do protocolo selecionado
@@ -287,8 +321,30 @@ const ProtocoloSelection = ({
               ))}
             </ul>
           ) : (
-            <div className="p-4 text-center text-gray-500">
-              {searchTerm ? 'Nenhum protocolo encontrado com este termo' : 'Nenhum protocolo disponível'}
+            <div className="p-4 text-center">
+              {searchTerm ? (
+                <div className="flex flex-col items-center">
+                  <p className="text-gray-500 mb-3">Nenhum protocolo encontrado com este termo</p>
+                  <button 
+                    onClick={handleAddNewProtocolo}
+                    className="px-3 py-2 bg-green-100 text-green-800 rounded-md hover:bg-green-200 flex items-center"
+                  >
+                    <Plus size={16} className="mr-2" />
+                    Cadastrar Novo Protocolo
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center">
+                  <p className="text-gray-500 mb-3">Nenhum protocolo disponível</p>
+                  <button 
+                    onClick={handleAddNewProtocolo}
+                    className="px-3 py-2 bg-green-100 text-green-800 rounded-md hover:bg-green-200 flex items-center"
+                  >
+                    <Plus size={16} className="mr-2" />
+                    Cadastrar Novo Protocolo
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

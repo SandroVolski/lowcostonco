@@ -68,9 +68,9 @@ function Login() {
       }
       
       // Aguarda 2 segundos antes de redirecionar
-      setTimeout(() => {
+      /*setTimeout(() => {
         navigate('/Home');
-      }, 2000);
+      }, 2000);*/
     } else {
       setError('Código ou senha inválidos');
     }

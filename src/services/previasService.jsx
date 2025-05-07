@@ -2,7 +2,7 @@
 import { usePrevias } from '../context/PreviasContext';
 
 // Original API URL remains the same
-const API_URL = "https://api.lowcostonco.com.br/backend-php/api/Previas";
+const API_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/Previas";
 
 // Create a hook-based service that uses the context
 export const usePreviasService = () => {

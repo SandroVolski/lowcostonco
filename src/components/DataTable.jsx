@@ -313,7 +313,9 @@ export const DataTable = forwardRef(({
     'Concentracao': 'Concentracao',
     'Fracionamento': 'Fracionamento',
     'Laboratorio': 'Laboratorio',
+    'Uso': 'Uso',
     'Revisado_Farma': 'Revisado_Farma',
+    'Revisado_ADM': 'Revisado_ADM',
     'Via_Administração': 'Via_administracao',
     'Classe_Farmaceutica': 'ClasseFarmaceutica',
     'Medicamento': 'tipo_medicamento',
@@ -519,7 +521,7 @@ export const DataTable = forwardRef(({
     "ID", "Cod", "Código TUSS", "Registro Visa", " Tabela ", "Via_Administração",
     "Classe_Farmaceutica", "Princípio Ativo", "Armazenamento", "Descricao_Apresentacao",
     "Descricao_Resumida", "Descricao_Comercial", "Medicamento", "Unidade Fracionamento",
-    "Fator_Conversão", "Concentracao", "Fracionamento", "Laboratorio", "Taxas", "Revisado_Farma"
+    "Fator_Conversão", "Concentracao", "Fracionamento", "Laboratorio", "Taxas", "Uso", "Revisado_Farma", "Revisado_ADM"
   ];
 
   // Verificador de campos preenchidos para mostrar preview
@@ -942,8 +944,12 @@ export const DataTable = forwardRef(({
         return renderEditableAddCell(header, 'Fracionamento');
       case "Laboratorio":
         return renderEditableAddCell(header, 'Laboratorio');
+      case "Uso":
+        return renderEditableAddCell(header, 'Uso');
       case "Revisado_Farma":
         return renderEditableAddCell(header, 'Revisado_Farma');
+      case "Revisado_ADM":
+        return renderEditableAddCell(header, 'Revisado_ADM');
       default:
         // Para outros campos
         const fieldMapping = {

@@ -48,7 +48,7 @@ export const ServiceProvider = ({ children }) => {
     maxAge: CACHE_MAX_AGE_WITHOUT_VALIDATION    // Idade máxima do cache
   });
 
-  const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api/ServicoRelacionada";
+  const API_BASE_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/ServicoRelacionada";
 
   // Inicializar o cache
   useEffect(() => {
@@ -130,14 +130,20 @@ export const ServiceProvider = ({ children }) => {
   }, [lastRefreshTime, autoRefreshPolicy, needsRevalidation]);
 
   // Função para ordenar os dados
-  const changeSort = (field) => {
-    // Se clicar no mesmo campo, inverte a direção
-    if (field === sortField) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      // Se clicar em um novo campo, configura para ordenação ascendente
+  // Função para ordenar os dados
+  const changeSort = (field, order = null) => {
+    // Se a ordem for fornecida diretamente, use-a
+    if (order) {
       setSortField(field);
-      setSortOrder("asc");
+      setSortOrder(order);
+    } else {
+      // Lógica original como fallback
+      if (field === sortField) {
+        setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+      } else {
+        setSortField(field);
+        setSortOrder("asc");
+      }
     }
   };
 
@@ -383,7 +389,9 @@ export const ServiceProvider = ({ children }) => {
       Unidade_Fracionamento: item.UnidadeFracionamento,
       Fracionamento: item.Fracionamento,
       "Laboratório": item.Laboratorio,
+      Uso: item.Uso,
       Revisado_Farma: item.Revisado_Farma,
+      Revisado_ADM: item.Revisado_ADM,
       
       // Campos de dRegistro_anvisa
       "RegistroVisa": item.RegistroVisa,
@@ -642,8 +650,9 @@ export const ServiceProvider = ({ children }) => {
       
       const response = await fetch(apiUrl, {
         headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
+          //'Cache-Control': 'no-cache',
+          //'Pragma': 'no-cache'
+          'Accept': 'application/json'
         }
       });
       
@@ -891,7 +900,7 @@ export const ServiceProvider = ({ children }) => {
     formatted.Cod = formatted.Cod || '';
     formatted.Codigo_TUSS = formatted.Codigo_TUSS || '';
     formatted.Descricao_Apresentacao = formatted.Descricao_Apresentacao || '';
-    formatted.Revisado_Farma = formatted.Revisado_Farma || 0;
+    formatted.Revisado_Farma = formatted.Revisado_Farma || 0; 
     
     // Limpar campos desnecessários ou temporários
     const fieldsToDelete = [

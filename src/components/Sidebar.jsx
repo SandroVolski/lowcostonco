@@ -55,7 +55,7 @@ export function Sidebar() {
 
   const menuItems = [
     { icon: LayoutGrid, label: "Inicial", path: "/Home" },
-    { icon: Database, label: "Relação de Serviços", path: "/ServicoRelacionada" },
+    { icon: Database, label: "Cad. Serviços", path: "/ServicoRelacionada" },
     { 
       icon: Users, 
       label: "Pacientes em Trata.", 

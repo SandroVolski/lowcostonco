@@ -63,6 +63,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
+  align-items: stretch;
 }
 
 @media (max-width: 768px) {
@@ -77,6 +78,10 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   padding: 20px;
   border: 1px solid #e5e7eb;
+  min-height: 500px;
+  height: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .calc-card-header {
@@ -166,47 +171,130 @@
   opacity: 60% !important;
 }
 
+/* Estilos modernos para os botões */
+
+/* Estilo base comum para os botões */
 .btn-group-calc {
   display: flex;
-  gap: 12px;
+  gap: 16px;
+  margin-top: 10px;
 }
 
-.btn-primary-calc,
-.btn-secondary-calc {
+.btn-calc {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 16px;
-  border-radius: 6px;
-  font-weight: 500;
-  font-size: 14px;
-  transition: all 0.2s;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
   cursor: pointer;
   border: none;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
+/* Efeito de ondulação (ripple) ao clicar */
+.btn-calc::after {
+  content: '';
+  display: block;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.3) 10%, transparent 10.01%);
+  background-repeat: no-repeat;
+  background-position: 50%;
+  transform: scale(10, 10);
+  opacity: 0;
+  transition: transform 0.5s, opacity 0.8s;
+}
+
+.btn-calc:active::after {
+  transform: scale(0, 0);
+  opacity: 0.3;
+  transition: 0s;
+}
+
+/* Estilo específico para o botão primário (Calcular) */
 .btn-primary-calc {
-  background-color: #8cb369; /* Cor da empresa */
+  background: linear-gradient(45deg, #8cb369, #c6d651);
   color: white;
 }
 
 .btn-primary-calc:hover {
-  background-color: #7ba058; /* Cor mais escura para hover */
+  background: linear-gradient(45deg, #7ba058, #b9c748);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(140, 179, 105, 0.3);
+}
+
+.btn-primary-calc:active {
+  transform: translateY(0);
+  box-shadow: 0 3px 6px rgba(140, 179, 105, 0.2);
 }
 
 .btn-primary-calc:disabled {
-  background-color: #c6d651; /* Segunda cor da empresa */
+  background: linear-gradient(45deg, #c6c6c6, #d6d6d6);
   cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+/* Estilo específico para o botão secundário (Limpar) */
 .btn-secondary-calc {
-  background-color: #f3f4f6;
-  color: #4b5563;
-  border: 1px solid #d1d5db;
+  background: white;
+  color: #606060;
+  border: 2px solid #e5e7eb;
 }
 
 .btn-secondary-calc:hover {
-  background-color: #e5e7eb;
+  background: #f9fafb;
+  color: #404040;
+  border-color: #d1d5db;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-secondary-calc:active {
+  transform: translateY(0);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* Ícones dentro dos botões */
+.btn-calc svg {
+  margin-right: 8px;
+  transition: transform 0.3s ease;
+}
+
+.btn-calc:hover svg {
+  transform: scale(1.2);
+}
+
+/* Adicionar uma animação de pulso para chamar atenção ao botão Calcular */
+@keyframes pulse-button {
+  0% {
+    box-shadow: 0 0 0 0 rgba(140, 179, 105, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(140, 179, 105, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(140, 179, 105, 0);
+  }
+}
+
+.btn-primary-calc:not(:disabled) {
+  animation: pulse-button 2s infinite;
+}
+
+.btn-primary-calc:hover {
+  animation-play-state: paused;
 }
 
 .space-y-6 > * + * {
@@ -235,6 +323,7 @@
 .result-label {
   font-weight: 500;
   color: #374151;
+  font-size: 15px; /* Tamanho reduzido */
 }
 
 .info-button {
@@ -251,7 +340,7 @@
 }
 
 .result-value {
-  font-size: 24px;
+  font-size: 20px; /* Tamanho reduzido */
   font-weight: 600;
   color: #111827;
   margin-bottom: 8px;
@@ -298,101 +387,6 @@
   opacity: 1;
 }
 
-/* Dose Range styles - agora parte dos resultados */
-.dose-range-result {
-  margin-top: 24px;
-  border: 1px solid #c6d651;
-  background-color: #f9fafb;
-}
-
-.dose-range-result.out-of-range {
-  border: 1px solid #f26b6b;
-}
-
-.dose-range-display {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin: 16px 0;
-}
-
-.dose-value {
-  font-size: 20px;
-  font-weight: 600;
-  margin-bottom: 20px;
-  color: #111827;
-}
-
-.dose-range-container {
-  position: relative;
-  width: 80%;
-  height: 60px;
-  margin: 20px 0;
-}
-
-.dose-range-line {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background-color: #8cb369; /* Cor da empresa */
-  transform: translateY(-50%);
-}
-
-/* Linha vermelha quando fora da faixa */
-.dose-range-line.out-of-range {
-  background-color: #f26b6b; /* Cor vermelha para fora da faixa */
-}
-
-.dose-range-arrow {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 30px;
-  height: 30px;
-  color: #8cb369; /* Cor da empresa */
-}
-
-/* Seta vermelha quando fora da faixa */
-.dose-range-arrow.out-of-range {
-  color: #f26b6b; /* Cor vermelha para fora da faixa */
-}
-
-.dose-range-limits {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  position: relative;
-  top: 15px;
-}
-
-.dose-range-limit {
-  font-size: 14px;
-  font-weight: 500;
-  text-align: center;
-}
-
-.dose-status {
-  margin-top: 20px;
-  text-align: center;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-weight: 500;
-  display: inline-block;
-}
-
-.dose-status-ok {
-  background-color: #d1e7dd;
-  color: #0f5132;
-}
-
-.dose-status-warning {
-  background-color: #f8d7da;
-  color: #842029;
-}
-
 .mr-2 {
   margin-right: 8px;
 }
@@ -410,13 +404,10 @@
   justify-content: center;
   align-items: center;
   z-index: 50;
-  
 }
 
 .sidebar, .header {
   z-index: 100; /* Valor maior que o overlay */
-  
-  /* Garante que o z-index funcione */
 }
 
 .protocol-modal {
@@ -428,7 +419,6 @@
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
   margin-left: var(--sidebar-width) !important;
   transform: translateX(14%) !important;
-  
 }
 
 .modal-title {
@@ -535,45 +525,1567 @@
   transition: 0s;
 }
 
-.protocol-name {
-  font-size: 18px;
+.chevron-icon {
+  color: #8cb369;
+  transition: transform 0.2s ease;
+  margin-left: 10px;
+}
+
+/* ================ NOVOS ESTILOS ================ */
+
+/* Container para os resultados SC lado a lado */
+.sc-results-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 640px) {
+  .sc-results-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Melhorias na exibição da faixa de dose */
+.dose-range-result {
+  margin-top: 24px;
+  border: 1px solid #c6d651;
+  background-color: #f9fafb;
+  transition: all 0.3s ease;
+}
+
+.dose-range-result:hover {
+  box-shadow: 0 4px 12px rgba(140, 179, 105, 0.2);
+}
+
+.dose-range-result.in-range {
+  border: 1px solid #8cb369;
+}
+
+.dose-range-result.out-of-range {
+  border: 1px solid #f26b6b;
+}
+
+.dose-range-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 16px 0;
+}
+
+/* Container para valores de dose */
+.dose-values-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.dose-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-radius: 4px;
+  background-color: #f3f4f6;
+}
+
+.dose-value.primary {
+  background-color: #f0f7e9;
+  border-left: 3px solid #8cb369;
+}
+
+.dose-value.secondary {
+  background-color: #edf2f7;
+  border-left: 3px solid #718096;
+}
+
+.dose-value.med {
+  background-color: #e6f5fb;
+  border-left: 3px solid #63b3ed;
+}
+
+.dose-value.med.in-range {
+  background-color: #d1e7dd;
+  border-left: 3px solid #10b981;
+}
+
+.dose-value.med.out-of-range {
+  background-color: #f8d7da;
+  border-left: 3px solid #f26b6b;
+}
+
+.dose-label {
+  font-weight: 500;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.dose-number {
   font-weight: 600;
+  font-size: 16px;
   color: #111827;
+}
+
+/* Destaque em negrito para o valor de "Dose Calculada" */
+.dose-value.primary .dose-number {
+  font-weight: 700;
+  font-size: 18px;
+  color: #000;
+}
+
+/* Badge para exibir o percentual de variação */
+.variation-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background-color: #f3f4f6;
+}
+
+.variation-badge .positive {
+  color: #10b981;
+}
+
+.variation-badge .negative {
+  color: #f26b6b;
+}
+
+.variation-badge .neutral {
+  color: #6b7280;
+}
+
+/* ==== Estilos para a faixa de dose dinâmica ==== */
+.dose-range-container {
+  position: relative;
+  width: 90%;
+  height: 120px;
+  margin: 40px 0 20px 0;
+}
+
+/* Linha principal da faixa */
+.dose-range-line {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: linear-gradient(to right, 
+    #f26b6b 0%, 
+    #f26b6b 10%, 
+    #e0a243 25%, 
+    #8cb369 50%, 
+    #e0a243 75%, 
+    #f26b6b 90%, 
+    #f26b6b 100%
+  );
+  border-radius: 3px;
+  transform: translateY(-50%);
+  opacity: 0.8;
+}
+
+/* Marcações na faixa */
+.dose-range-markers {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 6px;
+  transform: translateY(-50%);
+}
+
+.marker-line {
+  position: absolute;
+  width: 2px;
+  height: 24px;
+  background-color: #333;
+  transform: translateY(-50%);
+}
+
+.marker-10-minus {
+  left: 0%;
+}
+
+.marker-5-minus {
+  left: 25%;
+}
+
+.marker-center {
+  left: 50%;
+  height: 32px;
+  background-color: transparent; /* Removido conforme solicitado */
+  opacity: 0; /* Oculta a linha central */
+}
+
+.marker-center .marker-label {
+  display: none; /* Remove o texto "Dose" */
+}
+
+.marker-5-plus {
+  left: 75%;
+}
+
+.marker-10-plus {
+  left: 100%;
+}
+
+.marker-label {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 500;
+  color: #4b5563;
+  white-space: nowrap;
+}
+
+/* Valores da faixa */
+.dose-range-values {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.dose-range-value {
+  font-size: 11px;
+  font-weight: 500;
+  color: #4b5563;
+  text-align: center;
+  width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Destaque em negrito para o valor central (Dose Calculada) */
+.dose-range-values .dose-range-value:nth-child(3) {
+  font-weight: 700;
+  color: #111827;
+  font-size: 13px; /* Um pouco maior */
+}
+
+/* Indicador dinâmico da Dose Calculada (Med) */
+.dose-med-indicator {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -40%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 50;
+  cursor: pointer;
+}
+
+/* Efeito de pulsação para a bolinha do indicador */
+@keyframes pulse-indicator {
+  0% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); /* Cor azul padrão com transparência */
+  }
+  
+  50% { 
+    transform: scale(1.1);
+    box-shadow: 0 0 0 5px rgba(59, 130, 246, 0); /* Cor azul padrão com transparência */
+  }
+  
+  100% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); /* Cor azul padrão com transparência */
+  }
+}
+
+/* Versão da animação para o estado in-range (verde) */
+@keyframes pulse-indicator-in-range {
+  0% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); /* Cor verde */
+  }
+  
+  50% { 
+    transform: scale(1.1);
+    box-shadow: 0 0 0 5px rgba(16, 185, 129, 0); /* Cor verde */
+  }
+  
+  100% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); /* Cor verde */
+  }
+}
+
+/* Versão da animação para o estado out-of-range (vermelho) */
+@keyframes pulse-indicator-out-of-range {
+  0% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(242, 107, 107, 0.5); /* Cor vermelha */
+  }
+  
+  50% { 
+    transform: scale(1.1);
+    box-shadow: 0 0 0 5px rgba(242, 107, 107, 0); /* Cor vermelha */
+  }
+  
+  100% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(242, 107, 107, 0); /* Cor vermelha */
+  }
+}
+
+.dose-med-pointer {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #3b82f6;
+  border: 2px solid white;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+  margin: 0; /* Remover margens */
+  transition: transform 0.2s ease;
+  animation: pulse-indicator 2s infinite;
+}
+
+.dose-med-label {
+  display: none; /* Esconder por padrão */
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #3b82f6;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  margin-bottom: 8px; /* Espaço entre o rótulo e o indicador */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  z-index: 51;
+}
+
+/* Variantes de cores baseadas no status */
+.dose-med-indicator.in-range .dose-med-pointer,
+.dose-med-indicator.in-range .dose-med-label {
+  background-color: #10b981;
+  border-top-color: #10b981;
+}
+
+.dose-med-indicator.out-of-range .dose-med-pointer,
+.dose-med-indicator.out-of-range .dose-med-label {
+  background-color: #f26b6b;
+  border-top-color: #f26b6b;
+}
+
+/* Tooltip melhorado */
+.tooltip-wrapper {
+  position: absolute;
+  bottom: calc(100% + 15px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 220px;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.dose-med-indicator:hover .tooltip-wrapper {
+  opacity: 1;
+  visibility: visible;
+  bottom: calc(100% + 5px);
+}
+
+/* Estilo do card de tooltip */
+.tooltip-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  text-align: center;
+  border-left: 4px solid #3b82f6;
+  color: #111827;
+  font-size: 12px;
+  position: relative;
+}
+
+/* Seta do tooltip */
+.tooltip-card::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid white;
+}
+
+.in-range .tooltip-card {
+  border-left-color: #10b981;
+}
+
+.out-of-range .tooltip-card {
+  border-left-color: #f26b6b;
+}
+
+.tooltip-header {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 6px;
+  color: #4b5563;
+}
+
+.tooltip-value {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.tooltip-variation {
+  font-weight: 500;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: #f3f4f6;
+}
+
+.tooltip-variation.positive {
+  color: #10b981;
+  background: #d1fae5;
+}
+
+.tooltip-variation.negative {
+  color: #ef4444;
+  background: #fee2e2;
+}
+
+.tooltip-variation.neutral {
+  color: #6b7280;
+}
+
+/* Componente DoseBurst para a ampola */
+.dose-burst-container {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 80px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 25; /* Aumentado para ficar acima de tudo */
+  pointer-events: none;
+}
+
+.dose-explosion-effect {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, 
+    rgba(140, 179, 105, 0.7) 0%, 
+    rgba(140, 179, 105, 0.4) 40%, 
+    rgba(140, 179, 105, 0) 70%
+  );
+  border-radius: 50%;
+  z-index: 21;
+  pointer-events: none;
+}
+
+.out-of-range .dose-explosion-effect {
+  background: radial-gradient(circle, 
+    rgba(242, 107, 107, 0.7) 0%, 
+    rgba(242, 107, 107, 0.4) 40%, 
+    rgba(242, 107, 107, 0) 70%
+  );
+}
+
+/* Ajuste para manter a ampola sempre na mesma posição */
+.dose-flask {
+  position: relative;
+  z-index: 26;
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.2));
+  transform: translateY(15px) !important; /* Mantém sempre esta posição, forçado com !important */
+  transition: transform 0.3s ease;
+}
+
+/* Apenas rotaciona, sem mudar posição vertical */
+.dose-range-result:hover .dose-flask {
+  animation: flask-wobble-fixed 1.5s ease infinite;
+}
+
+@keyframes flask-wobble-fixed {
+  0%, 100% { transform: translateY(25px) rotate(0deg) !important; }
+  25% { transform: translateY(25px) rotate(-5deg) !important; }
+  50% { transform: translateY(25px) rotate(0deg) !important; }
+  75% { transform: translateY(25px) rotate(5deg) !important; }
+}
+
+/* Animação de explosão da ampola quando passa o mouse */
+.dose-range-result:hover .dose-burst-container {
+  animation: flask-explosion 2s linear infinite;
+}
+
+@keyframes flask-explosion {
+  0% { 
+    filter: brightness(1); 
+  }
+  10% { 
+    filter: brightness(1.2); 
+  }
+  15% { 
+    filter: brightness(1.4); 
+  }
+  20% { 
+    filter: brightness(1.1); 
+  }
+  25% { 
+    filter: brightness(1.3); 
+  }
+  100% { 
+    filter: brightness(1); 
+  }
+}
+
+/* Animações específicas para as bolhas */
+.bubble1 {
+  animation: bubble-float1 3s ease-in-out infinite;
+}
+
+.bubble2 {
+  animation: bubble-float2 4s ease-in-out infinite;
+  animation-delay: 0.5s;
+}
+
+.bubble3 {
+  animation: bubble-float3 3.5s ease-in-out infinite;
+  animation-delay: 1s;
+}
+
+@keyframes bubble-float1 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-2px, -5px); }
+}
+
+@keyframes bubble-float2 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(2px, -7px); }
+}
+
+@keyframes bubble-float3 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-1px, -4px); }
+}
+
+/* Animações ao passar o mouse */
+.dose-range-result:hover .bubble1 {
+  animation: bubble-explode1 1s ease-in-out infinite;
+}
+
+.dose-range-result:hover .bubble2 {
+  animation: bubble-explode2 1.2s ease-in-out infinite;
+  animation-delay: 0.2s;
+}
+
+.dose-range-result:hover .bubble3 {
+  animation: bubble-explode3 0.8s ease-in-out infinite;
+  animation-delay: 0.4s;
+}
+
+@keyframes bubble-explode1 {
+  0% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+  50% { transform: translate(-4px, -10px) scale(1.5); opacity: 0.8; }
+  100% { transform: translate(-6px, -15px) scale(0.1); opacity: 0; }
+}
+
+@keyframes bubble-explode2 {
+  0% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+  50% { transform: translate(2px, -12px) scale(2); opacity: 0.7; }
+  100% { transform: translate(4px, -20px) scale(0.1); opacity: 0; }
+}
+
+@keyframes bubble-explode3 {
+  0% { transform: translate(0, 0) scale(1); opacity: 0.7; }
+  50% { transform: translate(-3px, -8px) scale(1.2); opacity: 0.9; }
+  100% { transform: translate(-5px, -18px) scale(0.1); opacity: 0; }
+}
+
+/* Animação do líquido */
+.flask-liquid {
+  animation: liquid-move 4s ease-in-out infinite;
+}
+
+@keyframes liquid-move {
+  0%, 100% { d: path("M12 45C12 40 10 40 10 35V30h20v5c0 5 -2 5 -2 10 C28 55 22 58 20 58 C18 58 12 55 12 45z"); }
+  50% { d: path("M11 45C11 40 10 40 10 35V30h20v5c0 5 -1 5 -1 10 C29 55 22 58 20 58 C18 58 11 55 11 45z"); }
+}
+
+.dose-range-result:hover .flask-liquid {
+  animation: liquid-boil 0.8s ease-in-out infinite;
+}
+
+@keyframes liquid-boil {
+  0% { d: path("M12 45C12 40 10 40 10 35V30h20v5c0 5 -2 5 -2 10 C28 55 22 58 20 58 C18 58 12 55 12 45z"); }
+  25% { d: path("M10 45C10 40 9 40 9 35V30h22v5c0 5 -1 5 -1 10 C30 55 23 58 20 58 C17 58 10 55 10 45z"); }
+  50% { d: path("M12 45C12 40 10 40 10 35V30h20v5c0 5 -2 5 -2 10 C28 55 22 58 20 58 C18 58 12 55 12 45z"); }
+  75% { d: path("M13 45C13 40 11 40 11 35V30h18v5c0 5 -2 5 -2 10 C26 55 22 58 20 58 C18 58 13 55 13 45z"); }
+}
+
+/* Efeito de brilho no SVG */
+.dose-range-result:hover .flask-outline {
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 3px rgba(140, 179, 105, 0.7));
+  animation: outline-pulse 1s ease-in-out infinite;
+}
+
+@keyframes outline-pulse {
+  0%, 100% { stroke-width: 2; }
+  50% { stroke-width: 3; }
+}
+
+/* Efeito de explosão simulado */
+.dose-range-result:hover .dose-explosion-effect {
+  animation: explode-effect 1.5s ease-in-out infinite;
+}
+
+@keyframes explode-effect {
+  0% { 
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  25% { 
+    opacity: 0.7;
+    transform: scale(1.2);
+  }
+  50% { 
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  75% { 
+    opacity: 0.8;
+    transform: scale(1.1);
+  }
+  100% { 
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+/* Estilização da mensagem de status */
+.dose-status {
+  margin-top: 25px;
+  text-align: center;
+  padding: 10px 14px; /* Tamanho reduzido */
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px; /* Tamanho reduzido */
+  display: inline-block;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  position: relative;
+  transition: all 0.3s ease;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(140, 179, 105, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(140, 179, 105, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(140, 179, 105, 0); }
+}
+
+.dose-status-ok {
+  background-color: #d1e7dd;
+  color: #0f5132;
+  border-left: 5px solid #10b981;
+}
+
+.dose-status-warning {
+  background-color: #f8d7da;
+  color: #842029;
+  border-left: 5px solid #f26b6b;
+  animation: pulse-warning 2s infinite;
+}
+
+@keyframes pulse-warning {
+  0% { box-shadow: 0 0 0 0 rgba(242, 107, 107, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(242, 107, 107, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(242, 107, 107, 0); }
+}
+
+.dose-status-detail {
+  font-size: 12px; /* Tamanho reduzido */
+  opacity: 0.8;
+  font-weight: 400;
+  display: block;
+  margin-top: 4px;
+}
+
+/* Ajustes para títulos de resultados */
+.sc-results-container .result-item .result-label,
+.result-item.result-highlight .result-label {
+  font-size: 13px;
+}
+
+
+.dose-med-indicator:hover .dose-med-label {
+  display: block;
+}
+
+/* Efeito de hover no indicador */
+.dose-med-indicator:hover .dose-med-pointer {
+  transform: scale(1.3);
+  animation-play-state: paused; /* Pausa a animação durante o hover */
+}
+
+/* Variantes de cores para o status in-range */
+.dose-med-indicator.in-range .dose-med-pointer {
+  background-color: #10b981;
+  animation: pulse-indicator-in-range 2s infinite;
+}
+
+.dose-med-indicator.in-range .dose-med-label {
+  background-color: #10b981;
+}
+
+/* Variantes de cores para o status out-of-range */
+.dose-med-indicator.out-of-range .dose-med-pointer {
+  background-color: #f26b6b;
+  animation: pulse-indicator-out-of-range 2s infinite;
+}
+
+.dose-med-indicator.out-of-range .dose-med-label {
+  background-color: #f26b6b;
+}
+
+/* === NOVOS ESTILOS PARA O GIF DA LOGO E CARD FLIP === */
+
+/* Estilos para o componente de nenhum resultado */
+.sr-no-selection-message {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  height: 100%;
+  padding: 0;
+  background: transparent;
+}
+
+.sr-no-selection-message p {
+  color: #6b7280;
+  margin-bottom: 24px;
+  font-size: 16px;
+  background: transparent;
+}
+
+.sr-loading-gif {
+  width: 180px;
+  height: auto;
+  margin: 20px 0;
+  background: transparent;
+}
+
+/* Estilos para o efeito de flip do card */
+.calc-card-flip-container {
+  perspective: 1000px;
+  height: auto;
+  min-height: 500px;
+}
+
+.calc-card-flipper {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 500px;
+  transition: transform 0.8s;
+  transform-style: preserve-3d;
+}
+
+.calc-card-flipper.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.calc-card-front,
+.calc-card-back {
+  position: absolute;
+  width: 100%;
+  height: auto;
+  min-height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden; /* Safari */
+  overflow: visible;
+  border-radius: 8px;
+}
+
+.calc-card-front {
+  z-index: 2;
+  transform: rotateY(0deg);
+}
+
+.calc-card-back {
+  transform: rotateY(180deg);
+  height: fit-content;
+}
+
+/* Efeito de brilho na animação de flip */
+@keyframes card-glow {
+  0% { box-shadow: 0 0 5px rgba(140, 179, 105, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(140, 179, 105, 0.7); }
+  100% { box-shadow: 0 0 5px rgba(140, 179, 105, 0.3); }
+}
+
+.calc-card-flipper.is-flipped {
+  animation: card-glow 2s ease-in-out;
+}
+
+/* Efeito de transição para os resultados aparecerem */
+.calc-card-back .space-y-6 {
+  transition: opacity 0.5s ease;
+  transition-delay: 0.4s;
+}
+
+/* Classe para controlar a altura dinâmica depois do flip */
+.calc-card-flip-container.expanded {
+  height: auto;
+}
+
+.calc-card-flipper.is-flipped.expanded {
+  height: auto;
+}
+
+/* Ajustes responsivos */
+@media (max-width: 768px) {
+  .calc-card {
+    min-height: 450px;
+  }
+  
+  .calc-card-flip-container,
+  .calc-card-flipper {
+    min-height: 450px;
+  }
+  
+  .sr-loading-gif {
+    width: 150px;
+  }
+}
+
+.dose-range-result + .dose-range-result {
+  margin-top: 30px;
+  border-top: 1px dashed #e5e7eb;
+  padding-top: 30px;
+}
+
+/* Melhorias para diferenciar visualmente SC1 e SC2 */
+.dose-range-result[data-type="sc1"] .result-label,
+.dose-range-result[data-type="sc1"] .dose-value.primary {
+  border-left-color: #8cb369; /* Cor verde da empresa */
+}
+
+.dose-range-result[data-type="sc2"] .result-label,
+.dose-range-result[data-type="sc2"] .dose-value.primary {
+  border-left-color: #6366F1; /* Cor roxa para SC2 */
+}
+
+/* Adicionar badges para identificar claramente SC1 e SC2 */
+.result-label .method-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 9999px;
+  margin-left: 8px;
+  color: white;
+}
+
+.result-label .method-badge.sc1 {
+  background-color: #8cb369;
+}
+
+.result-label .method-badge.sc2 {
+  background-color: #6366F1;
+}
+
+/* Estilização diferenciada para cada tipo de superfície corporal */
+.result-highlight.sc1 {
+  background-color: #f0f7e9; /* Verde claro */
+  border-color: #c6d651;
+}
+
+.result-highlight.sc2 {
+  background-color: #eef2ff; /* Roxo claro */
+  border-color: #a5b4fc;
+}
+
+/* Melhorar a separação visual de múltiplas faixas de dose */
+.space-y-6 > .dose-range-result:not(:first-child) {
+  position: relative;
+}
+
+.space-y-6 > .dose-range-result:not(:first-child)::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 1px;
+  background: #e5e7eb;
+}
+
+/* Alterações nas ampolas para cada método */
+.dose-range-result[data-type="sc2"] .flask-liquid {
+  fill: rgba(99, 102, 241, 0.3) !important; /* Roxo para SC2 */
+}
+
+.dose-range-result[data-type="sc2"] .bubble {
+  fill: rgba(99, 102, 241, 0.6) !important; /* Roxo para SC2 */
+}
+
+.dose-range-result[data-type="sc2"] .flask-outline {
+  stroke: #6366F1 !important; /* Roxo para SC2 */
+}
+
+/* Melhorar a visualização quando tem múltiplas faixas */
+.dose-range-result {
+  transition: all 0.3s ease;
+}
+
+.dose-range-result:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Melhorar a diferenciação das linhas gradientes para cada método */
+.dose-range-result[data-type="sc1"] .dose-range-line {
+  background: linear-gradient(to right, 
+    #f26b6b 0%, 
+    #f26b6b 10%, 
+    #e0a243 25%, 
+    #8cb369 50%, 
+    #e0a243 75%, 
+    #f26b6b 90%, 
+    #f26b6b 100%
+  );
+}
+
+.dose-range-result[data-type="sc2"] .dose-range-line {
+  background: linear-gradient(to right, 
+    #f26b6b 0%, 
+    #f26b6b 10%, 
+    #818cf8 25%, 
+    #6366F1 50%, 
+    #818cf8 75%, 
+    #f26b6b 90%, 
+    #f26b6b 100%
+  );
+}
+
+/* Estilos para as abas de faixa de dose */
+.dose-range-tabs-container {
+  margin-top: 20px;
+  border-radius: 8px;
+  background-color: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: visible;
+  border: 1px solid #e5e7eb;
+}
+
+.dose-range-tabs {
+  display: flex;
+  border-bottom: 1px solid #e5e7eb;
+  position: relative;
+  background-color: #f9fafb;
+}
+
+.dose-range-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b7280;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  gap: 8px;
+}
+
+.dose-range-tab:hover {
+  color: #111827;
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.dose-range-tab.active {
+  color: #111827;
+  border-bottom: 2px solid currentColor;
+}
+
+/* Estilizações específicas para cada aba */
+.dose-range-tab:first-child.active {
+  color: #8cb369; /* Cor verde para SC1 */
+  border-bottom-color: #8cb369;
+}
+
+.dose-range-tab:last-child.active {
+  color: #6366F1; /* Cor roxa para SC2 */
+  border-bottom-color: #6366F1;
+}
+
+.tab-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-icon-svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+}
+
+.dose-range-tab:first-child .tab-icon-svg {
+  stroke: #8cb369;
+}
+
+.dose-range-tab:last-child .tab-icon-svg {
+  stroke: #6366F1;
+}
+
+.dose-range-tab-content {
+  position: relative;
+  /* Remover altura fixa para permitir que o conteúdo defina a altura */
+}
+
+.dose-range-tab-pane {
+  padding: 16px;
+  width: 100%;
+}
+
+/* Aplicar estilos específicos para cada tipo de faixa */
+.dose-range-tab-pane[data-type="sc1"] .result-header .result-label {
+  color: #8cb369;
+}
+
+.dose-range-tab-pane[data-type="sc2"] .result-header .result-label {
+  color: #6366F1;
+}
+
+.dose-range-tab-pane[data-type="sc1"] .dose-range-line {
+  background: linear-gradient(to right, 
+    #f26b6b 0%, 
+    #f26b6b 10%, 
+    #e0a243 25%, 
+    #8cb369 50%, 
+    #e0a243 75%, 
+    #f26b6b 90%, 
+    #f26b6b 100%
+  );
+}
+
+.dose-range-tab-pane[data-type="sc2"] .dose-range-line {
+  background: linear-gradient(to right, 
+    #f26b6b 0%, 
+    #f26b6b 10%, 
+    #818cf8 25%, 
+    #6366F1 50%, 
+    #818cf8 75%, 
+    #f26b6b 90%, 
+    #f26b6b 100%
+  );
+}
+
+/* Indicador ativo da aba */
+.dose-range-tab::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; /* Para ficar exatamente na borda */
+  left: 0;
+  width: 100%;
+  height: 0;
+  background-color: transparent;
+  transition: all 0.3s ease;
+}
+
+.dose-range-tab.active::after {
+  height: 2px;
+  background-color: currentColor;
+}
+
+/* Melhorias visuais para a faixa de dose */
+.dose-range-tab-pane .dose-range-result {
+  margin-top: 0;
+  border: none;
+  box-shadow: none;
+  background-color: transparent;
+}
+
+.dose-range-tab-pane .dose-range-result:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Ajustes responsivos */
+@media (max-width: 640px) {
+  .dose-range-tab {
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+  
+  .tab-icon {
+    display: none; /* Oculta ícones em telas pequenas */
+  }
+}
+
+/* Animação especial para o indicador ativo das abas */
+@keyframes tab-pulse {
+  0% { opacity: 0.8; }
+  50% { opacity: 1; }
+  100% { opacity: 0.8; }
+}
+
+.dose-range-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 2px;
+  background-color: currentColor;
+  animation: tab-pulse 2s infinite;
+}
+
+/* Melhorias visuais para a faixa de dose */
+.dose-range-tab-pane .dose-range-result {
+  margin-top: 0;
+  border: none;
+  box-shadow: none;
+  background-color: transparent;
+}
+
+.dose-range-tab-pane .dose-range-result:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Garantir que o conteúdo da aba não fique recortado */
+.dose-range-tab-content {
+  overflow: visible;
+}
+
+/* Ajustes responsivos */
+@media (max-width: 640px) {
+  .dose-range-tab {
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+  
+  .tab-icon {
+    display: none; /* Oculta ícones em telas pequenas */
+  }
+}
+
+
+
+
+
+/* ===== NOVAS CLASSES PARA AS FAIXAS DE DOSE ===== */
+
+/* Classes para os tipos de faixa (ideal, aceitável, fora da faixa) */
+.dose-range-result.ideal-range {
+  border-color: #8cb369;
+}
+
+.dose-range-result.acceptable-range {
+  border-color: #e0a243;
+}
+
+.dose-range-result.out-of-range {
+  border-color: #f26b6b;
+}
+
+/* Estilos para o valor Dose Planejada/Prescrita baseado no tipo de faixa */
+.dose-value.med.ideal-range {
+  background-color: #d1e7dd;
+  border-left: 3px solid #10b981;
+}
+
+.dose-value.med.acceptable-range {
+  background-color: #fff3cd;
+  border-left: 3px solid #e0a243;
+}
+
+.dose-value.med.out-of-range {
+  background-color: #f8d7da;
+  border-left: 3px solid #f26b6b;
+}
+
+/* Estilos para o indicador na faixa baseado no tipo de faixa */
+.dose-med-indicator.ideal-range .dose-med-pointer {
+  background-color: #10b981;
+  animation: pulse-indicator-ideal 2s infinite;
+}
+
+.dose-med-indicator.acceptable-range .dose-med-pointer {
+  background-color: #e0a243;
+  animation: pulse-indicator-acceptable 2s infinite;
+}
+
+.dose-med-indicator.out-of-range .dose-med-pointer {
+  background-color: #f26b6b;
+  animation: pulse-indicator-out-of-range 1s infinite;
+}
+
+/* Cores do texto do indicador baseado no tipo de faixa */
+.dose-med-indicator.ideal-range .dose-med-label {
+  background-color: #10b981;
+}
+
+.dose-med-indicator.acceptable-range .dose-med-label {
+  background-color: #e0a243;
+}
+
+.dose-med-indicator.out-of-range .dose-med-label {
+  background-color: #f26b6b;
+}
+
+/* Cores da borda do tooltip baseado no tipo de faixa */
+.ideal-range .tooltip-card {
+  border-left-color: #10b981;
+}
+
+.acceptable-range .tooltip-card {
+  border-left-color: #e0a243;
+}
+
+.out-of-range .tooltip-card {
+  border-left-color: #f26b6b;
+}
+
+/* ===== ANIMAÇÕES PARA OS TIPOS DE FAIXA ===== */
+
+/* Animação para o indicador na faixa ideal */
+@keyframes pulse-indicator-ideal {
+  0% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+  }
+  
+  50% { 
+    transform: scale(1.1);
+    box-shadow: 0 0 0 5px rgba(16, 185, 129, 0);
+  }
+  
+  100% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+/* Animação para o indicador na faixa aceitável */
+@keyframes pulse-indicator-acceptable {
+  0% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(224, 162, 67, 0.5);
+  }
+  
+  50% { 
+    transform: scale(1.1);
+    box-shadow: 0 0 0 5px rgba(224, 162, 67, 0);
+  }
+  
+  100% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(224, 162, 67, 0);
+  }
+}
+
+/* Animação mais rápida e intensa para o indicador fora da faixa */
+@keyframes pulse-indicator-out-of-range {
+  0% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(242, 107, 107, 0.7);
+  }
+  
+  50% { 
+    transform: scale(1.2);
+    box-shadow: 0 0 0 8px rgba(242, 107, 107, 0);
+  }
+  
+  100% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(242, 107, 107, 0);
+  }
+}
+
+/* ===== ESTILOS PARA O ÍCONE DE EXPLOSÃO ===== */
+.explosion-icon {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  color: #f26b6b;
+  animation: explosion-pulse 1s ease-in-out infinite;
+  z-index: 100;
+  filter: drop-shadow(0 0 5px rgba(242, 107, 107, 0.8));
+}
+
+@keyframes explosion-pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+
+/* ===== MELHORIAS NA ANIMAÇÃO DA AMPOLA ===== */
+
+/* Ampola para faixa ideal */
+.ideal-range .flask-liquid {
+  fill: rgba(140, 179, 105, 0.3);
+}
+
+.ideal-range .bubble {
+  fill: rgba(140, 179, 105, 0.6);
+}
+
+.ideal-range .flask-outline {
+  stroke: #8cb369;
+}
+
+/* Ampola para faixa aceitável */
+.acceptable-range .flask-liquid {
+  fill: rgba(224, 162, 67, 0.3);
+}
+
+.acceptable-range .bubble {
+  fill: rgba(224, 162, 67, 0.6);
+}
+
+.acceptable-range .flask-outline {
+  stroke: #e0a243;
+}
+
+/* Ampola para fora da faixa */
+.out-of-range .flask-liquid {
+  fill: rgba(242, 107, 107, 0.3);
+}
+
+.out-of-range .bubble {
+  fill: rgba(242, 107, 107, 0.6);
+}
+
+.out-of-range .flask-outline {
+  stroke: #f26b6b;
+}
+
+/* Efeito de sombra para ampola fora da faixa */
+.out-of-range .dose-flask {
+  filter: drop-shadow(0 0 5px rgba(242, 107, 107, 0.5));
+}
+
+/* Animação mais intensa para ampola fora da faixa */
+.out-of-range:hover .dose-flask {
+  animation: flask-extreme-wobble 0.8s ease infinite !important;
+}
+
+@keyframes flask-extreme-wobble {
+  0%, 100% { transform: translateY(25px) rotate(0deg) !important; }
+  25% { transform: translateY(25px) rotate(-8deg) !important; }
+  50% { transform: translateY(25px) rotate(0deg) !important; }
+  75% { transform: translateY(25px) rotate(8deg) !important; }
+}
+
+/* ===== ANIMAÇÕES PARA O LÍQUIDO FORA DA FAIXA ===== */
+.out-of-range .flask-liquid {
+  animation: liquid-boil-extreme 0.5s ease-in-out infinite !important;
+}
+
+@keyframes liquid-boil-extreme {
+  0% { d: path("M12 45C12 40 10 40 10 35V30h20v5c0 5 -2 5 -2 10 C28 55 22 58 20 58 C18 58 12 55 12 45z"); }
+  25% { d: path("M8 45C8 38 7 40 7 34V30h26v5c0 5 0 5 0 11 C33 55 24 58 20 58 C16 58 8 54 8 45z"); }
+  50% { d: path("M12 45C12 40 10 40 10 35V30h20v5c0 5 -2 5 -2 10 C28 55 22 58 20 58 C18 58 12 55 12 45z"); }
+  75% { d: path("M14 45C14 40 12 40 12 35V30h16v5c0 5 -3 5 -3 10 C25 55 21 58 20 58 C19 58 14 55 14 45z"); }
+}
+
+/* ===== ANIMAÇÕES PARA BOLHAS FORA DA FAIXA ===== */
+.out-of-range:hover .bubble1 {
+  animation: bubble-explode-extreme1 0.7s ease-in-out infinite !important;
+}
+
+.out-of-range:hover .bubble2 {
+  animation: bubble-explode-extreme2 0.8s ease-in-out infinite !important;
+}
+
+.out-of-range:hover .bubble3 {
+  animation: bubble-explode-extreme3 0.6s ease-in-out infinite !important;
+}
+
+@keyframes bubble-explode-extreme1 {
+  0% { transform: translate(0, 0) scale(1); opacity: 0.8; }
+  50% { transform: translate(-6px, -15px) scale(2); opacity: 1; }
+  100% { transform: translate(-8px, -20px) scale(0.1); opacity: 0; }
+}
+
+@keyframes bubble-explode-extreme2 {
+  0% { transform: translate(0, 0) scale(1); opacity: 0.7; }
+  50% { transform: translate(4px, -18px) scale(2.5); opacity: 0.9; }
+  100% { transform: translate(6px, -25px) scale(0.1); opacity: 0; }
+}
+
+@keyframes bubble-explode-extreme3 {
+  0% { transform: translate(0, 0) scale(1); opacity: 0.9; }
+  50% { transform: translate(-5px, -12px) scale(1.8); opacity: 1; }
+  100% { transform: translate(-7px, -22px) scale(0.1); opacity: 0; }
+}
+
+/* ===== EFEITO DE EXPLOSÃO MAIS INTENSO ===== */
+.dose-explosion-effect.explosion-extreme {
+  background: radial-gradient(circle, 
+    rgba(242, 107, 107, 0.9) 0%, 
+    rgba(242, 107, 107, 0.6) 40%, 
+    rgba(242, 107, 107, 0) 70%
+  );
+}
+
+/* ===== GRADIENTE DA FAIXA DE DOSE PARA CADA TIPO ===== */
+.ideal-range .dose-range-line {
+  background: linear-gradient(to right, 
+    #f26b6b 0%, 
+    #f26b6b 10%, 
+    #e0a243 25%, 
+    #8cb369 50%, 
+    #e0a243 75%, 
+    #f26b6b 90%, 
+    #f26b6b 100%
+  );
+}
+
+.acceptable-range .dose-range-line {
+  background: linear-gradient(to right, 
+    #f26b6b 0%, 
+    #f26b6b 10%, 
+    #e0a243 25%, 
+    #e0a243 50%, 
+    #e0a243 75%, 
+    #f26b6b 90%, 
+    #f26b6b 100%
+  );
+}
+
+.out-of-range .dose-range-line {
+  background: linear-gradient(to right, 
+    #f26b6b 0%, 
+    #f26b6b 25%, 
+    #f26b6b 50%, 
+    #f26b6b 75%,
+    #f26b6b 100%
+  );
+  opacity: 0.9;
+}
+
+/* ===== AJUSTE NAS CORES DO STATUS ===== */
+.dose-status-ok {
+  background-color: #d1e7dd;
+  color: #0f5132;
+  border-left: 5px solid #10b981;
+}
+
+.dose-status-warning {
+  background-color: #f8d7da;
+  color: #842029;
+  border-left: 5px solid #f26b6b;
+  animation: pulse-warning 1.5s infinite; /* Mais rápido */
+}
+
+@keyframes pulse-warning {
+  0% { box-shadow: 0 0 0 0 rgba(242, 107, 107, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(242, 107, 107, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(242, 107, 107, 0); }
+}
+
+.variation-badge .ideal {
+  color: #10b981; /* Verde */
+}
+
+.variation-badge .acceptable {
+  color: #e0a243; /* Amarelo/Laranja */
+}
+
+.variation-badge .out-of-range {
+  color: #f26b6b; /* Vermelho */
+}
+
+.tooltip-variation.ideal {
+  color: #10b981;
+  background-color: #d1fae5;
+}
+
+.tooltip-variation.acceptable {
+  color: #e0a243; 
+  background-color: #fff3cd;
+}
+
+.tooltip-variation.out-of-range {
+  color: #ef4444;
+  background-color: #fee2e2;
+} 
+
+.dose-med-explosion {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  margin-bottom: 8px;
+  transform-origin: center bottom;
+  animation: explode-pulse 1s infinite;
+  filter: drop-shadow(0 0 5px rgba(242, 107, 107, 0.8));
+  z-index: 10;
+}
+
+@keyframes explode-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* Ajustes para o posicionamento do ícone */
+.dose-med-indicator.out-of-range {
+  margin-top: -12px; /* Ajuste para compensar o tamanho maior do ícone de explosão */
+}
+
+/* Mantenha a animação existente para a bolinha (casos ideal e acceptable) */
+.dose-med-indicator.ideal-range .dose-med-pointer {
+  animation: pulse-indicator-ideal 2s infinite;
+}
+
+.dose-med-indicator.acceptable-range .dose-med-pointer {
+  animation: pulse-indicator-acceptable 2s infinite;
+}
+
+.calc-card-header {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.protocol-name::before {
-  content: "";
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  background-color: #8cb369;
-  border-radius: 50%;
+.header-tooltip {
+  margin-left: 8px;
 }
 
-/* Deixe o botão visualmente diferente para indicar que ainda é um botão */
-.change-protocol-btn {
-  background-color: rgba(255, 255, 255, 0.7);
-  border: 1px solid #8cb369;
-  color: #8cb369;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-  z-index: 2; /* Garantir que o botão fique acima do efeito de ripple */
+.header-tooltip .tooltip-text {
+  width: 300px; /* Tooltip mais amplo para o cabeçalho */
+  left: -150px; /* Centralizar o tooltip */
 }
 
-.change-protocol-btn:hover {
-  background-color: #8cb369;
-  color: white;
-}
-
-/* Estilizando o ícone de seta */
-.chevron-icon {
-  color: #8cb369;
-  transition: transform 0.2s ease;
-  margin-left: 10px;
+.header-tooltip .tooltip-text::after {
+  left: 50%; /* Centralizar a seta */
 }

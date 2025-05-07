@@ -14,7 +14,7 @@ export function Header() {
     location.pathname === "/Home"
       ? "Olá... Vamos fazer o que hoje?"
       : location.pathname === "/ServicoRelacionada"
-      ? "Relação de Serviços"
+      ? "Cadastro de Serviços"
       : location.pathname === "/PacientesEmTratamento" && location.search === "?tab=cadastro"
       ? "PTTO: Cadastro de Paciente"
       : location.pathname === "/PacientesEmTratamento" && location.search === "?tab=protocolo"

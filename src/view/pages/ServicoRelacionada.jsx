@@ -1,18 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Header } from '../../components/Header';
 import { Sidebar } from '../../components/Sidebar';
-import { DataTable } from '../../components/DataTable';
 import PageTransition from "../../components/PageTransition";
-import { useServiceData } from '../../components/ServiceContext'; // Importe o contexto
+import { useServiceData } from '../../components/ServiceContext';
 import { DropdownOptionsProvider, useDropdownOptions } from '../../components/DropdownOptionsContext';
-import CacheControl from '../../components/CacheControl'; // Adicione esta importação
+import CacheControl from '../../components/CacheControl';
 import DataRefreshButton from '../../components/DataRefreshButton';
 
 import '../../App.css';
 import './ServicoRelacionada.css';
-import '../../utils/CustomAlerts.css'; // Importar CSS dos alertas personalizados
+import '../../utils/CustomAlerts.css';
 
-import { Search, Plus, Trash2, Edit, RefreshCw, X, Save, ArrowUpDown, ArrowDownWideNarrow, ArrowUpWideNarrow, Database } from "lucide-react";
+import { Search, Plus, Trash2, Edit, RefreshCw, X, Save, Database, Info, Filter } from "lucide-react";
 import { 
   showSuccessAlert, 
   showErrorAlert, 
@@ -20,10 +19,9 @@ import {
   showInfoAlert, 
   showConfirmAlert,
   showSuccessPopup 
-} from '../../utils/CustomAlerts'; // Importar funções de alerta personalizadas
+} from '../../utils/CustomAlerts';
 
 export default function ServicoRelacionada() {
-  // Componente principal que inclui o Provider
   return (
     <DropdownOptionsProvider>
       <ServicoRelacionadaContent />
@@ -32,663 +30,35 @@ export default function ServicoRelacionada() {
 }
 
 function ServicoRelacionadaContent() {
+  // Estados existentes
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchType, setSearchType] = useState("auto"); // 'auto', 'code', 'active', 'description', 'all'
+  const [searchType, setSearchType] = useState("auto");
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [editingRow, setEditingRow] = useState(null);
   const [editedData, setEditedData] = useState({});
   const [isEditing, setIsEditing] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
+  const [activeSection, setActiveSection] = useState('geral');
   const [updateCounter, setUpdateCounter] = useState(0);
-
   const [showCacheControl, setShowCacheControl] = useState(false);
   const [cacheRefreshed, setCacheRefreshed] = useState(false);
   const [refreshingData, setRefreshingData] = useState(false);
-  const [dataSource, setDataSource] = useState(''); // 'cache' ou 'server'
+  const [dataSource, setDataSource] = useState('');
   const [updatingRows, setUpdatingRows] = useState(new Set());
+  const [enhancedData, setEnhancedData] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showSearchFilters, setShowSearchFilters] = useState(false);
 
-  const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api/ServicoRelacionada";
-  //  const [searchDebounceTimeout, setSearchDebounceTimeout] = useState(null);
+  const API_BASE_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/ServicoRelacionada";
 
-  // Referência para o componente DataTable para controlar expansão de colunas
+  // Referências
   const dataTableRef = useRef(null);
-  // Ref para o input de pesquisa
   const searchInputRef = useRef(null);
-  
-  const syncCacheAndInterface = async (operation, itemData) => {
-    try {
-      console.log(`Sincronizando cache e interface: operação ${operation}`, itemData);
-  
-      // ETAPA 1: Atualizar o cache local (localStorage)
-      if (isCacheEnabled) {
-        // Atualizar todas as chaves de cache relevantes
-        const allCacheKeys = Object.keys(localStorage).filter(key => 
-          (key.startsWith('services_') && !key.includes('_search_')) || 
-          key.startsWith('cached_services_chunk_')
-        );
-  
-        console.log(`Encontradas ${allCacheKeys.length} chaves de cache para atualização`);
-  
-        let cacheUpdated = false;
-  
-        for (const key of allCacheKeys) {
-          try {
-            // Obter e analisar dados do cache
-            const cachedItem = localStorage.getItem(key);
-            if (!cachedItem) continue;
-  
-            let cachedData = JSON.parse(cachedItem);
-            let dataToUpdate;
-            let isDataWrapped = false;
-  
-            // Determinar se os dados estão em um objeto wrapper ou direto
-            if (cachedData.data !== undefined) {
-              dataToUpdate = cachedData.data;
-              isDataWrapped = true;
-            } else {
-              dataToUpdate = cachedData;
-            }
-  
-            // Verificar se é um array
-            if (!Array.isArray(dataToUpdate)) {
-              console.log(`Ignorando chave ${key}, formato não suportado`);
-              continue;
-            }
-  
-            // Aplicar a operação de atualização
-            let updatedData;
-            switch (operation) {
-              case 'update':
-                updatedData = dataToUpdate.map(item => 
-                  item.id === itemData.id ? { ...item, ...itemData } : item
-                );
-                break;
-              case 'add':
-                // Adicionar e ordenar por ID
-                updatedData = [...dataToUpdate, itemData].sort((a, b) => Number(a.id) - Number(b.id));
-                break;
-              case 'delete':
-                updatedData = dataToUpdate.filter(item => item.id !== itemData);
-                break;
-              default:
-                console.warn(`Operação desconhecida: ${operation}`);
-                continue;
-            }
-  
-            // Atualizar o cache
-            if (isDataWrapped) {
-              cachedData.data = updatedData;
-              localStorage.setItem(key, JSON.stringify(cachedData));
-            } else {
-              localStorage.setItem(key, JSON.stringify(updatedData));
-            }
-  
-            cacheUpdated = true;
-            console.log(`Cache atualizado para chave ${key}`);
-          } catch (error) {
-            console.error(`Erro ao atualizar chave ${key}:`, error);
-          }
-        }
-  
-        // Atualizar o timestamp de escrita se algo foi atualizado
-        if (cacheUpdated) {
-          if (typeof CacheService !== 'undefined' && CacheService.updateWriteTimestamp) {
-            CacheService.updateWriteTimestamp();
-          } else {
-            localStorage.setItem('last_write_timestamp', Date.now().toString());
-          }
-        }
-      }
-  
-      // ETAPA 2: Atualizar o estado React (interface do usuário)
-      switch (operation) {
-        case 'update':
-          setServiceData(prevData => {
-            // Encontrar e atualizar o item específico
-            const updatedData = prevData.map(item => 
-              item.id === itemData.id ? { ...item, ...itemData } : item
-            );
-            console.log("Estado da UI atualizado após operação de UPDATE");
-            return updatedData;
-          });
-          break;
-        case 'add':
-          setServiceData(prevData => {
-            // Adicionar o novo item e ordenar por ID
-            const updatedData = [...prevData, itemData].sort((a, b) => Number(a.id) - Number(b.id));
-            console.log("Estado da UI atualizado após operação de ADD");
-            return updatedData;
-          });
-          break;
-        case 'delete':
-          setServiceData(prevData => {
-            // Remover o item com o ID fornecido
-            const updatedData = prevData.filter(item => item.id !== itemData);
-            console.log("Estado da UI atualizado após operação de DELETE");
-            return updatedData;
-          });
-          break;
-      }
-  
-      // ETAPA 3: Forçar as alterações a serem refletidas no sistema subjacente
-      // Atualiza serviços no contexto global (se disponível)
-      if (operation === 'update' && typeof updateService === 'function') {
-        updateService(itemData);
-      } else if (operation === 'delete' && typeof deleteService === 'function') {
-        deleteService(itemData);
-      }
-  
-      // ETAPA 4: Atualizar a fonte de dados e mostrar feedback
-      setDataSource('cache');
-      showSuccessAlert("Dados atualizados com sucesso!", "", false, 1500);
-      showCacheRefreshIndicator();
-      
-    } catch (error) {
-      console.error("Erro ao sincronizar cache e interface:", error);
-      // Se falhar a atualização seletiva, tentar uma abordagem mais simples
-      try {
-        // Atualizar o contexto global manualmente
-        if (operation === 'update' && typeof updateService === 'function') {
-          updateService(itemData);
-        } else if (operation === 'delete' && typeof deleteService === 'function') {
-          deleteService(itemData);
-        }
-        // Recarregar dados como fallback
-        loadServiceData(1, true, false);
-      } catch (innerError) {
-        console.error("Erro no fallback de sincronização:", innerError);
-      }
-    }
-  };
+  const suggestionsRef = useRef(null);
 
-  // Função centralizada para atualizar dados após mutações
-  const refreshDataAfterMutation = async () => {
-    try {
-      // 1. Primeiro, indique que os dados precisam de revalidação
-      if (typeof forceRevalidation === 'function') {
-        forceRevalidation();
-      }
-      
-      // 2. Limpar o cache para forçar uma nova busca ao servidor
-      clearServicesCache();
-      
-      // 3. Mostrar indicador visual de atualização
-      showCacheRefreshIndicator();
-      
-      // 4. Definir a fonte dos dados como servidor
-      setDataSource('server');
-      
-      // 5. Recarregar os dados
-      await loadServiceData(1, true);
-      
-      // 6. Mostrar feedback ao usuário (opcional)
-      showSuccessAlert("Dados atualizados automaticamente", "", false, 1500);
-      
-      console.log("Dados atualizados automaticamente após mutação");
-    } catch (error) {
-      console.error("Erro ao atualizar dados após mutação:", error);
-    }
-  };
-
-  // Função para atualizar seletivamente o cache após mutações
-  const updateCacheSelectively = async (operation, itemData) => {
-    try {
-      console.log(`Atualizando cache seletivamente: ${operation}`, itemData);
-
-      // Não faremos nada se o cache não estiver habilitado
-      if (!isCacheEnabled) {
-        console.log("Cache não está habilitado, ignorando atualização seletiva");
-        return;
-      }
-
-      // Sinalizar que o cache foi atualizado (para interface)
-      showCacheRefreshIndicator();
-
-      // Encontrar todas as chaves de cache que podem conter dados
-      const allCacheKeys = Object.keys(localStorage).filter(key => 
-        (key.startsWith('services_') && !key.includes('_search_')) || 
-        key.startsWith(CacheService.CACHE_KEYS.SERVICES_CHUNK_PREFIX)
-      );
-
-      console.log(`Encontradas ${allCacheKeys.length} chaves de cache para atualização seletiva`);
-
-      // Funções auxiliares para diferentes operações
-      const updateCacheItem = (cacheData, item) => {
-        // Se for um array, atualiza diretamente
-        if (Array.isArray(cacheData)) {
-          return cacheData.map(cacheItem => 
-            cacheItem.id === item.id ? { ...cacheItem, ...item } : cacheItem
-          );
-        }
-        // Se for um objeto com dados dentro, atualiza o array dentro
-        else if (cacheData.data && Array.isArray(cacheData.data)) {
-          return {
-            ...cacheData,
-            data: cacheData.data.map(cacheItem => 
-              cacheItem.id === item.id ? { ...cacheItem, ...item } : cacheItem
-            )
-          };
-        }
-        return cacheData;
-      };
-
-      const addCacheItem = (cacheData, item) => {
-        // Se for um array, adiciona diretamente
-        if (Array.isArray(cacheData)) {
-          // Adiciona o item mantendo a ordenação por ID
-          const newArray = [...cacheData, item].sort((a, b) => a.id - b.id);
-          return newArray;
-        }
-        // Se for um objeto com dados dentro, adiciona no array dentro
-        else if (cacheData.data && Array.isArray(cacheData.data)) {
-          return {
-            ...cacheData,
-            data: [...cacheData.data, item].sort((a, b) => a.id - b.id)
-          };
-        }
-        return cacheData;
-      };
-
-      const deleteCacheItem = (cacheData, itemId) => {
-        // Se for um array, filtra diretamente
-        if (Array.isArray(cacheData)) {
-          return cacheData.filter(cacheItem => cacheItem.id !== itemId);
-        }
-        // Se for um objeto com dados dentro, filtra o array dentro
-        else if (cacheData.data && Array.isArray(cacheData.data)) {
-          return {
-            ...cacheData,
-            data: cacheData.data.filter(cacheItem => cacheItem.id !== itemId)
-          };
-        }
-        return cacheData;
-      };
-
-      // Processar cada chave de cache
-      for (const key of allCacheKeys) {
-        try {
-          // Obter os dados do cache
-          const cachedItem = localStorage.getItem(key);
-          if (!cachedItem) continue;
-
-          const cachedData = JSON.parse(cachedItem);
-          let dataToUpdate;
-
-          // Verificar se existe um campo data dentro do objeto
-          if (cachedData.data !== undefined) {
-            dataToUpdate = cachedData.data;
-          } else {
-            dataToUpdate = cachedData;
-          }
-
-          // Aplicar a operação seletiva adequada
-          let updatedData;
-          switch (operation) {
-            case 'update':
-              updatedData = updateCacheItem(dataToUpdate, itemData);
-              break;
-            case 'add':
-              updatedData = addCacheItem(dataToUpdate, itemData);
-              break;
-            case 'delete':
-              updatedData = deleteCacheItem(dataToUpdate, itemData);
-              break;
-            default:
-              console.error(`Operação desconhecida: ${operation}`);
-              continue;
-          }
-
-          // Atualizar dados no localStorage
-          if (cachedData.data !== undefined) {
-            cachedData.data = updatedData;
-            localStorage.setItem(key, JSON.stringify(cachedData));
-          } else {
-            localStorage.setItem(key, JSON.stringify(updatedData));
-          }
-
-          console.log(`Cache atualizado seletivamente para a chave ${key}`);
-        } catch (error) {
-          console.error(`Erro ao atualizar cache para a chave ${key}:`, error);
-        }
-      }
-
-      // Atualizar o timestamp do cache para indicar que houve alteração
-      CacheService.updateWriteTimestamp();
-
-      // Atualizar a interface para refletir as alterações
-      // Vamos fazer isso de forma seletiva também, sem recarregar todos os dados
-      switch (operation) {
-        case 'update':
-          // Atualizar no estado local
-          setServiceData(prevData => 
-            prevData.map(item => item.id === itemData.id ? { ...item, ...itemData } : item)
-          );
-          break;
-        case 'add':
-          // Adicionar ao estado local
-          setServiceData(prevData => {
-            const newData = [...prevData, itemData].sort((a, b) => a.id - b.id);
-            return newData;
-          });
-          break;
-        case 'delete':
-          // Remover do estado local
-          setServiceData(prevData => 
-            prevData.filter(item => item.id !== itemData)
-          );
-          break;
-      }
-
-      // Mostrar feedback visual ao usuário
-      setDataSource('cache');
-      showSuccessAlert("Dados atualizados", "", false, 1000);
-    } catch (error) {
-      console.error("Erro na atualização seletiva do cache:", error);
-    }
-  };
-
-  const refreshDataAfterModification = async () => {
-    try {
-      // 1. Notificar o usuário que a atualização está em andamento
-      setLocalLoading(true);
-      
-      // 2. Primeiro, indicar que os dados precisam de revalidação
-      if (typeof forceRevalidation === 'function') {
-        forceRevalidation();
-      }
-      
-      // 3. Limpar o cache para forçar uma nova busca ao servidor
-      clearServicesCache();
-      
-      // 4. Recarregar dados 
-      await loadServiceData(1, true);
-      
-      // 5. Opcional: Mostrar uma notificação rápida de atualização bem-sucedida
-      setDataSource('server');
-      showCacheRefreshIndicator();
-      
-      console.log("Dados atualizados automaticamente após modificação");
-    } catch (error) {
-      console.error("Erro ao atualizar dados após modificação:", error);
-      showErrorAlert("Falha ao atualizar os dados", "Tente atualizar manualmente.");
-    } finally {
-      setLocalLoading(false);
-    }
-  };
-
-  // Função para executar a busca diretamente a partir do valor atual do input
-  const executeSearch = () => {
-    if (searchInputRef.current) {
-      const value = searchInputRef.current.value.trim();
-      console.log("Executando busca com valor:", value);
-      
-      if (value.length >= 2) {
-        // Atualizar estado local
-        setSearchTerm(value);
-        
-        // Mostrar feedback visual de que a busca está em andamento
-        setLocalLoading(true);
-        
-        // Executar a pesquisa
-        searchServiceData(value, searchType)
-          .finally(() => {
-            setLocalLoading(false);
-          });
-          
-      } else if (value.length === 0) {
-        // Limpar se o campo estiver vazio
-        setSearchTerm("");
-        setLocalLoading(true);
-        
-        clearSearch()
-          .finally(() => {
-            setLocalLoading(false);
-          });
-          
-      } else {
-        // Caso tenha menos de 2 caracteres
-        showWarningAlert("Pesquisa muito curta", "Digite pelo menos 2 caracteres para pesquisar.");
-      }
-    }
-  };
-
-  // Adicione esta função de utilidade para requisições com timeout
-  const fetchWithTimeout = async (url, options = {}, timeout = 10000) => {
-    // Criar um controlador de aborto para timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-    
-    try {
-      const response = await fetch(url, {
-        ...options,
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      return response;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        throw new Error('Requisição abortada por timeout');
-      }
-      throw error;
-    }
-  };
-
-  // Função otimizada para atualização rápida da interface com indicador de carregamento por linha
-  const fastUpdateWithLoadingIndicator = async (operation, itemData) => {
-    try {
-      const itemId = operation === 'delete' ? itemData : itemData.id;
-      console.log(`Iniciando operação ${operation} para item ${itemId}`);
-      
-      // ETAPA 1: Atualizar imediatamente a interface
-      // Marcar a linha como "em atualização"
-      setUpdatingRows(prev => {
-        const newSet = new Set(prev);
-        newSet.add(itemId);
-        return newSet;
-      });
-      
-      // ETAPA 2: Atualizar o estado local do React para feedback imediato
-      switch (operation) {
-        case 'update':
-          setServiceData(prevData => {
-            // Para atualização, substituir o item pelo item atualizado, mas adicionar
-            // uma flag isUpdating para ser usada no renderizador
-            return prevData.map(item => 
-              item.id === itemData.id ? { ...itemData, isUpdating: true } : item
-            );
-          });
-          break;
-        case 'add':
-          // Para adição, já mostramos o item como adicionado mas com indicador
-          setServiceData(prevData => {
-            const newItem = { ...itemData, isUpdating: true };
-            const updatedData = [...prevData, newItem].sort((a, b) => Number(a.id) - Number(b.id));
-            return updatedData;
-          });
-          break;
-        case 'delete':
-          // Para exclusão, não removemos imediatamente, mas mostramos como "sendo excluído"
-          setServiceData(prevData => 
-            prevData.map(item => 
-              item.id === itemId ? { ...item, isDeleting: true } : item
-            )
-          );
-          break;
-      }
-      
-      // ETAPA 3: Atualizar o cache em segundo plano
-      // Criar uma worker function que será executada em segundo plano
-      const updateCacheAsync = async () => {
-        // Atualização mínima do cache - apenas as chaves mais importantes
-        // Para reduzir drasticamente o tempo de processamento
-        try {
-          // Apenas atualizar chaves de cache não relacionadas a buscas
-          // E limitar a 5 chaves para evitar processamento excessivo
-          const cacheKeys = Object.keys(localStorage)
-            .filter(key => key.startsWith('services_') && !key.includes('_search_'))
-            .slice(0, 5);
-          
-          for (const key of cacheKeys) {
-            try {
-              const cachedItem = localStorage.getItem(key);
-              if (!cachedItem) continue;
-              
-              let cachedData = JSON.parse(cachedItem);
-              let dataArray;
-              let isWrapped = false;
-              
-              if (cachedData.data && Array.isArray(cachedData.data)) {
-                dataArray = cachedData.data;
-                isWrapped = true;
-              } else if (Array.isArray(cachedData)) {
-                dataArray = cachedData;
-              } else {
-                continue; // Formato não reconhecido
-              }
-              
-              // Aplicar a modificação baseada na operação
-              let updatedArray;
-              switch (operation) {
-                case 'update':
-                  updatedArray = dataArray.map(item => 
-                    item.id === itemData.id ? { ...item, ...itemData } : item
-                  );
-                  break;
-                case 'add':
-                  updatedArray = [...dataArray, itemData]
-                    .sort((a, b) => Number(a.id) - Number(b.id));
-                  break;
-                case 'delete':
-                  updatedArray = dataArray.filter(item => item.id !== itemId);
-                  break;
-              }
-              
-              // Salvar de volta no cache
-              if (isWrapped) {
-                cachedData.data = updatedArray;
-                localStorage.setItem(key, JSON.stringify(cachedData));
-              } else {
-                localStorage.setItem(key, JSON.stringify(updatedArray));
-              }
-            } catch (error) {
-              console.warn(`Erro ao atualizar cache para chave ${key}:`, error);
-              // Continuar com outras chaves mesmo se uma falhar
-            }
-          }
-          
-          // Atualizar timestamp de escrita
-          if (typeof CacheService !== 'undefined' && CacheService.updateWriteTimestamp) {
-            CacheService.updateWriteTimestamp();
-          } else {
-            localStorage.setItem('last_write_timestamp', Date.now().toString());
-          }
-        } catch (error) {
-          console.error('Erro na atualização assíncrona do cache:', error);
-        }
-      };
-      
-      // Executar a atualização do cache em segundo plano
-      setTimeout(updateCacheAsync, 0);
-      
-      // ETAPA 4: Após um curto período, remover o indicador de carregamento
-      // Para operações rápidas, garantir que o indicador apareça por pelo menos 500ms
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Atualizar a interface para remover os indicadores
-      setServiceData(prevData => {
-        switch (operation) {
-          case 'update':
-          case 'add':
-            return prevData.map(item => 
-              item.id === itemId ? { ...item, isUpdating: false } : item
-            );
-          case 'delete':
-            // Agora sim, remover o item do estado
-            return prevData.filter(item => item.id !== itemId);
-        }
-        return prevData;
-      });
-      
-      // Remover a linha da lista de linhas em atualização
-      setUpdatingRows(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(itemId);
-        return newSet;
-      });
-      
-      console.log(`Operação ${operation} para item ${itemId} concluída com sucesso`);
-      
-    } catch (error) {
-      console.error(`Erro na atualização rápida para operação ${operation}:`, error);
-      
-      // Em caso de erro, tente atualizar a interface para remover o indicador
-      try {
-        setUpdatingRows(prev => {
-          const newSet = new Set(prev);
-          const itemId = operation === 'delete' ? itemData : itemData.id;
-          newSet.delete(itemId);
-          return newSet;
-        });
-        
-        // Restaurar estado anterior em caso de erro
-        if (operation === 'update' || operation === 'add') {
-          setServiceData(prevData => 
-            prevData.map(item => 
-              item.id === itemData.id ? { ...item, isUpdating: false } : item
-            )
-          );
-        } else if (operation === 'delete') {
-          setServiceData(prevData => 
-            prevData.map(item => 
-              item.id === itemData ? { ...item, isDeleting: false } : item
-            )
-          );
-        }
-      } catch (innerError) {
-        console.error('Erro ao limpar estado de atualização:', innerError);
-      }
-    }
-  };
-
-  // Manipulador de evento de input básico para manter o estado sincronizado
-  const handleInput = () => {
-    if (searchInputRef.current) {
-      setSearchTerm(searchInputRef.current.value);
-      // Não configura mais o debounce aqui
-    }
-  };
-
-  // Manipulador para evento de Enter no input
-  const handleKeyDown = (event) => {
-    if (event.key === 'Enter') {
-      executeSearch();
-    }
-  };
-  
-  // Função para limpar a pesquisa
-  // Função para limpar a pesquisa
-  const handleClearSearch = () => {
-    // Limpar o campo de input
-    if (searchInputRef.current) {
-      searchInputRef.current.value = '';
-    }
-    
-    // Atualizar o estado local
-    setSearchTerm("");
-    setSearchType("auto");
-    
-    // Mostrar indicador de carregamento
-    setLocalLoading(true);
-    
-    // Limpar a pesquisa no contexto de serviço
-    clearSearch()
-      .finally(() => {
-        setLocalLoading(false);
-      });
-  };
-
+  // Função para limpar o estado do serviço
   const resetNewServiceData = () => {
     return {
       Cod: '',
@@ -699,7 +69,9 @@ function ServicoRelacionadaContent() {
       Concentracao: '',
       Fracionamento: '',
       Laboratorio: '',
+      Uso: '',
       Revisado_Farma: 0,
+      Revisado_ADM: 0,
       
       // Campos de RegistroVisa
       RegistroVisa: '',
@@ -726,7 +98,7 @@ function ServicoRelacionadaContent() {
       finalidade: '',
       objetivo: '',
       
-      // Novos campos para armazenar os IDs
+      // IDs para relacionamentos
       idRegistroVisa: null,
       idViaAdministracao: null,
       idClasseFarmaceutica: null,
@@ -741,12 +113,18 @@ function ServicoRelacionadaContent() {
       // Outros campos
       Via_administracao: '',
       ViaAdministracao: '',
+      Via_Administração: '',
       ClasseFarmaceutica: '',
+      Classe_Farmaceutica: '',
       PrincipioAtivo: '',
+      Princípio_Ativo: '',
       PrincipioAtivoClassificado: '',
+      Princípio_Ativo_Classificado: '',
       FaseUGF: '',
+      FaseuGF: '',
       Armazenamento: '',
       tipo_medicamento: '',
+      Medicamento: '',
       
       // Unidade de Fracionamento
       UnidadeFracionamento: '',
@@ -757,41 +135,19 @@ function ServicoRelacionadaContent() {
       
       // Taxas
       tipo_taxa: '',
+      'tipo taxa': '',
       TaxaFinalidade: '',
-      tempo_infusao: ''
+      'ID Taxa': '',
+      'Tempo infusão': '',
+      tempo_infusao: '',
+      fator: '',
+      Fator_Conversão: ''
     };
   };
 
   const [newServiceData, setNewServiceData] = useState(resetNewServiceData());
 
-  // Adicione este useEffect ao seu componente ServicoRelacionadaContent
-  useEffect(() => {
-    if (isAdding) {
-      console.log('=== ESTADO DE newServiceData ATUALIZADO ===');
-      console.log('Cod:', newServiceData.Cod);
-      console.log('RegistroVisa:', newServiceData.RegistroVisa);
-      console.log('idRegistroVisa:', newServiceData.idRegistroVisa);
-      console.log('idViaAdministracao:', newServiceData.idViaAdministracao, 'tipo:', typeof newServiceData.idViaAdministracao);
-      console.log('ViaAdministracao:', newServiceData.ViaAdministracao);
-      console.log('idClasseFarmaceutica:', newServiceData.idClasseFarmaceutica);
-      console.log('ClasseFarmaceutica:', newServiceData.ClasseFarmaceutica);
-      console.log('idPrincipioAtivo:', newServiceData.idPrincipioAtivo);
-      console.log('PrincipioAtivo:', newServiceData.PrincipioAtivo);
-      console.log('idArmazenamento:', newServiceData.idArmazenamento);
-      console.log('Armazenamento:', newServiceData.Armazenamento);
-      console.log('idMedicamento:', newServiceData.idMedicamento);
-      console.log('tipo_medicamento:', newServiceData.tipo_medicamento);
-      console.log('idUnidadeFracionamento:', newServiceData.idUnidadeFracionamento);
-      console.log('UnidadeFracionamento:', newServiceData.UnidadeFracionamento);
-      console.log('idFatorConversao:', newServiceData.idFatorConversao);
-      console.log('Fator_Conversão:', newServiceData.Fator_Conversão);
-      console.log('idTaxas:', newServiceData.idTaxas);
-      console.log('TaxaFinalidade:', newServiceData.TaxaFinalidade);
-      console.log('============================================');
-    }
-  }, [newServiceData, isAdding, updateCounter]);
-
-  // Usando o contexto de serviços com as propriedades de ordenação
+  // Usando o contexto de serviços
   const { 
     serviceData, 
     loading, 
@@ -808,10 +164,8 @@ function ServicoRelacionadaContent() {
     loadServiceData,
     initialized,
     addService,
-    // Estados e funções do cache
     isCacheEnabled,
     clearCache: clearServicesCache,
-    // Novos valores para pesquisa
     searchTerm: apiSearchTerm,
     searchType: apiSearchType,
     isSearching,
@@ -821,20 +175,282 @@ function ServicoRelacionadaContent() {
   } = useServiceData();
 
   const { dropdownOptions } = useDropdownOptions();
-  
+
+  // Função para acessar valores em objetos de forma segura
+  const getSafeValue = (obj, path, defaultValue = '-') => {
+    if (!obj) return defaultValue;
+    
+    const keys = Array.isArray(path) ? path : [path];
+    
+    for (const key of keys) {
+      if (obj[key] !== undefined && obj[key] !== null && obj[key] !== '') {
+        return obj[key];
+      }
+    }
+    
+    return defaultValue;
+  };
+
+  // Função para melhorar os dados do serviço selecionado com dados relacionados
+  const enhanceSelectedService = (service) => {
+    if (!service) return null;
+
+    console.log("Iniciando aprimoramento do serviço:", service);
+    console.log("Codigo_TUSS recebido:", service.Codigo_TUSS || service.codigoTUSS, 
+      typeof (service.Codigo_TUSS || service.codigoTUSS));
+    
+    const enhanced = { ...service };
+    
+    // Garantir que Codigo_TUSS esteja corretamente definido
+    if (enhanced.codigoTUSS !== undefined && enhanced.Codigo_TUSS === undefined) {
+      enhanced.Codigo_TUSS = enhanced.codigoTUSS;
+    }
+    // Verificar e preencher campos relacionados aos IDs
+    if (enhanced.idPrincipioAtivo && dropdownOptions.principioAtivo) {
+      const principio = dropdownOptions.principioAtivo.find(
+        item => String(item.idPrincipioAtivo) === String(enhanced.idPrincipioAtivo)
+      );
+      
+      if (principio) {
+        enhanced.PrincipioAtivo = principio.PrincipioAtivo;
+        enhanced.Principio_Ativo = principio.PrincipioAtivo;
+        // Remove the fallbacks to PrincipioAtivo here:
+        enhanced.PrincipioAtivoClassificado = principio.PrincipioAtivoClassificado || '';
+        enhanced.Princípio_Ativo_Classificado = principio.PrincipioAtivoClassificado || '';
+        enhanced.FaseUGF = principio.FaseUGF || '';
+        enhanced.FaseuGF = principio.FaseUGF || '';
+      }
+    }
+    
+    if (enhanced.idViaAdministracao && dropdownOptions.viaAdministracao) {
+      const via = dropdownOptions.viaAdministracao.find(
+        item => String(item.idviaadministracao) === String(enhanced.idViaAdministracao)
+      );
+      
+      if (via) {
+        enhanced.ViaAdministracao = via.Via_administracao;
+        enhanced.Via_Administração = via.Via_administracao;
+        enhanced.Via_administracao = via.Via_administracao;
+      }
+    }
+    
+    if (enhanced.idClasseFarmaceutica && dropdownOptions.classeFarmaceutica) {
+      const classe = dropdownOptions.classeFarmaceutica.find(
+        item => String(item.id_medicamento) === String(enhanced.idClasseFarmaceutica)
+      );
+      
+      if (classe) {
+        enhanced.ClasseFarmaceutica = classe.ClasseFarmaceutica;
+        enhanced.Classe_Farmaceutica = classe.ClasseFarmaceutica;
+      }
+    }
+    
+    if (enhanced.idArmazenamento && dropdownOptions.armazenamento) {
+      const armazenamento = dropdownOptions.armazenamento.find(
+        item => String(item.idArmazenamento) === String(enhanced.idArmazenamento)
+      );
+      
+      if (armazenamento) {
+        enhanced.Armazenamento = armazenamento.Armazenamento;
+      }
+    }
+    
+    if (enhanced.idMedicamento && dropdownOptions.tipoMedicamento) {
+      const medicamento = dropdownOptions.tipoMedicamento.find(
+        item => String(item.id_medicamento) === String(enhanced.idMedicamento)
+      );
+      
+      if (medicamento) {
+        enhanced.tipo_medicamento = medicamento.tipo_medicamento;
+        enhanced.Medicamento = medicamento.tipo_medicamento;
+      }
+    }
+    
+    if (enhanced.idUnidadeFracionamento && dropdownOptions.unidadeFracionamento) {
+      const unidade = dropdownOptions.unidadeFracionamento.find(
+        item => String(item.id_unidadefracionamento) === String(enhanced.idUnidadeFracionamento)
+      );
+      
+      if (unidade) {
+        enhanced.UnidadeFracionamento = unidade.UnidadeFracionamento;
+        enhanced.Unidade_Fracionamento = unidade.UnidadeFracionamento;
+        enhanced.UnidadeFracionamentoDescricao = unidade.Descricao || '';
+        enhanced.Descricao = unidade.Descricao || '';
+        enhanced.Divisor = unidade.Divisor || '';
+      }
+    }
+    
+    if (enhanced.idTaxas && dropdownOptions.taxas) {
+      const taxa = dropdownOptions.taxas.find(
+        item => String(item.id_taxas) === String(enhanced.idTaxas)
+      );
+      
+      if (taxa) {
+        enhanced.TaxaFinalidade = taxa.finalidade;
+        enhanced.finalidade = taxa.finalidade;
+        enhanced.tipo_taxa = taxa.tipo_taxa || '';
+        enhanced['tipo taxa'] = taxa.tipo_taxa || '';
+        enhanced.tempo_infusao = taxa.tempo_infusao || '';
+        enhanced['Tempo infusão'] = taxa.tempo_infusao || '';
+        enhanced.id_taxa = taxa.id_taxas;
+        enhanced['ID Taxa'] = taxa.id_taxas;
+      }
+    }
+    
+    if (enhanced.idTabela && dropdownOptions.tabela) {
+      const tabela = dropdownOptions.tabela.find(
+        item => String(item.id_tabela) === String(enhanced.idTabela)
+      );
+      
+      if (tabela) {
+        enhanced.tabela = tabela.tabela;
+        enhanced.tabela_classe = tabela.tabela_classe || '';
+        enhanced.tabela_tipo = tabela.tabela_tipo || '';
+        enhanced.classe_Jaragua_do_sul = tabela.classe_Jaragua_do_sul || '';
+        enhanced.classificacao_tipo = tabela.classificacao_tipo || '';
+        enhanced.finalidade = tabela.finalidade || '';
+        enhanced.objetivo = tabela.objetivo || '';
+      }
+    }
+    
+    if (enhanced.idFatorConversao && dropdownOptions.fatorConversao) {
+      const fator = dropdownOptions.fatorConversao.find(
+        item => String(item.id_fatorconversao) === String(enhanced.idFatorConversao)
+      );
+      
+      if (fator) {
+        enhanced.Fator_Conversão = fator.fator;
+        enhanced.fator = fator.fator;
+      }
+    }
+    
+    return enhanced;
+  };
+
+  // Efeito para atualizar os dados aprimorados quando o serviço selecionado muda
   useEffect(() => {
-    // Somente carrega os dados automaticamente se não estiverem inicializados
+    const selectedService = selectedRows.size > 0 ? 
+      serviceData.find(service => service.id === Array.from(selectedRows)[0]) : 
+      null;
+        
+    if (selectedService) {
+      console.log("Serviço selecionado (dados brutos):", selectedService);
+      
+      // Aplicar normalização antes de aprimorar os dados
+      const normalizedService = normalizeServiceData(selectedService);
+      console.log("Serviço normalizado:", normalizedService);
+      
+      const enhanced = enhanceSelectedService(normalizedService);
+      console.log("Serviço aprimorado:", enhanced);
+      setEnhancedData(enhanced);
+    } else {
+      setEnhancedData(null);
+    }
+  }, [selectedRows, serviceData, dropdownOptions]);
+
+  // Inicialização de dados
+  useEffect(() => {
     if (!initialized && !loading && serviceData.length === 0) {
-      // Adicione um indicador para o loadServiceData usar prioritariamente o cache
-      loadServiceData(1, true, true, true); // O último true indica "useCacheFirst"
+      loadServiceData(1, true, true, true);
     }
   }, [initialized, loading, serviceData.length, loadServiceData]);
-  
 
-  // Função para alternar a seleção de uma linha
+  // Fechar sugestões quando clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target) &&
+          searchInputRef.current && !searchInputRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Filtrar sugestões de princípio ativo com base no texto digitado
+  const filterSuggestions = (text) => {
+    if (!text || text.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    
+    // Filtrar baseado no texto digitado, ignorando case
+    const filtered = dropdownOptions.principioAtivo
+      .filter(item => item.PrincipioAtivo.toLowerCase().includes(text.toLowerCase()))
+      .slice(0, 10); // Limite para 10 sugestões
+    
+    setSuggestions(filtered);
+    setShowSuggestions(true);
+  };
+
+  // Manipulador para evento de input e tecla enter
+  const handleInput = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    filterSuggestions(value);
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      executeSearch();
+    }
+  };
+
+  // Executar busca de texto
+  const executeSearch = () => {
+    if (searchInputRef.current) {
+      const value = searchInputRef.current.value.trim();
+      
+      if (value.length >= 2) {
+        setSearchTerm(value);
+        setLocalLoading(true);
+        searchServiceData(value, searchType)
+          .finally(() => setLocalLoading(false));
+        setShowSuggestions(false);
+      } else if (value.length === 0) {
+        setSearchTerm("");
+        setLocalLoading(true);
+        clearSearch()
+          .finally(() => setLocalLoading(false));
+      } else {
+        showWarningAlert("Pesquisa curta", "Digite pelo menos 2 caracteres para pesquisar.");
+      }
+    }
+  };
+
+  // Selecionar uma sugestão
+  const selectSuggestion = (suggestion) => {
+    if (searchInputRef.current) {
+      searchInputRef.current.value = suggestion.PrincipioAtivo;
+      setSearchTerm(suggestion.PrincipioAtivo);
+    }
+    setShowSuggestions(false);
+    executeSearch();
+  };
+
+  // Limpar pesquisa
+  const handleClearSearch = () => {
+    if (searchInputRef.current) {
+      searchInputRef.current.value = '';
+    }
+    
+    setSearchTerm("");
+    setSearchType("auto");
+    setLocalLoading(true);
+    clearSearch()
+      .finally(() => setLocalLoading(false));
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  // Alternar seleção de linha
   const toggleRowSelection = (rowId) => {
-    if (isEditing) return; // Não permite desselecionar durante a edição
-
+    if (isEditing) return;
+  
     const adjustedRowId = Number(rowId);
     setSelectedRows((prev) => {
       const newSet = new Set(prev);
@@ -843,14 +459,19 @@ function ServicoRelacionadaContent() {
       } else {
         newSet.clear();
         newSet.add(adjustedRowId);
+        
+        // Adicione esta linha para inspecionar o serviço selecionado
+        const selectedService = serviceData.find(service => service.id === adjustedRowId);
+        if (selectedService) {
+          debugServiceFields(selectedService);
+        }
       }
-      console.log("Linha selecionada:", adjustedRowId);
       return newSet;
     });
   };
 
+  // Carregar dados
   const handleLoadData = () => {
-    // Se estiver em modo de pesquisa, limpar a pesquisa
     if (isSearching) {
       clearSearch();
       setSearchTerm("");
@@ -859,43 +480,56 @@ function ServicoRelacionadaContent() {
     }
   };
 
-  // 3. Modificação para handleDelete (excluir item)
+  // Atualizar dados após modificação
+  const refreshDataAfterModification = async () => {
+    try {
+      setLocalLoading(true);
+      
+      if (typeof forceRevalidation === 'function') {
+        forceRevalidation();
+      }
+      
+      clearServicesCache();
+      await loadServiceData(1, true);
+      
+      setDataSource('server');
+      showCacheRefreshIndicator();
+      
+    } catch (error) {
+      console.error("Erro ao atualizar dados após modificação:", error);
+      showErrorAlert("Falha ao atualizar os dados", "Tente atualizar manualmente.");
+    } finally {
+      setLocalLoading(false);
+    }
+  };
+
+  // Função para excluir um serviço
   const handleDelete = async () => {
     const selectedRowId = Array.from(selectedRows)[0];
     if (!selectedRowId) return;
   
-    // Confirmar exclusão com o usuário
     const confirmResult = await showConfirmAlert(
       "Tem certeza que deseja excluir este serviço?", 
       "Esta ação não pode ser desfeita."
     );
     
-    if (!confirmResult) return; // Usuário cancelou a exclusão
+    if (!confirmResult) return;
   
     try {
       setLocalLoading(true);
       
-      // Usar fetch com timeout
-      const response = await fetchWithTimeout(
+      const response = await fetch(
         `${API_BASE_URL}/delete_service.php?id=${selectedRowId}`,
-        { method: 'DELETE' },
-        15000 // 15 segundos de timeout
+        { method: 'DELETE' }
       );
   
       if (!response.ok) {
         throw new Error("Erro ao excluir o serviço");
       }
   
-      // Atualizar o estado global
       deleteService(selectedRowId);
-      
-      // Limpar a seleção
       setSelectedRows(new Set());
-  
-      // Feedback de sucesso
       showSuccessAlert("Serviço excluído com sucesso!");
-      
-      // Usar a nova função otimizada
       await refreshDataAfterModification();
       
     } catch (error) {
@@ -906,7 +540,120 @@ function ServicoRelacionadaContent() {
     }
   };
 
-  // Função para habilitar a edição de uma linha
+  // Função para preencher IDs ausentes com base nos textos disponíveis
+  const fillMissingIds = (data) => {
+    const result = { ...data };
+    
+    // Preencher idViaAdministracao se tiver o texto mas não o ID
+    if (!result.idViaAdministracao && 
+        (result.Via_administracao || result.ViaAdministracao || result.Via_Administração) && 
+        dropdownOptions.viaAdministracao) {
+      const matchVia = dropdownOptions.viaAdministracao.find(item => 
+        item.Via_administracao === result.Via_administracao || 
+        item.Via_administracao === result.ViaAdministracao || 
+        item.Via_administracao === result.Via_Administração
+      );
+      if (matchVia) {
+        result.idViaAdministracao = String(matchVia.idviaadministracao);
+        console.log('Preenchido idViaAdministracao:', result.idViaAdministracao);
+      }
+    }
+    
+    // Preencher idClasseFarmaceutica se tiver o texto mas não o ID
+    if (!result.idClasseFarmaceutica && 
+        (result.ClasseFarmaceutica || result.Classe_Farmaceutica) && 
+        dropdownOptions.classeFarmaceutica) {
+      const matchClasse = dropdownOptions.classeFarmaceutica.find(item => 
+        item.ClasseFarmaceutica === result.ClasseFarmaceutica || 
+        item.ClasseFarmaceutica === result.Classe_Farmaceutica
+      );
+      if (matchClasse) {
+        result.idClasseFarmaceutica = String(matchClasse.id_medicamento);
+        console.log('Preenchido idClasseFarmaceutica:', result.idClasseFarmaceutica);
+      }
+    }
+    
+    // Preencher idArmazenamento se tiver o texto mas não o ID
+    if (!result.idArmazenamento && result.Armazenamento && dropdownOptions.armazenamento) {
+      const matchArm = dropdownOptions.armazenamento.find(item => 
+        item.Armazenamento === result.Armazenamento
+      );
+      if (matchArm) {
+        result.idArmazenamento = String(matchArm.idArmazenamento);
+        console.log('Preenchido idArmazenamento:', result.idArmazenamento);
+      }
+    }
+    
+    // Preencher idMedicamento se tiver o texto mas não o ID
+    if (!result.idMedicamento && 
+        (result.tipo_medicamento || result.Medicamento) && 
+        dropdownOptions.tipoMedicamento) {
+      const matchMed = dropdownOptions.tipoMedicamento.find(item => 
+        item.tipo_medicamento === result.tipo_medicamento || 
+        item.tipo_medicamento === result.Medicamento
+      );
+      if (matchMed) {
+        result.idMedicamento = String(matchMed.id_medicamento);
+        console.log('Preenchido idMedicamento:', result.idMedicamento);
+      }
+    }
+    
+    // Preencher idFatorConversao se tiver o texto mas não o ID
+    if (!result.idFatorConversao && 
+        (result.Fator_Conversão || result.fator) && 
+        dropdownOptions.fatorConversao) {
+      const matchFator = dropdownOptions.fatorConversao.find(item => 
+        item.fator === result.Fator_Conversão || 
+        item.fator === result.fator
+      );
+      if (matchFator) {
+        result.idFatorConversao = String(matchFator.id_fatorconversao);
+        console.log('Preenchido idFatorConversao:', result.idFatorConversao);
+      }
+    }
+    
+    // Preencher idTabela se tiver o texto mas não o ID
+    if (!result.idTabela && result.tabela && dropdownOptions.tabela) {
+      const matchTabela = dropdownOptions.tabela.find(item => 
+        item.tabela === result.tabela
+      );
+      if (matchTabela) {
+        result.idTabela = String(matchTabela.id_tabela);
+        console.log('Preenchido idTabela:', result.idTabela);
+      }
+    }
+    
+    // Preencher idUnidadeFracionamento se tiver o texto mas não o ID
+    if (!result.idUnidadeFracionamento && 
+        (result.UnidadeFracionamento || result.Unidade_Fracionamento) && 
+        dropdownOptions.unidadeFracionamento) {
+      const matchUnidade = dropdownOptions.unidadeFracionamento.find(item => 
+        item.UnidadeFracionamento === result.UnidadeFracionamento || 
+        item.UnidadeFracionamento === result.Unidade_Fracionamento
+      );
+      if (matchUnidade) {
+        result.idUnidadeFracionamento = String(matchUnidade.id_unidadefracionamento);
+        console.log('Preenchido idUnidadeFracionamento:', result.idUnidadeFracionamento);
+      }
+    }
+    
+    // Preencher idTaxas se tiver o texto mas não o ID
+    if (!result.idTaxas && 
+        (result.TaxaFinalidade || result.finalidade) && 
+        dropdownOptions.taxas) {
+      const matchTaxa = dropdownOptions.taxas.find(item => 
+        item.finalidade === result.TaxaFinalidade || 
+        item.finalidade === result.finalidade
+      );
+      if (matchTaxa) {
+        result.idTaxas = String(matchTaxa.id_taxas);
+        console.log('Preenchido idTaxas:', result.idTaxas);
+      }
+    }
+    
+    return result;
+  };
+
   const handleEdit = () => {
     const selectedRowId = Array.from(selectedRows)[0];
     if (!selectedRowId) {
@@ -914,20 +661,54 @@ function ServicoRelacionadaContent() {
       return;
     }
   
-    const rowToEdit = serviceData.find(item => item.id === selectedRowId);
+    // Use enhanced data when available
+    const rowToEdit = enhancedData || serviceData.find(item => item.id === selectedRowId);
+    
     if (!rowToEdit) {
       showErrorAlert("Serviço não encontrado", "O serviço selecionado não foi encontrado.");
       return;
     }
   
     console.log("Dados originais para edição:", rowToEdit);
+    
+    // Make sure IDs are converted to strings for select elements to work properly
+    const preparedData = { ...rowToEdit };
+    
+    // Ensure all ID fields are strings for comparison in select elements
+    if (preparedData.idPrincipioAtivo) preparedData.idPrincipioAtivo = String(preparedData.idPrincipioAtivo);
+    if (preparedData.idUnidadeFracionamento) preparedData.idUnidadeFracionamento = String(preparedData.idUnidadeFracionamento);
+    if (preparedData.idTaxas) preparedData.idTaxas = String(preparedData.idTaxas);
+    if (preparedData.idTabela) preparedData.idTabela = String(preparedData.idTabela);
+    if (preparedData.idViaAdministracao) preparedData.idViaAdministracao = String(preparedData.idViaAdministracao);
+    if (preparedData.idClasseFarmaceutica) preparedData.idClasseFarmaceutica = String(preparedData.idClasseFarmaceutica);
+    if (preparedData.idArmazenamento) preparedData.idArmazenamento = String(preparedData.idArmazenamento);
+    if (preparedData.idMedicamento) preparedData.idMedicamento = String(preparedData.idMedicamento);
+    if (preparedData.idFatorConversao) preparedData.idFatorConversao = String(preparedData.idFatorConversao);
+  
+    // Preencher IDs ausentes com base nos textos disponíveis
+    const completeData = fillMissingIds(preparedData);
+  
+    // Log de depuração para verificar valores dos IDs
+    console.log("Dados preparados para modo de edição:", {
+      idPrincipioAtivo: completeData.idPrincipioAtivo,
+      idUnidadeFracionamento: completeData.idUnidadeFracionamento,
+      idTaxas: completeData.idTaxas,
+      idTabela: completeData.idTabela,
+      idViaAdministracao: completeData.idViaAdministracao,
+      idClasseFarmaceutica: completeData.idClasseFarmaceutica,
+      idArmazenamento: completeData.idArmazenamento,
+      idMedicamento: completeData.idMedicamento,
+      idFatorConversao: completeData.idFatorConversao
+    });
+  
     setEditingRow(selectedRowId);
-    setEditedData(rowToEdit);
+    setEditedData(completeData);
     setIsEditing(true);
+    setActiveSection('geral');
   };
   
+  // Cancelar edição
   const handleCancel = async () => {
-    // Se estiver editando, confirmar com o usuário antes de cancelar
     if (isEditing) {
       const confirmCancel = await showConfirmAlert(
         "Deseja cancelar a edição?",
@@ -935,7 +716,7 @@ function ServicoRelacionadaContent() {
       );
       
       if (!confirmCancel) {
-        return; // Usuário não quer cancelar a edição
+        return;
       }
     }
     
@@ -944,34 +725,44 @@ function ServicoRelacionadaContent() {
     setIsEditing(false);
   };
 
-  // Função modificada para colapsar cabeçalhos expandidos antes de adicionar
+  // Adicionar novo serviço
   const handleAdd = () => {
-    // First collapse all expanded headers if any
     if (dataTableRef.current && typeof dataTableRef.current.collapseAllHeaders === 'function') {
       dataTableRef.current.collapseAllHeaders();
-      console.log("Colapsando todas as seções expandidas antes de adicionar");
     }
     
     setIsAdding(true);
     setNewServiceData(resetNewServiceData());
-    setSelectedRows(new Set()); // Limpa qualquer seleção existente
+    setSelectedRows(new Set());
+    setActiveSection('geral');
   };
 
+  // Cancelar adição
   const handleCancelAdd = async () => {
-    // Verificar se há campos preenchidos antes de cancelar
     const hasData = Object.entries(newServiceData).some(([key, value]) => {
-      // Ignorar campos que começam com "id" e verificar se campos de texto têm conteúdo
       return !key.startsWith('id') && 
              typeof value === 'string' && 
              value.trim() !== '' && 
-             key !== 'Revisado_Farma';
+             key !== 'Revisado_Farma' &&
+             key !== 'Revisado_ADM';
     });
+    
+    if (hasData) {
+      const confirmCancel = await showConfirmAlert(
+        "Deseja cancelar a adição?",
+        "Todas as informações preenchidas serão perdidas."
+      );
+      
+      if (!confirmCancel) {
+        return;
+      }
+    }
     
     setIsAdding(false);
     setNewServiceData(resetNewServiceData());
   };
 
-  // 1. Modificação para handleSaveNew (adicionar item)
+  // Salvar novo serviço
   const handleSaveNew = async () => {
     // Validação básica
     if (!newServiceData.Cod) {
@@ -979,7 +770,7 @@ function ServicoRelacionadaContent() {
       return;
     }
   
-    // Verificar se há campos de RegistroVisa preenchidos sem o RegistroVisa principal
+    // Verificar campos de RegistroVisa
     const hasRegistroVisaFields = [
       'Cod_Ggrem', 'Lab', 'cnpj_lab', 'Classe_Terapeutica', 
       'Tipo_Porduto', 'Regime_Preco', 'Restricao_Hosp', 'Cap', 
@@ -999,25 +790,17 @@ function ServicoRelacionadaContent() {
       return;
     }
     
-    // Preparar os dados para envio
+    // Preparar dados para envio
     const dataToSend = { ...newServiceData };
     
-    console.group('DADOS ORIGINAIS ANTES DE FILTRAR:');
-    console.log('idUnidadeFracionamento:', dataToSend.idUnidadeFracionamento);
-    console.log('UnidadeFracionamento:', dataToSend.UnidadeFracionamento);
-    console.log('Unidade_Fracionamento:', dataToSend.Unidade_Fracionamento);
-    console.log('UnidadeFracionamentoDescricao:', dataToSend.UnidadeFracionamentoDescricao);
-    console.log('Descricao:', dataToSend.Descricao);
-    console.log('Divisor:', dataToSend.Divisor);
-    console.groupEnd();
-  
-    // Remover campos que podem causar conflitos de tipo
+    // Verificar e corrigir campos relacionados
     if (!dataToSend.UnidadeFracionamentoDescricao && dataToSend.Descricao) {
       dataToSend.UnidadeFracionamentoDescricao = dataToSend.Descricao;
     } else if (dataToSend.UnidadeFracionamentoDescricao && !dataToSend.Descricao) {
       dataToSend.Descricao = dataToSend.UnidadeFracionamentoDescricao;
     }
     
+    // Limpar campos duplicados baseados em IDs
     if (dataToSend.idPrincipioAtivo) {
       delete dataToSend.PrincipioAtivo;
       delete dataToSend.Principio_Ativo;
@@ -1053,29 +836,16 @@ function ServicoRelacionadaContent() {
       delete dataToSend.fator;
     }
     
-    console.group('DADOS A SEREM SALVOS (LIMPOS):');
-    console.log('Dados filtrados a serem enviados:', dataToSend);
-    console.groupEnd();
-  
     try {
       setLocalLoading(true);
       
-      // Usar fetch com timeout para evitar esperas infinitas
       const serviceId = await addService(dataToSend);
       
       setIsAdding(false);
-      handleCancelAdd();
+      setNewServiceData(resetNewServiceData());
       
-      // Feedback de sucesso
       showSuccessPopup({ id: serviceId, cod: dataToSend.Cod }, false, 3000);
       
-      // Adicionar ID ao item
-      const completeItem = {
-        ...dataToSend,
-        id: serviceId
-      };
-      
-      // Usar a nova função otimizada
       await refreshDataAfterModification();
       
     } catch (error) {
@@ -1086,137 +856,108 @@ function ServicoRelacionadaContent() {
     }
   };
 
-  // CORRIGIDA: Função para capturar as alterações nos campos do novo serviço
+  // Manipulador de alteração de input para novo serviço
   const handleNewInputChange = (e, field) => {
     const { value } = e.target;
     
-    // IMPORTANTE: Use a sintaxe de função para garantir o estado mais atualizado
-    setNewServiceData(prevData => ({
-      ...prevData,
-      [field]: value // Armazena o valor completo do input, não apenas o último caractere
-    }));
+    console.log(`Novo serviço - Campo alterado: ${field}, Valor: ${value}, Tipo: ${typeof value}`);
+    
+    setNewServiceData(prevData => {
+      const updatedData = {
+        ...prevData,
+        [field]: value
+      };
+      console.log("Novo serviço - Dados atualizados:", updatedData);
+      return updatedData;
+    });
   };
   
-  // CORRIGIDA: Função para capturar as alterações nos campos editáveis
+  // Manipulador de alteração de input para edição
   const handleInputChange = (e, field) => {
     const { value } = e.target;
     
-    // Use a sintaxe de função para garantir o estado mais atualizado
-    setEditedData(prevData => ({
-      ...prevData,
-      [field]: value
-    }));
+    console.log(`Campo alterado: ${field}, Valor: ${value}, Tipo: ${typeof value}`);
+    
+    setEditedData(prevData => {
+      const updatedData = {
+        ...prevData,
+        [field]: value
+      };
+      console.log("Dados atualizados:", updatedData);
+      return updatedData;
+    });
   };
 
-  // Função para lidar com a alteração do tipo de pesquisa
+  // Manipulador de alteração do tipo de pesquisa
   const handleSearchTypeChange = (type) => {
-    // Se já existe um termo de pesquisa, refazer a pesquisa com o novo tipo
+    setSearchType(type);
     if (searchTerm.trim().length >= 2) {
-      setSearchType(type);
-      
-      if (searchDebounceTimeout) {
-        clearTimeout(searchDebounceTimeout);
-      }
-      
-      // Aplicar a pesquisa imediatamente com o novo tipo
       searchServiceData(searchTerm.trim(), type);
     }
+    setShowSearchFilters(false); // Fechar o painel após seleção
   };
 
-  // CORRIGIDA: Função handleNewDropdownChange
+  // Manipulador para dropdowns de novos serviços
   const handleNewDropdownChange = (e, field) => {
     const value = e.target.value;
     const selectedId = value ? parseInt(value, 10) : null;
     
-    console.log(`Dropdown ${field} mudou para ${value}`);
-    
-    // Crie uma cópia do estado atual para fazer modificações
+    // Cópia do estado atual
     const updatedData = { ...newServiceData };
     
-    // Dependendo do campo, atualize diferentes campos relacionados
+    // Atualizar campos relacionados baseado no tipo de dropdown
     switch(field) {
       case 'PrincipioAtivo':
-      if (value) {
-        // Encontrar o objeto do princípio ativo selecionado
-        const selectedPrincipio = dropdownOptions.principioAtivo.find(
-          p => String(p.idPrincipioAtivo) === String(value)
-        );
-        
-        if (selectedPrincipio) {
-          console.log("Princípio ativo encontrado:", selectedPrincipio);
+        if (value) {
+          const selectedPrincipio = dropdownOptions.principioAtivo.find(
+            p => String(p.idPrincipioAtivo) === String(value)
+          );
           
-          // Atualizar ID
-          updatedData.idPrincipioAtivo = selectedId;
-          
-          // Preencher campos relacionados - Agora com nomes corretos
-          updatedData.PrincipioAtivo = selectedPrincipio.PrincipioAtivo;
-          updatedData.Principio_Ativo = selectedPrincipio.PrincipioAtivo;
-          updatedData.PrincipioAtivoClassificado = selectedPrincipio.PrincipioAtivoClassificado || selectedPrincipio.PrincipioAtivo;
-          updatedData.Princípio_Ativo_Classificado = selectedPrincipio.PrincipioAtivoClassificado || selectedPrincipio.PrincipioAtivo;
-          updatedData.FaseUGF = selectedPrincipio.FaseUGF || '';
-          updatedData.FaseuGF = selectedPrincipio.FaseUGF || '';
-          
-          // Log detalhado para debugging
-          console.group("Campos de PrincipioAtivo atualizados:");
-          console.log("  idPrincipioAtivo:", updatedData.idPrincipioAtivo);
-          console.log("  PrincipioAtivo:", updatedData.PrincipioAtivo);
-          console.log("  Principio_Ativo:", updatedData.Principio_Ativo);
-          console.log("  PrincipioAtivoClassificado:", updatedData.PrincipioAtivoClassificado);
-          console.log("  FaseUGF:", updatedData.FaseUGF);
-          console.groupEnd();
+          if (selectedPrincipio) {
+            updatedData.idPrincipioAtivo = selectedId;
+            updatedData.PrincipioAtivo = selectedPrincipio.PrincipioAtivo;
+            updatedData.Principio_Ativo = selectedPrincipio.PrincipioAtivo;
+            updatedData.PrincipioAtivoClassificado = selectedPrincipio.PrincipioAtivoClassificado || selectedPrincipio.PrincipioAtivo;
+            updatedData.Princípio_Ativo_Classificado = selectedPrincipio.PrincipioAtivoClassificado || selectedPrincipio.PrincipioAtivo;
+            updatedData.FaseUGF = selectedPrincipio.FaseUGF || '';
+            updatedData.FaseuGF = selectedPrincipio.FaseUGF || '';
+          }
+        } else {
+          updatedData.idPrincipioAtivo = null;
+          updatedData.PrincipioAtivo = '';
+          updatedData.Principio_Ativo = '';
+          updatedData.PrincipioAtivoClassificado = '';
+          updatedData.Princípio_Ativo_Classificado = '';
+          updatedData.FaseUGF = '';
+          updatedData.FaseuGF = '';
         }
-      } else {
-        // Limpar campos se não houver seleção
-        updatedData.idPrincipioAtivo = null;
-        updatedData.PrincipioAtivo = '';
-        updatedData.Principio_Ativo = '';
-        updatedData.PrincipioAtivoClassificado = '';
-        updatedData.Princípio_Ativo_Classificado = '';
-        updatedData.FaseUGF = '';
-        updatedData.FaseuGF = '';
-      }
         break;
         
-        case 'UnidadeFracionamento':
-          if (value) {
-            const selectedUnidade = dropdownOptions.unidadeFracionamento.find(
-              u => String(u.id_unidadefracionamento) === String(value)
-            );
-            
-            if (selectedUnidade) {
-              console.log("Unidade de fracionamento encontrada:", selectedUnidade);
-              
-              // Atualizar ID
-              updatedData.idUnidadeFracionamento = selectedId;
-              
-              // IMPORTANTE: Preencher todos os campos relacionados corretamente
-              updatedData.UnidadeFracionamento = selectedUnidade.UnidadeFracionamento;
-              updatedData.Unidade_Fracionamento = selectedUnidade.UnidadeFracionamento;
-              updatedData.UnidadeFracionamentoDescricao = selectedUnidade.Descricao || '';
-              updatedData.Descricao = selectedUnidade.Descricao || '';
-              updatedData.Divisor = selectedUnidade.Divisor || '';
-              
-              // Log detalhado para debugging
-              console.group("Campos de UnidadeFracionamento atualizados:");
-              console.log("  idUnidadeFracionamento:", updatedData.idUnidadeFracionamento);
-              console.log("  UnidadeFracionamento:", updatedData.UnidadeFracionamento);
-              console.log("  Unidade_Fracionamento:", updatedData.Unidade_Fracionamento);
-              console.log("  UnidadeFracionamentoDescricao:", updatedData.UnidadeFracionamentoDescricao);
-              console.log("  Descricao:", updatedData.Descricao);
-              console.log("  Divisor:", updatedData.Divisor);
-              console.groupEnd();
-            }
-          } else {
-            // Limpar campos se não houver seleção
-            updatedData.idUnidadeFracionamento = null;
-            updatedData.UnidadeFracionamento = '';
-            updatedData.Unidade_Fracionamento = '';
-            updatedData.UnidadeFracionamentoDescricao = '';
-            updatedData.Descricao = '';
-            updatedData.Divisor = '';
+      case 'UnidadeFracionamento':
+        if (value) {
+          const selectedUnidade = dropdownOptions.unidadeFracionamento.find(
+            u => String(u.id_unidadefracionamento) === String(value)
+          );
+          
+          if (selectedUnidade) {
+            updatedData.idUnidadeFracionamento = selectedId;
+            updatedData.UnidadeFracionamento = selectedUnidade.UnidadeFracionamento;
+            updatedData.Unidade_Fracionamento = selectedUnidade.UnidadeFracionamento;
+            updatedData.UnidadeFracionamentoDescricao = selectedUnidade.Descricao || '';
+            updatedData.Descricao = selectedUnidade.Descricao || '';
+            updatedData.Divisor = selectedUnidade.Divisor || '';
           }
-          break;
+        } else {
+          updatedData.idUnidadeFracionamento = null;
+          updatedData.UnidadeFracionamento = '';
+          updatedData.Unidade_Fracionamento = '';
+          updatedData.UnidadeFracionamentoDescricao = '';
+          updatedData.Descricao = '';
+          updatedData.Divisor = '';
+        }
+        break;
         
+      // Outros casos para diferentes tipos de dropdown
       case 'Taxas':
         if (value) {
           const selectedTaxa = dropdownOptions.taxas.find(
@@ -1224,12 +965,7 @@ function ServicoRelacionadaContent() {
           );
           
           if (selectedTaxa) {
-            console.log("Taxa encontrada:", selectedTaxa);
-            
-            // Atualizar ID
             updatedData.idTaxas = selectedId;
-            
-            // Preencher campos relacionados
             updatedData.TaxaFinalidade = selectedTaxa.finalidade;
             updatedData.finalidade = selectedTaxa.finalidade;
             updatedData.tipo_taxa = selectedTaxa.tipo_taxa || '';
@@ -1240,7 +976,6 @@ function ServicoRelacionadaContent() {
             updatedData["ID Taxa"] = selectedTaxa.id_taxas;
           }
         } else {
-          // Limpar campos se não houver seleção
           updatedData.idTaxas = null;
           updatedData.TaxaFinalidade = '';
           updatedData.finalidade = '';
@@ -1260,18 +995,12 @@ function ServicoRelacionadaContent() {
           );
           
           if (selectedVia) {
-            console.log("Via de administração encontrada:", selectedVia);
-            
-            // Atualizar ID
             updatedData.idViaAdministracao = selectedId;
-            
-            // Preencher campos relacionados
             updatedData.ViaAdministracao = selectedVia.Via_administracao;
             updatedData.Via_Administração = selectedVia.Via_administracao;
             updatedData.Via_administracao = selectedVia.Via_administracao;
           }
         } else {
-          // Limpar campos se não houver seleção
           updatedData.idViaAdministracao = null;
           updatedData.ViaAdministracao = '';
           updatedData.Via_Administração = '';
@@ -1286,17 +1015,11 @@ function ServicoRelacionadaContent() {
           );
           
           if (selectedClasse) {
-            console.log("Classe farmacêutica encontrada:", selectedClasse);
-            
-            // Atualizar ID
             updatedData.idClasseFarmaceutica = selectedId;
-            
-            // Preencher campos relacionados
             updatedData.ClasseFarmaceutica = selectedClasse.ClasseFarmaceutica;
             updatedData.Classe_Farmaceutica = selectedClasse.ClasseFarmaceutica;
           }
         } else {
-          // Limpar campos se não houver seleção
           updatedData.idClasseFarmaceutica = null;
           updatedData.ClasseFarmaceutica = '';
           updatedData.Classe_Farmaceutica = '';
@@ -1310,16 +1033,10 @@ function ServicoRelacionadaContent() {
           );
           
           if (selectedArm) {
-            console.log("Armazenamento encontrado:", selectedArm);
-            
-            // Atualizar ID
             updatedData.idArmazenamento = selectedId;
-            
-            // Preencher campos relacionados
             updatedData.Armazenamento = selectedArm.Armazenamento;
           }
         } else {
-          // Limpar campos se não houver seleção
           updatedData.idArmazenamento = null;
           updatedData.Armazenamento = '';
         }
@@ -1332,17 +1049,11 @@ function ServicoRelacionadaContent() {
           );
           
           if (selectedMed) {
-            console.log("Medicamento encontrado:", selectedMed);
-            
-            // Atualizar ID
             updatedData.idMedicamento = selectedId;
-            
-            // Preencher campos relacionados
             updatedData.tipo_medicamento = selectedMed.tipo_medicamento;
             updatedData.Medicamento = selectedMed.tipo_medicamento;
           }
         } else {
-          // Limpar campos se não houver seleção
           updatedData.idMedicamento = null;
           updatedData.tipo_medicamento = '';
           updatedData.Medicamento = '';
@@ -1356,82 +1067,62 @@ function ServicoRelacionadaContent() {
           );
           
           if (selectedFator) {
-            console.log("Fator de conversão encontrado:", selectedFator);
-            
-            // Atualizar ID
             updatedData.idFatorConversao = selectedId;
-            
-            // Preencher campos relacionados
             updatedData.Fator_Conversão = selectedFator.fator;
             updatedData.fator = selectedFator.fator;
           }
         } else {
-          // Limpar campos se não houver seleção
           updatedData.idFatorConversao = null;
           updatedData.Fator_Conversão = '';
           updatedData.fator = '';
         }
         break;
 
-        case 'Tabela':
-          if (value) {
-            // Encontrar o objeto da tabela selecionada
-            const selectedTabela = dropdownOptions.tabela.find(
-              t => String(t.id_tabela) === String(value)
-            );
-            
-            if (selectedTabela) {
-              console.log("Tabela encontrada:", selectedTabela);
-              
-              // Atualizar ID
-              updatedData.idTabela = selectedId;
-              
-              // Preencher campos relacionados
-              updatedData.tabela = selectedTabela.tabela;
-              updatedData.tabela_classe = selectedTabela.tabela_classe || '';
-              updatedData.tabela_tipo = selectedTabela.tabela_tipo || '';
-              updatedData.classe_Jaragua_do_sul = selectedTabela.classe_Jaragua_do_sul || '';
-              updatedData.classificacao_tipo = selectedTabela.classificacao_tipo || '';
-              updatedData.finalidade = selectedTabela.finalidade || '';
-              updatedData.objetivo = selectedTabela.objetivo || '';
-            }
-          } else {
-            // Limpar campos se não houver seleção
-            updatedData.idTabela = null;
-            updatedData.tabela = '';
-            updatedData.tabela_classe = '';
-            updatedData.tabela_tipo = '';
-            updatedData.classe_Jaragua_do_sul = '';
-            updatedData.classificacao_tipo = '';
-            updatedData.finalidade = '';
-            updatedData.objetivo = '';
+      case 'Tabela':
+        if (value) {
+          const selectedTabela = dropdownOptions.tabela.find(
+            t => String(t.id_tabela) === String(value)
+          );
+          
+          if (selectedTabela) {
+            updatedData.idTabela = selectedId;
+            updatedData.tabela = selectedTabela.tabela;
+            updatedData.tabela_classe = selectedTabela.tabela_classe || '';
+            updatedData.tabela_tipo = selectedTabela.tabela_tipo || '';
+            updatedData.classe_Jaragua_do_sul = selectedTabela.classe_Jaragua_do_sul || '';
+            updatedData.classificacao_tipo = selectedTabela.classificacao_tipo || '';
+            updatedData.finalidade = selectedTabela.finalidade || '';
+            updatedData.objetivo = selectedTabela.objetivo || '';
           }
-          break;
+        } else {
+          updatedData.idTabela = null;
+          updatedData.tabela = '';
+          updatedData.tabela_classe = '';
+          updatedData.tabela_tipo = '';
+          updatedData.classe_Jaragua_do_sul = '';
+          updatedData.classificacao_tipo = '';
+          updatedData.finalidade = '';
+          updatedData.objetivo = '';
+        }
+        break;
         
       default:
         console.error(`Campo não reconhecido: ${field}`);
     }
     
-    // Atualizar o estado com os novos dados
+    // Atualizar o estado
     setNewServiceData(updatedData);
-    
-    // IMPORTANTE: Forçar atualização com o trigger
     setUpdateCounter(prev => prev + 1);
-    
-    console.log("Estado atualizado para:", updatedData);
   };
 
-  // Função para lidar com alterações nos dropdowns durante a edição
-  // Substitua a função handleDropdownChange atual por esta versão completa
+  // Manipulador para dropdowns em modo de edição
   const handleDropdownChange = (e, field) => {
     const value = e.target.value;
     const selectedId = value ? parseInt(value, 10) : null;
     
-    console.log(`Edit dropdown changed: ${field}, selectedId: ${selectedId}`);
-    
-    // Similar ao handleNewDropdownChange, mas para o modo de edição
     const updatedData = { ...editedData };
     
+    // Lógica similar ao handleNewDropdownChange, para diferentes tipos de dropdown
     switch(field) {
       case 'ViaAdministracao':
         if (value) {
@@ -1440,8 +1131,6 @@ function ServicoRelacionadaContent() {
           );
           
           if (selectedVia) {
-            console.log('Found matching Via for edit:', selectedVia);
-            
             updatedData.idViaAdministracao = selectedId;
             updatedData.Via_Administração = selectedVia.Via_administracao;
             updatedData.ViaAdministracao = selectedVia.Via_administracao;
@@ -1455,6 +1144,7 @@ function ServicoRelacionadaContent() {
         }
         break;
         
+      // Outros casos similares para outros tipos de dropdown
       case 'ClasseFarmaceutica':
         if (value) {
           const selectedClasse = dropdownOptions.classeFarmaceutica.find(
@@ -1508,8 +1198,6 @@ function ServicoRelacionadaContent() {
           );
           
           if (selectedUnidade) {
-            console.log('Found matching Unidade for edit:', selectedUnidade);
-            
             updatedData.idUnidadeFracionamento = selectedId;
             updatedData.UnidadeFracionamento = selectedUnidade.UnidadeFracionamento;
             updatedData.Unidade_Fracionamento = selectedUnidade.UnidadeFracionamento;
@@ -1534,8 +1222,6 @@ function ServicoRelacionadaContent() {
           );
           
           if (selectedTaxa) {
-            console.log('Found matching Taxa for edit:', selectedTaxa);
-            
             updatedData.idTaxas = selectedId;
             updatedData.TaxaFinalidade = selectedTaxa.finalidade;
             updatedData.finalidade = selectedTaxa.finalidade;
@@ -1566,8 +1252,6 @@ function ServicoRelacionadaContent() {
           );
           
           if (selectedTabela) {
-            console.log('Found matching Tabela for edit:', selectedTabela);
-            
             updatedData.idTabela = selectedId;
             updatedData.tabela = selectedTabela.tabela;
             updatedData.tabela_classe = selectedTabela.tabela_classe || '';
@@ -1596,8 +1280,6 @@ function ServicoRelacionadaContent() {
           );
           
           if (selectedArm) {
-            console.log('Found matching Armazenamento for edit:', selectedArm);
-            
             updatedData.idArmazenamento = selectedId;
             updatedData.Armazenamento = selectedArm.Armazenamento;
           }
@@ -1614,8 +1296,6 @@ function ServicoRelacionadaContent() {
           );
           
           if (selectedMed) {
-            console.log('Found matching Medicamento for edit:', selectedMed);
-            
             updatedData.idMedicamento = selectedId;
             updatedData.tipo_medicamento = selectedMed.tipo_medicamento;
             updatedData.Medicamento = selectedMed.tipo_medicamento;
@@ -1634,8 +1314,6 @@ function ServicoRelacionadaContent() {
           );
           
           if (selectedFator) {
-            console.log('Found matching FatorConversao for edit:', selectedFator);
-            
             updatedData.idFatorConversao = selectedId;
             updatedData.Fator_Conversão = selectedFator.fator;
             updatedData.fator = selectedFator.fator;
@@ -1651,90 +1329,158 @@ function ServicoRelacionadaContent() {
         console.error(`Campo não reconhecido: ${field}`);
     }
     
-    // Atualizar o estado com uma força de atualização visual
-    console.log(`Atualizando dados de edição para:`, updatedData);
     setEditedData(updatedData);
   };
 
-  // Função para mostrar o indicador de atualização do cache
+  const inspectServiceData = (service) => {
+    if (!service) return;
+    
+    console.group('Inspeção detalhada do serviço');
+    console.log('ID:', service.id);
+    console.log('Código:', service.Cod);
+    console.log('Código TUSS:', service.Codigo_TUSS, typeof service.Codigo_TUSS);
+    console.log('Descrição Apresentação:', service.Descricao_Apresentacao);
+    console.log('Descrição Resumida:', service.Descricao_Resumida);
+    console.log('Descrição Comercial:', service.Descricao_Comercial);
+    console.log('Concentração:', service.Concentracao);
+    console.log('Unidade Fracionamento:', service.UnidadeFracionamento);
+    console.log('Fracionamento:', service.Fracionamento);
+    console.log('Laboratório:', service.Laboratorio);
+    console.log('Uso:', service.Uso);
+    console.log('Revisado Farma:', service.Revisado_Farma, typeof service.Revisado_Farma);
+    console.log('Revisado ADM:', service.Revisado_ADM, typeof service.Revisado_ADM);
+    console.log('ID Princípio Ativo:', service.idPrincipioAtivo);
+    console.log('Princípio Ativo:', service.PrincipioAtivo);
+    console.log('Via Administração:', service.Via_administracao);
+    console.log('Classe Farmacêutica:', service.ClasseFarmaceutica);
+    console.log('Tabela:', service.tabela);
+    console.groupEnd();
+  };
+
+  // Indicador de atualização do cache
   const showCacheRefreshIndicator = () => {
     setCacheRefreshed(true);
-    // Esconder após 3 segundos
     setTimeout(() => setCacheRefreshed(false), 3000);
   };
 
-  /* Função para forçar uma atualização dos dados
-  const forceRefreshData = async () => {
-    try {
-      setRefreshingData(true);
-      
-      // Limpar o cache apenas para os serviços
-      clearServicesCache();
-      
-      // Recarregar os dados do zero
-      await loadServiceData(1, true);
-      
-      // Definir explicitamente a fonte como servidor
-      setDataSource('server');
-      
-      // Indicar sucesso
-      showCacheRefreshIndicator();
-      showSuccessAlert("Dados atualizados com sucesso!", "", false, 2000);
-    } catch (error) {
-      console.error("Erro ao atualizar dados:", error);
-      showErrorAlert("Falha ao atualizar dados", error.message);
-    } finally {
-      setRefreshingData(false);
-    }
-  };*/
-
-  // 2. Modificação para handleSave (alterar item)
+  // Função para salvar serviço editado
   const handleSave = async () => {
     if (!editingRow) return;
-
+  
     try {
       setLocalLoading(true);
       
-      // Preparar dados para envio
-      const cleanedData = { ...editedData };
+      // Criar uma cópia dos dados editados
+      const dataToSend = { ...editedData };
       
-      // Adiciona log para depuração
-      console.log("Dados originais a serem enviados:", cleanedData);
+      // 1. Tratar campo Codigo_TUSS - deve ser um INT válido
+      if (dataToSend.Codigo_TUSS) {
+        // Converter para número
+        const numValue = parseInt(dataToSend.Codigo_TUSS, 10);
+        // Verificar se está no intervalo válido para INT no MySQL (2147483647 máximo)
+        if (!isNaN(numValue) && numValue <= 2147483647) {
+          dataToSend.Codigo_TUSS = numValue;
+        } else {
+          // Se for inválido, é melhor não enviar do que causar erro
+          delete dataToSend.Codigo_TUSS;
+        }
+      }
       
-      // Certifique-se de que todos os IDs são números
-      const idFields = [
+      // Remover codigoTUSS para evitar conflitos
+      delete dataToSend.codigoTUSS;
+      
+      // 2. Garantir que Laboratorio esteja correto
+      dataToSend.Laboratorio = dataToSend.Laboratorio || dataToSend.Laboratório || '';
+      // Remover a versão com acento para evitar confusão
+      delete dataToSend.Laboratório;
+      
+      // 3. Tratar Revisado_Farma e Revisado_ADM como strings (conforme schema)
+      if (dataToSend.Revisado_Farma !== undefined && dataToSend.Revisado_Farma !== null) {
+        // Converter para string em vez de número
+        dataToSend.Revisado_Farma = String(dataToSend.Revisado_Farma);
+      }
+      
+      if (dataToSend.Revisado_ADM !== undefined && dataToSend.Revisado_ADM !== null) {
+        // Converter para string em vez de número
+        dataToSend.Revisado_ADM = String(dataToSend.Revisado_ADM);
+      }
+      
+      // 4. Tratar idMedicamento como string (conforme schema)
+      if (dataToSend.idMedicamento !== undefined && dataToSend.idMedicamento !== null) {
+        dataToSend.idMedicamento = String(dataToSend.idMedicamento);
+      }
+      
+      // 5. Garantir que UnidadeFracionamento seja inteiro
+      if (dataToSend.UnidadeFracionamento) {
+        const numValue = parseInt(dataToSend.UnidadeFracionamento, 10);
+        if (!isNaN(numValue)) {
+          dataToSend.UnidadeFracionamento = numValue;
+        } else {
+          delete dataToSend.UnidadeFracionamento;
+        }
+      }
+      
+      // 6. Tratar campos de RegistroVisa se estiverem presentes
+      if (dataToSend.RegistroVisa) {
+        // Garantir que seja string (conforme schema)
+        dataToSend.RegistroVisa = String(dataToSend.RegistroVisa);
+        dataToSend.idRegistroVisa = dataToSend.RegistroVisa; // Importante: conecta as duas tabelas
+      }
+      
+      // 7. Garantir que os outros IDs sejam enviados como inteiros (conforme schema)
+      const intIdFields = [
         'idPrincipioAtivo',
-        'idUnidadeFracionamento',
-        'idTaxas',
-        'idTabela',
         'idViaAdministracao',
         'idClasseFarmaceutica',
         'idArmazenamento',
-        'idMedicamento',
-        'idFatorConversao'
+        'idUnidadeFracionamento',
+        'idFatorConversao',
+        'idTaxas',
+        'idTabela'
       ];
       
-      // Converte os IDs para números inteiros
-      idFields.forEach(field => {
-        if (cleanedData[field] && typeof cleanedData[field] === 'string') {
-          cleanedData[field] = parseInt(cleanedData[field], 10);
+      intIdFields.forEach(field => {
+        if (dataToSend[field] !== undefined && dataToSend[field] !== null && dataToSend[field] !== '') {
+          dataToSend[field] = parseInt(dataToSend[field], 10);
         }
       });
       
-      console.log("Dados limpos a serem enviados:", cleanedData);
+      console.log("Dados formatados para envio (baseados no schema):", dataToSend);
+      
+      // Voltar a usar o endpoint que sabemos que funciona
+      const apiUrl = `${API_BASE_URL}/update_service_simple.php`;
+      console.log("Enviando requisição para:", apiUrl);
   
-      const response = await fetchWithTimeout(
-        `${API_BASE_URL}/update_service.php`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(cleanedData)
+      // Fazer a requisição
+      const response = await fetch(apiUrl, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
-        15000 // 15 segundos de timeout
-      );
+        body: JSON.stringify(dataToSend)
+      });
+      
+      console.log("Status da resposta:", response.status);
+      
+      // Capturar a resposta como texto primeiro
+      const responseText = await response.text();
+      console.log("Resposta crua do servidor:", responseText);
+      
+      let responseData;
+      
+      // Tentar converter para JSON apenas se for um JSON válido
+      try {
+        responseData = responseText ? JSON.parse(responseText) : {};
+        console.log("Resposta processada:", responseData);
+      } catch (parseError) {
+        console.error("Erro ao fazer parse da resposta como JSON:", parseError);
+        throw new Error(`Resposta não é um JSON válido: ${responseText.substring(0, 150)}...`);
+      }
   
-      if (!response.ok) {
-        throw new Error("Erro ao atualizar o serviço");
+      // Verificar se a resposta indica sucesso
+      if (!response.ok || responseData.success === false) {
+        throw new Error(responseData.message || `Erro ao atualizar o serviço (Status: ${response.status})`);
       }
   
       // Limpar estados de edição
@@ -1742,10 +1488,8 @@ function ServicoRelacionadaContent() {
       setEditedData({});
       setIsEditing(false);
   
-      // Mostrar feedback de sucesso
       showSuccessAlert("Serviço atualizado com sucesso!");
       
-      // Usar a nova função otimizada
       await refreshDataAfterModification();
       
     } catch (error) {
@@ -1756,22 +1500,23 @@ function ServicoRelacionadaContent() {
     }
   };
 
+  // Função para alternar tipo de ordenação
   const handleSortChange = (e) => {
     setSortOrder(e.target.value);
   };
 
-  // Função para resetar a ordenação para o padrão
+  // Resetar ordenação
   const handleResetSort = () => {
     setSortField('id');
     setSortOrder('asc');
   };
 
-  // Formatar o texto com resultados de pesquisa
+  // Formatar texto de resultados de pesquisa
   const searchResultInfo = isSearching
     ? `${serviceData.length} resultados encontrados para "${searchTerm}"`
     : null;
     
-  // Função para obter o nome do tipo de pesquisa
+  // Obter nome do tipo de pesquisa
   const getSearchTypeName = (type) => {
     switch(type) {
       case 'code': return 'Código';
@@ -1780,7 +1525,6 @@ function ServicoRelacionadaContent() {
       case 'description': return 'Descrição';
       case 'all': return 'Todos os campos';
       case 'auto': 
-        // Em modo automático, detecta o tipo com base no conteúdo
         if (/^[0-9.]+$/.test(searchTerm)) {
           return 'Código (auto)';
         } else {
@@ -1790,331 +1534,1496 @@ function ServicoRelacionadaContent() {
     }
   };
 
+  // Obter serviço selecionado
+  const selectedService = selectedRows.size > 0 ? 
+    serviceData.find(service => service.id === Array.from(selectedRows)[0]) : 
+    null;
+    
+  // Função para manipular alteração de select
+  const handleSelectChange = (e, field) => {
+    if (isEditing) {
+      handleDropdownChange(e, field);
+    } else if (isAdding) {
+      handleNewDropdownChange(e, field);
+    }
+  };
+
+  // Adicione esta função ao seu componente para normalizar os dados recebidos da API
+  const normalizeServiceData = (serviceData) => {
+    if (!serviceData) return serviceData;
+    
+    // Crie uma cópia profunda dos dados para não modificar o original
+    const normalizedData = JSON.parse(JSON.stringify(serviceData));
+    
+    console.log("Normalizando dados do serviço:", normalizedData);
+    
+    // Convert ID fields to strings
+    const idFields = [
+      'idPrincipioAtivo',
+      'idUnidadeFracionamento',
+      'idTaxas',
+      'idTabela',
+      'idViaAdministracao',
+      'idClasseFarmaceutica', 
+      'idArmazenamento',
+      'idMedicamento',
+      'idFatorConversao'
+    ];
+    
+    idFields.forEach(field => {
+      if (normalizedData[field] !== undefined && normalizedData[field] !== null) {
+        normalizedData[field] = String(normalizedData[field]);
+      }
+    });
+
+    // Mapeamento de campos inconsistentes
+    const fieldMappings = {
+      // Campo Codigo_TUSS
+      'codigoTUSS': 'Codigo_TUSS',
+      
+      // Campos de Tabela
+      'Tabela': 'tabela',
+      'Tabela Classe': 'tabela_classe',
+      'Tabela tipo': 'tabela_tipo',
+      'Classe JaraguaSul': 'classe_Jaragua_do_sul',
+      'Classificação tipo': 'classificacao_tipo',
+      
+      // Campos de Registro Visa
+      'Cód GGrem': 'Cod_Ggrem',
+      'Princípio_Ativo_RegistroVisa': 'Principio_Ativo',
+      'CNPJ Lab': 'cnpj_lab',
+      'Classe Terapêutica': 'Classe_Terapeutica',
+      'Tipo do Produto': 'Tipo_Porduto',
+      'Regime Preço': 'Regime_Preco',
+      'Restrição Hosp': 'Restricao_Hosp',
+      'ICMS0': 'Icms0',
+      
+      // Via Administração
+      'Via_Administração': 'Via_administracao',
+      
+      // Outros campos
+      'Laboratório': 'Laboratorio',
+      'Princípio_Ativo': 'PrincipioAtivo',
+      'Princípio_Ativo_Classificado': 'PrincipioAtivoClassificado',
+      'Medicamento': 'tipo_medicamento',
+      'ID Taxa': 'id_taxas',
+      'Fator_Conversão': 'id_fatorconversao',
+      'Tempo infusão': 'tempo_infusao',
+
+      'Objetivo': 'objetivo',
+      'Finalidade': 'finalidade',
+      'laboratório': 'Lab',
+      'lab': 'Lab',
+      'laboratorio_registro': 'Lab',
+      'laboratorio_visa': 'Lab'
+    };
+    
+    // Iterar sobre o mapeamento e normalizar os campos
+    Object.entries(fieldMappings).forEach(([sourceField, targetField]) => {
+      try {
+        if (normalizedData[sourceField] !== undefined && 
+            normalizedData[targetField] === undefined) {
+          normalizedData[targetField] = normalizedData[sourceField];
+          console.log(`Campo normalizado: ${sourceField} -> ${targetField} = ${normalizedData[targetField]}`);
+        }
+      } catch (error) {
+        console.warn(`Erro ao normalizar campo ${sourceField}:`, error);
+      }
+    });
+    
+    // Add special handling for Lab field
+    if ((normalizedData.Lab === undefined || normalizedData.Lab === '') && 
+        normalizedData.Laboratorio !== undefined && 
+        normalizedData.Laboratorio !== '') {
+      normalizedData.Lab = normalizedData.Laboratorio;
+      console.log(`Campo especial Lab normalizado de Laboratorio: ${normalizedData.Lab}`);
+    }
+    
+    // Add special handling for objetivo field
+    if (normalizedData.objetivo === undefined) {
+      if (normalizedData.Objetivo !== undefined) {
+        normalizedData.objetivo = normalizedData.Objetivo;
+      } else if (normalizedData.idTabela && normalizedData.tabela) {
+        // If we have tabela info but no objetivo, make sure it's at least initialized
+        normalizedData.objetivo = normalizedData.objetivo || '';
+      }
+    }
+    
+    return normalizedData;
+  };
+
+  const debugServiceFields = (service) => {
+    if (!service) return;
+    
+    console.group('DEBUG - Campos do Serviço');
+    
+    // Geral
+    console.group('Geral');
+    console.log('Cod:', service.Cod);
+    console.log('Codigo_TUSS:', service.Codigo_TUSS, '| codigoTUSS:', service.codigoTUSS);
+    console.log('Via_administracao:', service.Via_administracao, '| Via_Administração:', service.Via_Administração);
+    console.log('ClasseFarmaceutica:', service.ClasseFarmaceutica, '| Classe_Farmaceutica:', service.Classe_Farmaceutica);
+    console.log('Armazenamento:', service.Armazenamento);
+    console.log('tipo_medicamento:', service.tipo_medicamento, '| Medicamento:', service.Medicamento);
+    console.log('id_fatorconversao:', service.id_fatorconversao, '| Fator_Conversão:', service.Fator_Conversão);
+    console.log('Concentracao:', service.Concentracao);
+    console.log('Fracionamento:', service.Fracionamento);
+    console.log('Laboratorio:', service.Laboratorio, '| Laboratório:', service.Laboratório);
+    console.log('Uso:', service.Uso);
+    console.log('Revisado_Farma:', service.Revisado_Farma);
+    console.log('Revisado_ADM:', service.Revisado_ADM);
+    console.group('Problematic Fields Detail');
+    console.log('Objetivo original:', service.Objetivo);
+    console.log('objetivo normalizado:', service.objetivo);
+    console.log('Lab original:', service.Lab);
+    console.log('Laboratorio campo:', service.Laboratorio);
+    console.log('PrincipioAtivoClassificado vs PrincipioAtivo:', 
+                service.PrincipioAtivoClassificado, 
+                service.PrincipioAtivo);
+    console.groupEnd();
+    console.groupEnd();
+    
+    // Descrições
+    console.group('Descrições');
+    console.log('Descricao_Apresentacao:', service.Descricao_Apresentacao);
+    console.log('Descricao_Resumida:', service.Descricao_Resumida);
+    console.log('Descricao_Comercial:', service.Descricao_Comercial);
+    console.groupEnd();
+    
+    // Tabela
+    console.group('Tabela');
+    console.log('tabela:', service.tabela, '| Tabela:', service.Tabela);
+    console.log('tabela_classe:', service.tabela_classe, '| Tabela Classe:', service['Tabela Classe']);
+    console.log('tabela_tipo:', service.tabela_tipo, '| Tabela tipo:', service['Tabela tipo']);
+    console.log('classe_Jaragua_do_sul:', service.classe_Jaragua_do_sul, '| Classe JaraguaSul:', service['Classe JaraguaSul']);
+    console.log('classificacao_tipo:', service.classificacao_tipo, '| Classificação tipo:', service['Classificação tipo']);
+    console.log('finalidade:', service.finalidade, '| Finalidade:', service.Finalidade);
+    console.log('objetivo:', service.objetivo, '| Objetivo:', service.Objetivo);
+    console.groupEnd();
+    
+    // Princípio Ativo
+    console.group('Princípio Ativo');
+    console.log('PrincipioAtivo:', service.PrincipioAtivo, '| Principio_Ativo:', service.Principio_Ativo, '| Princípio_Ativo:', service.Princípio_Ativo);
+    console.log('PrincipioAtivoClassificado:', service.PrincipioAtivoClassificado, '| Princípio_Ativo_Classificado:', service.Princípio_Ativo_Classificado);
+    console.log('FaseUGF:', service.FaseUGF, '| FaseuGF:', service.FaseuGF);
+    console.groupEnd();
+    
+    // Registro Visa
+    console.group('Registro Visa');
+    console.log('RegistroVisa:', service.RegistroVisa);
+    console.log('Cod_Ggrem:', service.Cod_Ggrem, '| Cód GGrem:', service['Cód GGrem']);
+    console.log('Principio_Ativo_RegistroVisa:', service.Principio_Ativo_RegistroVisa, '| Princípio_Ativo_RegistroVisa:', service.Princípio_Ativo_RegistroVisa);
+    console.log('Lab:', service.Lab);
+    console.log('cnpj_lab:', service.cnpj_lab, '| CNPJ Lab:', service['CNPJ Lab']);
+    console.log('Classe_Terapeutica:', service.Classe_Terapeutica, '| Classe Terapêutica:', service['Classe Terapêutica']);
+    console.log('Tipo_Porduto:', service.Tipo_Porduto, '| Tipo do Produto:', service['Tipo do Produto']);
+    console.log('Regime_Preco:', service.Regime_Preco, '| Regime Preço:', service['Regime Preço']);
+    console.log('Restricao_Hosp:', service.Restricao_Hosp, '| Restrição Hosp:', service['Restrição Hosp']);
+    console.log('Cap:', service.Cap);
+    console.log('Confaz87:', service.Confaz87);
+    console.log('Icms0:', service.Icms0, '| ICMS0:', service.ICMS0);
+    console.log('Lista:', service.Lista);
+    console.log('Status:', service.Status);
+    console.groupEnd();
+    
+    // Unidade Fracionamento
+    console.group('Unidade Fracionamento');
+    console.log('UnidadeFracionamento:', service.UnidadeFracionamento, '| Unidade_Fracionamento:', service.Unidade_Fracionamento);
+    console.log('UnidadeFracionamentoDescricao:', service.UnidadeFracionamentoDescricao, '| Descricao:', service.Descricao);
+    console.log('Divisor:', service.Divisor);
+    console.groupEnd();
+    
+    // Taxas
+    console.group('Taxas');
+    console.log('id_taxas:', service.id_taxas, '| ID Taxa:', service['ID Taxa']);
+    console.log('tipo_taxa:', service.tipo_taxa, '| tipo taxa:', service['tipo taxa']);
+    console.log('TaxaFinalidade:', service.TaxaFinalidade, '| finalidade (taxa):', service.finalidade);
+    console.log('tempo_infusao:', service.tempo_infusao, '| Tempo infusão:', service['Tempo infusão']);
+    console.groupEnd();
+    
+    console.groupEnd();
+  };
+
+  // Renderizar campos da seção ativa
+  const renderSectionFields = () => {
+    // Se não houver dados para exibir, não renderiza nada
+    if (!selectedService && !isEditing && !isAdding) return null;
+    
+    // Define o modo (visualização, edição ou adição)
+    const mode = isEditing ? 'edit' : (isAdding ? 'add' : 'view');
+    
+    // Flag para controlar se os campos são editáveis
+    const isEditable = mode === 'edit' || mode === 'add';
+    
+    // Dados a serem exibidos - Usa os dados aprimorados quando disponíveis
+    let displayData = isEditing ? editedData : 
+                 (isAdding ? newServiceData : 
+                  (enhancedData || selectedService));
+
+    // Aplicar normalização se houver dados
+    if (displayData) {
+      displayData = normalizeServiceData(displayData);
+    }
+
+    // Campo Laboratório - Verifica se existe em displayData, senão usa valor padrão
+    const laboratorio = displayData && displayData.Laboratorio ? displayData.Laboratorio : '';
+    
+    // Campo Código TUSS - Verifica se existe em displayData, senão usa valor padrão
+    const codigoTuss = (() => {
+      if (!displayData) return '';
+      
+      if (displayData.Codigo_TUSS !== undefined) {
+        return String(displayData.Codigo_TUSS);
+      }
+      
+      if (displayData.codigoTUSS !== undefined) {
+        return String(displayData.codigoTUSS);
+      }
+      
+      return '';
+    })();
+    
+    switch (activeSection) {
+      case 'geral':
+        return (
+          <div className="sr-section-fields">
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Código</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Cod || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Cod') : handleInputChange(e, 'Cod')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.Cod || '-'}</div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Código TUSS</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={codigoTuss}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Codigo_TUSS') : handleInputChange(e, 'Codigo_TUSS')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{codigoTuss || '-'}</div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Via Administração</label>
+                {isEditable ? (
+                  <select
+                    value={displayData.idViaAdministracao || ''}
+                    onChange={(e) => handleSelectChange(e, 'ViaAdministracao')}
+                    className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
+                  >
+                    {(displayData.idViaAdministracao === undefined || 
+                      displayData.idViaAdministracao === null || 
+                      displayData.idViaAdministracao === '') && 
+                      <option value="">Selecione...</option>}
+                    {dropdownOptions.viaAdministracao?.map(item => (
+                      <option key={item.idviaadministracao} value={item.idviaadministracao}>
+                        {item.Via_administracao}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {getSafeValue(displayData, ['ViaAdministracao', 'Via_administracao', 'Via_Administração'])}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Classe Farmacêutica</label>
+                {isEditable ? (
+                  <select
+                    value={displayData.idClasseFarmaceutica || ''}
+                    onChange={(e) => handleSelectChange(e, 'ClasseFarmaceutica')}
+                    className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
+                  >
+                    {(displayData.idClasseFarmaceutica === undefined || 
+                      displayData.idClasseFarmaceutica === null || 
+                      displayData.idClasseFarmaceutica === '') && 
+                      <option value="">Selecione...</option>}
+                    {dropdownOptions.classeFarmaceutica?.map(item => (
+                      <option key={item.id_medicamento} value={item.id_medicamento}>
+                        {item.ClasseFarmaceutica}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {getSafeValue(displayData, ['ClasseFarmaceutica', 'Classe_Farmaceutica'])}
+                  </div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Armazenamento</label>
+                {isEditable ? (
+                  <select
+                    value={displayData.idArmazenamento || ''}
+                    onChange={(e) => handleSelectChange(e, 'Armazenamento')}
+                    className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
+                  >
+                    {(displayData.idArmazenamento === undefined || 
+                      displayData.idArmazenamento === null || 
+                      displayData.idArmazenamento === '') && 
+                      <option value="">Selecione...</option>}
+                    {dropdownOptions.armazenamento?.map(item => (
+                      <option key={item.idArmazenamento} value={item.idArmazenamento}>
+                        {item.Armazenamento}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Armazenamento || '-'}
+                  </div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Medicamento</label>
+                {isEditable ? (
+                  <select
+                    value={displayData.idMedicamento || ''}
+                    onChange={(e) => handleSelectChange(e, 'tipo_medicamento')}
+                    className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
+                  >
+                    {(displayData.idMedicamento === undefined || 
+                      displayData.idMedicamento === null || 
+                      displayData.idMedicamento === '') && 
+                      <option value="">Selecione...</option>}
+                    {dropdownOptions.tipoMedicamento?.map(item => (
+                      <option key={item.id_medicamento} value={item.id_medicamento}>
+                        {item.tipo_medicamento}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {getSafeValue(displayData, ['tipo_medicamento', 'Medicamento'])}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Fator Conversão</label>
+                {isEditable ? (
+                  <select
+                    value={displayData.idFatorConversao || ''}
+                    onChange={(e) => handleSelectChange(e, 'FatorConversao')}
+                    className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
+                  >
+                    {(displayData.idFatorConversao === undefined || 
+                      displayData.idFatorConversao === null || 
+                      displayData.idFatorConversao === '') && 
+                      <option value="">Selecione...</option>}
+                    {dropdownOptions.fatorConversao?.map(item => (
+                      <option key={item.id_fatorconversao} value={item.id_fatorconversao}>
+                        {item.fator}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {getSafeValue(displayData, ['Fator_Conversão', 'fator'])}
+                  </div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Concentração</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Concentracao || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Concentracao') : handleInputChange(e, 'Concentracao')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Concentracao || '-'}
+                  </div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Fracionamento</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Fracionamento || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Fracionamento') : handleInputChange(e, 'Fracionamento')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Fracionamento || '-'}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Laboratório</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Laboratório || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Laboratório') : handleInputChange(e, 'Laboratório')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Laboratório || '-'}
+                  </div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Uso</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Uso || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Uso') : handleInputChange(e, 'Uso')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Uso || '-'}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Revisado Farma</label>
+                {isEditable ? (
+                  <select
+                    value={displayData.Revisado_Farma === null ? '' : displayData.Revisado_Farma}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? null : parseInt(e.target.value, 10);
+                      if (isEditing) {
+                        setEditedData(prev => ({...prev, Revisado_Farma: value}));
+                      } else {
+                        setNewServiceData(prev => ({...prev, Revisado_Farma: value}));
+                      }
+                    }}
+                    className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
+                  >
+                    <option value="">Não definido</option>
+                    <option value="1">Ativo</option>
+                    <option value="0">Inativo</option>
+                  </select>
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Revisado_Farma === 1 ? 'Ativo' : 
+                    (displayData.Revisado_Farma === 0 ? 'Inativo' : 'Não definido')}
+                  </div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Revisado ADM</label>
+                {isEditable ? (
+                  <select
+                    value={displayData.Revisado_ADM === null ? '' : displayData.Revisado_ADM}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? null : parseInt(e.target.value, 10);
+                      if (isEditing) {
+                        setEditedData(prev => ({...prev, Revisado_ADM: value}));
+                      } else {
+                        setNewServiceData(prev => ({...prev, Revisado_ADM: value}));
+                      }
+                    }}
+                    className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
+                  >
+                    <option value="">Não definido</option>
+                    <option value="1">Sim</option>
+                    <option value="0">Não</option>
+                  </select>
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Revisado_ADM === 1 ? 'Sim' : 
+                    (displayData.Revisado_ADM === 0 ? 'Não' : 
+                    (displayData.Revisado_ADM === null ? 'Não definido' : String(displayData.Revisado_ADM)))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 'descricoes':
+        return (
+          <div className="sr-section-fields">
+            <div className="sr-field-row">
+              <div className="sr-field-container sr-full-width">
+                <label>Descrição Resumida</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Descricao_Resumida || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Descricao_Resumida') : handleInputChange(e, 'Descricao_Resumida')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.Descricao_Resumida || '-'}</div>
+                )}
+              </div>
+            </div>
+            
+            <div className="sr-field-row">
+              <div className="sr-field-container sr-full-width">
+                <label>Descrição Abreviada</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Descricao_Apresentacao || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Descricao_Apresentacao') : handleInputChange(e, 'Descricao_Apresentacao')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.Descricao_Apresentacao || '-'}</div>
+                )}
+              </div>
+            </div>
+            
+            <div className="sr-field-row">
+              <div className="sr-field-container sr-full-width">
+                <label>Descrição Comercial</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Descricao_Comercial || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Descricao_Comercial') : handleInputChange(e, 'Descricao_Comercial')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.Descricao_Comercial || '-'}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+        
+        case 'tabela':
+          return (
+            <div className="sr-section-fields">
+              <div className="sr-field-row">
+                <div className="sr-field-container">
+                  <label>Tabela</label>
+                  {isEditable ? (
+                    <select
+                      value={displayData.idTabela || ''}
+                      onChange={(e) => handleSelectChange(e, 'Tabela')}
+                      className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
+                    >
+                      {(displayData.idTabela === undefined || 
+                        displayData.idTabela === null || 
+                        displayData.idTabela === '') && 
+                        <option value="">Selecione...</option>}
+                      {dropdownOptions.tabela?.map(item => (
+                        <option key={item.id_tabela} value={item.id_tabela}>
+                          {item.tabela}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="sr-field-value sr-read-only">
+                      {displayData.tabela || '-'}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="sr-field-container">
+                  <label>Classe</label>
+                  {isEditable ? (
+                    <input
+                      type="text"
+                      value={displayData.tabela_classe || ''}
+                      onChange={(e) => isAdding ? handleNewInputChange(e, 'tabela_classe') : handleInputChange(e, 'tabela_classe')}
+                      className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                    />
+                  ) : (
+                    <div className="sr-field-value sr-read-only">
+                      {displayData.tabela_classe || '-'}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="sr-field-container">
+                  <label>Tipo</label>
+                  {isEditable ? (
+                    <input
+                      type="text"
+                      value={displayData.tabela_tipo || ''}
+                      onChange={(e) => isAdding ? handleNewInputChange(e, 'tabela_tipo') : handleInputChange(e, 'tabela_tipo')}
+                      className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                    />
+                  ) : (
+                    <div className="sr-field-value sr-read-only">
+                      {displayData.tabela_tipo || '-'}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="sr-field-row">
+                <div className="sr-field-container">
+                  <label>Classe Jaraguá do Sul</label>
+                  {isEditable ? (
+                    <input
+                      type="text"
+                      value={displayData.classe_Jaragua_do_sul || ''}
+                      onChange={(e) => isAdding ? handleNewInputChange(e, 'classe_Jaragua_do_sul') : handleInputChange(e, 'classe_Jaragua_do_sul')}
+                      className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                    />
+                  ) : (
+                    <div className="sr-field-value sr-read-only">
+                      {displayData.classe_Jaragua_do_sul || '-'}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="sr-field-container">
+                  <label>Classificação Tipo</label>
+                  {isEditable ? (
+                    <input
+                      type="text"
+                      value={displayData.classificacao_tipo || ''}
+                      onChange={(e) => isAdding ? handleNewInputChange(e, 'classificacao_tipo') : handleInputChange(e, 'classificacao_tipo')}
+                      className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                    />
+                  ) : (
+                    <div className="sr-field-value sr-read-only">
+                      {displayData.classificacao_tipo || '-'}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="sr-field-row">
+                <div className="sr-field-container">
+                  <label>Finalidade</label>
+                  {isEditable ? (
+                    <input
+                      type="text"
+                      value={displayData.finalidade || ''}
+                      onChange={(e) => isAdding ? handleNewInputChange(e, 'finalidade') : handleInputChange(e, 'finalidade')}
+                      className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                    />
+                  ) : (
+                    <div className="sr-field-value sr-read-only">
+                      {displayData.finalidade || '-'}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="sr-field-container">
+                  <label>Objetivo</label>
+                  {isEditable ? (
+                    <input
+                      type="text"
+                      value={getSafeValue(displayData, ['objetivo', 'Objetivo']) || ''}
+                      onChange={(e) => isAdding ? handleNewInputChange(e, 'objetivo') : handleInputChange(e, 'objetivo')}
+                      className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                    />
+                  ) : (
+                    <div className="sr-field-value sr-read-only">
+                      {getSafeValue(displayData, ['objetivo', 'Objetivo']) || '-'}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        
+          case 'principio_ativo':
+            return (
+              <div className="sr-section-fields">
+                <div className="sr-field-row">
+                  <div className="sr-field-container">
+                    <label>Princípio Ativo</label>
+                    {isEditable ? (
+                      <select
+                        value={displayData.idPrincipioAtivo || ''}
+                        onChange={(e) => handleSelectChange(e, 'PrincipioAtivo')}
+                        className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
+                      >
+                        {!displayData.idPrincipioAtivo && <option value="">Selecione...</option>}
+                        {dropdownOptions.principioAtivo?.map(item => (
+                          <option key={item.idPrincipioAtivo} value={item.idPrincipioAtivo}>
+                            {item.PrincipioAtivo}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="sr-field-value sr-read-only">
+                        {getSafeValue(displayData, ['PrincipioAtivo', 'Principio_Ativo', 'Princípio_Ativo'])}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="sr-field-row">
+                  <div className="sr-field-container">
+                    <label>Princípio Ativo Classificado</label>
+                    {isEditable ? (
+                      <input
+                        type="text"
+                        value={getSafeValue(displayData, ['PrincipioAtivoClassificado', 'Princípio_Ativo_Classificado']) || ''}
+                        onChange={(e) => isAdding ? handleNewInputChange(e, 'PrincipioAtivoClassificado') : handleInputChange(e, 'PrincipioAtivoClassificado')}
+                        className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                      />
+                    ) : (
+                      <div className="sr-field-value sr-read-only">
+                        {getSafeValue(displayData, ['PrincipioAtivoClassificado', 'Princípio_Ativo_Classificado'])}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="sr-field-row">
+                  <div className="sr-field-container">
+                    <label>Fase UGF</label>
+                    {isEditable ? (
+                      <input
+                        type="text"
+                        value={getSafeValue(displayData, ['FaseUGF', 'FaseuGF']) || ''}
+                        onChange={(e) => isAdding ? handleNewInputChange(e, 'FaseUGF') : handleInputChange(e, 'FaseUGF')}
+                        className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                      />
+                    ) : (
+                      <div className="sr-field-value sr-read-only">
+                        {getSafeValue(displayData, ['FaseUGF', 'FaseuGF'])}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+        
+      case 'registro_visa':
+        return (
+          <div className="sr-section-fields">
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Registro Visa</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.RegistroVisa || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'RegistroVisa') : handleInputChange(e, 'RegistroVisa')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.RegistroVisa || '-'}</div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Cód GGrem</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Cod_Ggrem || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Cod_Ggrem') : handleInputChange(e, 'Cod_Ggrem')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.Cod_Ggrem || '-'}</div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Laboratório</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={getSafeValue(displayData, ['Lab', 'Laboratorio', 'Laboratório']) || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Lab') : handleInputChange(e, 'Lab')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {getSafeValue(displayData, ['Lab', 'Laboratorio', 'Laboratório']) || '-'}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>CNPJ Lab</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.cnpj_lab || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'cnpj_lab') : handleInputChange(e, 'cnpj_lab')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.cnpj_lab || '-'}</div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Princípio Ativo (Registro)</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Principio_Ativo || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Principio_Ativo') : handleInputChange(e, 'Principio_Ativo')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.Principio_Ativo || '-'}</div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Status</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Status || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Status') : handleInputChange(e, 'Status')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.Status || '-'}</div>
+                )}
+              </div>
+            </div>
+            
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Classe Terapêutica</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Classe_Terapeutica || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Classe_Terapeutica') : handleInputChange(e, 'Classe_Terapeutica')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.Classe_Terapeutica || '-'}</div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Tipo do Produto</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Tipo_Porduto || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Tipo_Porduto') : handleInputChange(e, 'Tipo_Porduto')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.Tipo_Porduto || '-'}</div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Regime Preço</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Regime_Preco || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Regime_Preco') : handleInputChange(e, 'Regime_Preco')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.Regime_Preco || '-'}</div>
+                )}
+              </div>
+            </div>
+            
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Restrição Hosp</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Restricao_Hosp || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Restricao_Hosp') : handleInputChange(e, 'Restricao_Hosp')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.Restricao_Hosp || '-'}</div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Cap</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Cap || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Cap') : handleInputChange(e, 'Cap')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.Cap || '-'}</div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Confaz87</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Confaz87 || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Confaz87') : handleInputChange(e, 'Confaz87')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.Confaz87 || '-'}</div>
+                )}
+              </div>
+            </div>
+            
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>ICMS0</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Icms0 || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Icms0') : handleInputChange(e, 'Icms0')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.Icms0 || '-'}</div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Lista</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Lista || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Lista') : handleInputChange(e, 'Lista')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.Lista || '-'}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 'unidade_fracionamento':
+        return (
+          <div className="sr-section-fields">
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Unidade Fracionamento</label>
+                {isEditable ? (
+                  <select
+                    value={displayData.idUnidadeFracionamento || ''}
+                    onChange={(e) => handleSelectChange(e, 'UnidadeFracionamento')}
+                    className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
+                  >
+                    {(displayData.idUnidadeFracionamento === undefined || 
+                      displayData.idUnidadeFracionamento === null || 
+                      displayData.idUnidadeFracionamento === '') && 
+                      <option value="">Selecione...</option>}
+                    {dropdownOptions.unidadeFracionamento?.map(item => (
+                      <option key={item.id_unidadefracionamento} value={item.id_unidadefracionamento}>
+                        {item.UnidadeFracionamento} - {item.Descricao || ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.UnidadeFracionamento || displayData.Unidade_Fracionamento || '-'}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Descrição</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Descricao || displayData.UnidadeFracionamentoDescricao || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Descricao') : handleInputChange(e, 'Descricao')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Descricao || displayData.UnidadeFracionamentoDescricao || '-'}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Divisor</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Divisor || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Divisor') : handleInputChange(e, 'Divisor')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Divisor || '-'}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 'taxas':
+        return (
+          <div className="sr-section-fields">
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Taxas</label>
+                {isEditable ? (
+                  <select
+                    value={displayData.idTaxas || ''}
+                    onChange={(e) => handleSelectChange(e, 'Taxas')}
+                    className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
+                  >
+                    {(displayData.idTaxas === undefined || 
+                      displayData.idTaxas === null || 
+                      displayData.idTaxas === '') && 
+                      <option value="">Selecione...</option>}
+                    {dropdownOptions.taxas?.map(item => (
+                      <option key={item.id_taxas} value={item.id_taxas}>
+                        {item.finalidade}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {getSafeValue(displayData, ['TaxaFinalidade', 'finalidade'])}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>ID Taxa</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={getSafeValue(displayData, ['id_taxa', 'ID Taxa']) || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'id_taxa') : handleInputChange(e, 'id_taxa')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {getSafeValue(displayData, ['id_taxa', 'ID Taxa'])}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Tipo Taxa</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={getSafeValue(displayData, ['tipo_taxa', 'tipo taxa']) || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'tipo_taxa') : handleInputChange(e, 'tipo_taxa')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {getSafeValue(displayData, ['tipo_taxa', 'tipo taxa'])}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Tempo Infusão</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={getSafeValue(displayData, ['tempo_infusao', 'Tempo infusão']) || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'tempo_infusao') : handleInputChange(e, 'tempo_infusao')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {getSafeValue(displayData, ['tempo_infusao', 'Tempo infusão'])}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+        
+      default:
+        return null;
+    }
+  };
+
+  // Renderizar lista de serviços
+  const renderServiceList = () => {
+    return (
+      <div className="sr-service-list-container">
+        <h3 className="sr-service-list-title">Serviços</h3>
+        
+        {loading ? (
+          <div className="sr-loading-indicator">
+            <img src="/images/loadingcorreto-semfundo.gif" alt="Carregando..." className="sr-loading-img" />
+          </div>
+        ) : error ? (
+          <div className="sr-error-message">
+            Erro ao carregar dados: {error}
+          </div>
+        ) : serviceData.length === 0 ? (
+          <div className="sr-empty-data-message">
+            {isSearching ? "Nenhum resultado encontrado" : "Nenhum serviço disponível"}
+          </div>
+        ) : (
+          <>
+            <div className="sr-service-list">
+              {serviceData.map(service => (
+                <div 
+                  key={service.id}
+                  className={`sr-service-item ${selectedRows.has(service.id) ? 'sr-selected' : ''}`}
+                  onClick={() => toggleRowSelection(service.id)}
+                >
+                  <div className="sr-service-item-code">{service.Cod}</div>
+                  <div className="sr-service-item-desc">
+                    {service.PrincipioAtivo || service.Principio_Ativo || '-'}
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Botão "Carregar mais" */}
+            {hasMore && !localLoading && (
+              <div className="sr-load-more-container">
+                <button 
+                  className="sr-load-more-button"
+                  onClick={() => loadMore()}
+                  disabled={loading}
+                >
+                  {loading ? 'Carregando...' : 'Carregar mais serviços'}
+                </button>
+              </div>
+            )}
+            
+            {/* Indicador de carregamento ao carregar mais */}
+            {localLoading && (
+              <div className="sr-load-more-container">
+                <img src="/images/loadingcorreto-semfundo.gif" alt="Carregando..." className="sr-loading-img-small" />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const renderSortingOptions = () => {
+    return (
+      <div className="sr-sorting-container">
+        <div className="sr-sorting-header">
+          <h4>Ordenar por</h4>
+        </div>
+        <div className="sr-sorting-options">
+          <select 
+            className="sr-sort-select" 
+            value={`${sortField}-${sortOrder}`} 
+            onChange={(e) => {
+              const [field, order] = e.target.value.split('-');
+              changeSort(field, order);
+            }}
+          >
+            <option value="id-desc">Mais recentes</option>
+            <option value="id-asc">Mais antigos</option>
+            <option value="Cod-asc">Código (A-Z)</option>
+            <option value="Cod-desc">Código (Z-A)</option>
+            <option value="PrincipioAtivo-asc">Princípio Ativo (A-Z)</option>
+            <option value="PrincipioAtivo-desc">Princípio Ativo (Z-A)</option>
+          </select>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <PageTransition>
       <div className="container">
         <Sidebar />
         
         <div className="main-content">
-          <Header userName="Douglas" />
+          <Header />
           
           <main>
-            <div className="styled-container">
-              <div className="mb-6 flex justify-between items-center encimatabela">
-                <div className="organize-container">
-                  <h2 className="organize-text">Ordenação</h2>
-                  <div className="custom-select">
-                    <select 
-                      className="select-style" 
-                      value={sortOrder} 
-                      onChange={handleSortChange}
+            <div className="sr-styled-container sr-centered">
+              {/* Área de pesquisa */}
+              <div className="sr-search-container">
+                <div className="sr-search-bar-container">
+                  <div className="sr-search-bar">
+                    <button
+                      onClick={executeSearch}
+                      className="sr-search-button"
+                      title="Pesquisar"
                     >
-                      <option value="asc">Crescente</option>
-                      <option value="desc">Decrescente</option>
-                    </select>
-                  </div>
-                </div>
-                
-                {/* Mostrar informação sobre ordenação atual */}
-                {sortField !== 'id' && (
-                  <div className="px-3 py-1 rounded-md flex items-center ordenacao" style={{color: '#575654', background: '#E4E9C0'}}>
-                    <span className="text-sm">
-                      Ordenado por: <strong style={{color: '#f26b6b'}} >{sortField}</strong> ({sortOrder === 'asc' ? 'crescente' : 'decrescente'})
-                    </span>
-                    <button 
-                      className="ml-2 text-blue-600 hover:text-blue-800" 
-                      onClick={handleResetSort}
-                      title="Resetar ordenação"
-                    >
-                      <X size={16} />
+                      <Search size={18} />
                     </button>
-                  </div>
-                )}
-                
-                
-                
-                {/*<div className="flex items-center gap-3">
-                   Botão para controle de cache 
-                  <button
-                    onClick={() => setShowCacheControl(true)}
-                    className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center"
-                    title="Gerenciar Cache"
-                  >
-                    <Database size={16} className="text-gray-600 mr-1" />
-                    <span className="text-xs text-gray-600">Cache</span>
-                  </button>
-                  
-                  {/* Botão de atualização de dados 
-                  <DataRefreshButton />
-                </div>*/}
-                
-                <div className="flex items-center gap-4">
-                  <div className="flex flex-col">
-                    <div className="search-container">
-                      <div className="search-bar">
-                      <DataRefreshButton />
-                        <button
-                          onClick={executeSearch}
-                          className={`pesquisa-icone ${searchTerm.trim().length > 0 ? 'search-icon-blinking' : ''}`}
-                          title="Clique para pesquisar"
-                        >
-                          <Search size={18} />
-                        </button>
-                        <input
-                          ref={searchInputRef}
-                          type="text"
-                          placeholder="Pesquisar por Cód. ou Princípio Ativo"
-                          className="border pesquisa"
-                          defaultValue={searchTerm}
-                          onInput={handleInput}
-                          onKeyDown={handleKeyDown}
-                        />
-                        {isSearching && (
-                          <button 
-                            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                            onClick={handleClearSearch}
-                            title="Limpar pesquisa"
-                          >
-                            <X size={16} />
-                          </button>
-                        )}
-                      </div>
-                      
-                      {/* Seletor do tipo de pesquisa - mostrar sempre que houver pesquisa */}
-                      {isSearching && (
-                        <div className="search-type-selector mt-2 flex items-center">
-                          <div className="text-xs mr-2 text-gray-600">Refinar busca:</div>
-                          <div className="flex flex-wrap space-x-3">
-                            <label className={`cursor-pointer flex items-center ${searchType === 'auto' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
-                              <input
-                                type="radio"
-                                name="searchType"
-                                value="auto"
-                                checked={searchType === 'auto'}
-                                onChange={() => handleSearchTypeChange('auto')}
-                                className="mr-1 h-3 w-3"
-                              />
-                              <span className="text-xs">Auto</span>
-                            </label>
-                            
-                            <label className={`cursor-pointer flex items-center ${searchType === 'code' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
-                              <input
-                                type="radio"
-                                name="searchType"
-                                value="code"
-                                checked={searchType === 'code'}
-                                onChange={() => handleSearchTypeChange('code')}
-                                className="mr-1 h-3 w-3"
-                              />
-                              <span className="text-xs">Código</span>
-                            </label>
-                            
-                            <label className={`cursor-pointer flex items-center ${searchType === 'active' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
-                              <input
-                                type="radio"
-                                name="searchType"
-                                value="active"
-                                checked={searchType === 'active'}
-                                onChange={() => handleSearchTypeChange('active')}
-                                className="mr-1 h-3 w-3"
-                              />
-                              <span className="text-xs">Princípio Ativo</span>
-                            </label>
-                            
-                            {/* Nova opção para Princípio Ativo do Registro Visa */}
-                            <label className={`cursor-pointer flex items-center ${searchType === 'active_visa' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
-                              <input
-                                type="radio"
-                                name="searchType"
-                                value="active_visa"
-                                checked={searchType === 'active_visa'}
-                                onChange={() => handleSearchTypeChange('active_visa')}
-                                className="mr-1 h-3 w-3"
-                              />
-                              <span className="text-xs">P. Ativo (Registro)</span>
-                            </label>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Indicador de resultados da pesquisa */}
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      placeholder="Buscar por Princípio Ativo ou Código..."
+                      className="sr-search-input"
+                      defaultValue={searchTerm}
+                      onChange={handleInput}
+                      onKeyDown={handleKeyDown}
+                      autoComplete="off"
+                    />
                     {isSearching && (
-                      <div className="text-xs text-gray-600 mt-1 ml-2 pesquisatinha">
-                        {serviceData.length === 0 ? (
-                          <span className="text-red-500">Nenhum resultado encontrado. Tente refinar sua busca.</span>
-                        ) : (
-                          <span>
-                            {searchResultInfo} 
-                            <span className={`search-type-badge search-type-${searchType}`}>
-                              {getSearchTypeName(searchType)}
+                      <button 
+                        className="sr-clear-search-button"
+                        onClick={handleClearSearch}
+                        title="Limpar pesquisa"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                    
+                    {/* Lista de sugestões */}
+                    {showSuggestions && suggestions.length > 0 && (
+                      <div className="sr-suggestions-dropdown" ref={suggestionsRef}>
+                        {suggestions.map((item) => (
+                          <div 
+                            key={item.idPrincipioAtivo} 
+                            className="sr-suggestion-item"
+                            onClick={() => selectSuggestion(item)}
+                          >
+                            <span className="sr-suggestion-icon">
+                              <Search size={14} />
                             </span>
-                          </span>
-                        )}
+                            {item.PrincipioAtivo}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
                   
-                  <div className="button-container">
-                    {selectedRows.size > 0 ? (
+                  {/* Status da pesquisa abaixo do campo de busca */}
+                  {isSearching && searchTerm && (
+                    <div className="sr-search-status">
+                      {serviceData.length} resultado(s) encontrado(s) para "{searchTerm}"
+                    </div>
+                  )}
+                </div>
+                
+                {/* Seletor de ordenação ao lado do campo de busca */}
+                <div className="sr-search-controls">
+                  <DataRefreshButton />
+                  <div className="sr-sort-container">
+                    <select 
+                      className="sr-sort-select" 
+                      value={`${sortField}-${sortOrder}`} 
+                      onChange={(e) => {
+                        const [field, order] = e.target.value.split('-');
+                        changeSort(field, order);
+                      }}
+                      title="Ordenar por"
+                    >
+                      <option value="id-desc">Mais recentes</option>
+                      <option value="id-asc">Mais antigos</option>
+                      <option value="Cod-asc">Código (A-Z)</option>
+                      <option value="Cod-desc">Código (Z-A)</option>
+                      <option value="PrincipioAtivo-asc">Princípio Ativo (A-Z)</option>
+                      <option value="PrincipioAtivo-desc">Princípio Ativo (Z-A)</option>
+                    </select>
+                  </div>
+                  
+                </div>
+              </div>
+
+              {/* Destaque para Princípio Ativo e Código quando selecionado */}
+              {selectedService && !isEditing && !isAdding && (
+                <div className="sr-selected-service-highlight">
+                  <div className="sr-highlight-content">
+                    <div className="sr-highlight-code">
+                      <span className="sr-highlight-label">Código: </span>
+                      <span className="sr-highlight-value">{selectedService.Cod}</span>
+                    </div>
+                    <div className="sr-highlight-name">
+                      <span className="sr-highlight-label">Princípio Ativo: </span>
+                      <span className="sr-highlight-value">
+                        {getSafeValue(
+                          enhancedData || selectedService, 
+                          ['PrincipioAtivo', 'Principio_Ativo', 'Princípio_Ativo'], 
+                          'Não informado'
+                        )}
+                      </span>
+                      <div className="sr-highlight-description">
+                        {enhancedData?.Descricao_Comercial || enhancedData?.Descricao_Apresentacao || '-'}
+                      </div>
+                    </div>
+                    <div className="sr-highlight-info">
+                      <Info size={16} className="sr-info-icon" />
+                      <span>Serviço selecionado</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Área de conteúdo principal */}
+              <div className="sr-content-container">
+                {/* Lista de serviços (somente no modo de visualização) */}
+                {!isEditing && !isAdding && renderServiceList()}
+                
+                {/* Área de detalhes/edição/adição */}
+                <div className="sr-details-container">
+                  {/* Botões de navegação entre seções (apenas quando há serviço selecionado) */}
+                  {(selectedService || isEditing || isAdding) && (
+                    <div className={`sr-navigation-buttons ${(isEditing || isAdding) ? 'sr-centered' : ''}`}>
+                      <button 
+                        className={`sr-nav-button ${activeSection === 'geral' ? 'sr-active' : ''}`}
+                        onClick={() => setActiveSection('geral')}
+                      >
+                        Geral
+                      </button>
+                      <button 
+                        className={`sr-nav-button ${activeSection === 'descricoes' ? 'sr-active' : ''}`}
+                        onClick={() => setActiveSection('descricoes')}
+                      >
+                        Descrição
+                      </button>
+                      <button 
+                        className={`sr-nav-button ${activeSection === 'tabela' ? 'sr-active' : ''}`}
+                        onClick={() => setActiveSection('tabela')}
+                      >
+                        Tabela
+                      </button>
+                      <button 
+                        className={`sr-nav-button ${activeSection === 'principio_ativo' ? 'sr-active' : ''}`}
+                        onClick={() => setActiveSection('principio_ativo')}
+                      >
+                        Princípio Ativo
+                      </button>
+                      <button 
+                        className={`sr-nav-button ${activeSection === 'registro_visa' ? 'sr-active' : ''}`}
+                        onClick={() => setActiveSection('registro_visa')}
+                      >
+                        Registro Visa
+                      </button>
+                      <button 
+                        className={`sr-nav-button ${activeSection === 'unidade_fracionamento' ? 'sr-active' : ''}`}
+                        onClick={() => setActiveSection('unidade_fracionamento')}
+                      >
+                        Unidade Frac.
+                      </button>
+                      <button 
+                        className={`sr-nav-button ${activeSection === 'taxas' ? 'sr-active' : ''}`}
+                        onClick={() => setActiveSection('taxas')}
+                      >
+                        Taxas
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Campos da seção ativa */}
+                  <div className="sr-section-content">
+                    {renderSectionFields()}
+                    {!selectedService && !isEditing && !isAdding && (
+                      <div className="sr-no-selection-message">
+                        <p>Selecione um serviço para visualizar detalhes ou clique em "Adicionar" para criar um novo.</p>
+                        <img src="/images/GifLogo.gif" alt="Carregando..." className="sr-loading-gif" />
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Botões de ação */}
+                  <div className="sr-action-buttons">
+                    {isEditing || isAdding ? (
                       <>
-                        {isEditing ? (
-                          <button 
-                            className="btn btn-danger" 
-                            onClick={handleCancel}
-                            disabled={localLoading}
-                          >
-                            Cancelar
-                          </button>
-                        ) : (
-                          <button 
-                            className="btn btn-danger" 
-                            onClick={handleDelete}
-                            disabled={localLoading}
-                          >
-                            <Trash2 className="w-5 h-5" /> Excluir
-                          </button>
-                        )}
-                        {isEditing ? (
-                          <button 
-                            className="btn btn-success" 
-                            onClick={handleSave}
-                            disabled={localLoading}
-                          >
-                            {localLoading ? 'Salvando...' : 'Salvar'}
-                          </button>
-                        ) : (
-                          <button 
-                            className="btn btn-warning" 
-                            onClick={handleEdit}
-                            disabled={localLoading}
-                          >
-                            <Edit className="w-5 h-5" /> Alterar
-                          </button>
-                        )}
+                        <button 
+                          className="sr-action-button sr-cancel-button" 
+                          onClick={isEditing ? handleCancel : handleCancelAdd}
+                        >
+                          Cancelar
+                        </button>
+                        <button 
+                          className="sr-action-button sr-save-button" 
+                          onClick={isEditing ? handleSave : handleSaveNew}
+                          disabled={localLoading}
+                        >
+                          {localLoading ? 'Salvando...' : 'Salvar'}
+                        </button>
                       </>
                     ) : (
-                      isAdding ? (
-                        <>
-                          <button 
-                            className="btn btn-danger" 
-                            onClick={handleCancelAdd}
-                            disabled={localLoading}
-                          >
-                            Cancelar
-                          </button>
-                          <button 
-                            className="btn btn-success" 
-                            onClick={handleSaveNew}
-                            disabled={localLoading}
-                          >
-                            {localLoading ? (
-                              <>
-                                <span className="animate-spin mr-2 h-4 w-4 border-b-2 border-white rounded-full"></span>
-                                Salvando...
-                              </>
-                            ) : 'Salvar'}
-                          </button>
-                        </>
-                      ) : (
+                      <>
                         <button 
-                          className="button buttontxt btn-primary" 
+                          className="sr-action-button sr-add-button" 
                           onClick={handleAdd}
                           disabled={localLoading}
                         >
-                          <Plus /> Adicionar
+                          <Plus size={16} />
+                          Adicionar
                         </button>
-                      )
+                        
+                        {selectedRows.size > 0 && (
+                          <>
+                            <button 
+                              className="sr-action-button sr-edit-button" 
+                              onClick={handleEdit}
+                              disabled={localLoading}
+                            >
+                              <Edit size={16} />
+                              Alterar
+                            </button>
+                            
+                            <button 
+                              className="sr-action-button sr-delete-button" 
+                              onClick={handleDelete}
+                              disabled={localLoading}
+                            >
+                              <Trash2 size={16} />
+                              Excluir
+                            </button>
+                          </>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
               </div>
-              
-              {loading ? (
-                <div className="flex justify-center items-center h-full">
-                  <img src="/images/loadingcorreto-semfundo.gif" alt="Carregando..." className="w-12 h-12" />
-                </div>
-              ) : error ? (
-                <div className="flex flex-col items-center justify-center h-64 gap-4">
-                  <p className="text-red-500">Erro: {error}</p>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleLoadData}
-                      className="button buttontxt flex items-center gap-2"
-                    >
-                      <RefreshCw className="w-5 h-5" /> Tentar novamente
-                    </button>
-                    
-                    {/* Botão de limpeza de cache para casos de problemas persistentes */}
-                    <button
-                      onClick={clearCache}
-                      className="px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-2"
-                    >
-                      <RotateCcw size={16} />
-                      Limpar cache
-                    </button>
-                  </div>
-                </div>
-              ) : serviceData.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-64 gap-4">
-                  <p className="text-gray-500">
-                    {isSearching ? "Nenhum resultado encontrado para esta pesquisa" : "Nenhum dado disponível"}
-                  </p>
-                  <div className="flex gap-3">
-                    {isSearching && (
-                      <button
-                        onClick={handleClearSearch}
-                        className="button buttontxt flex items-center gap-2"
-                      >
-                        <X className="w-5 h-5" /> Limpar pesquisa
-                      </button>
-                    )}
-                    
-                    {/* Botão de atualização também disponível quando não há dados */}
-                    <DataRefreshButton />
-                  </div>
-                </div>
-              ) : (
-                /* Aqui renderizamos a tabela, mas sem as chaves extras */
-                <div className="flex flex-col">
-                  {/* Container da tabela com tamanho fixo e rolagem */}
-                  <div className="h-[calc(100vh-200px)] overflow-auto border-b">
-                    <DataTable
-                      ref={dataTableRef}
-                      data={serviceData}
-                      searchTerm={searchTerm}
-                      sortOrder={sortOrder}
-                      sortField={sortField}
-                      changeSort={changeSort}
-                      onSelectionChange={toggleRowSelection}
-                      editingRow={editingRow}
-                      editedData={editedData}
-                      handleInputChange={handleInputChange}
-                      handleDropdownChange={handleDropdownChange}
-                      selectedRows={selectedRows}
-                      isAdding={isAdding}
-                      newServiceData={newServiceData}
-                      handleNewInputChange={handleNewInputChange}
-                      handleNewDropdownChange={handleNewDropdownChange}
-                      dropdownOptions={dropdownOptions}
-                      updateTrigger={updateCounter}
-                    />
-                  </div>
-                  
-                  {/* Botão agora está fora da div com rolagem */}
-                  {hasMore && !isSearching && (
-                    <div className="flex justify-center py-4 mt-2">
-                      <button
-                        onClick={loadMore}
-                        className="button buttontxt"
-                        disabled={loading}
-                      >
-                        <span>Mostrar mais</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </main>
         </div>
@@ -2127,8 +3036,8 @@ function ServicoRelacionadaContent() {
       
       {/* Indicador de atualização de cache */}
       {cacheRefreshed && (
-        <div className="fixed bottom-4 right-4 bg-green-100 text-green-800 px-4 py-2 rounded-lg shadow-lg flex items-center animate-fade-in">
-          <RefreshCw size={16} className="mr-2" />
+        <div className="sr-cache-refresh-indicator">
+          <RefreshCw size={16} className="sr-refresh-icon" />
           <span>Cache atualizado com sucesso</span>
         </div>
       )}

@@ -467,7 +467,7 @@ const NovaPreviaView = () => {
             name: result.nome_arquivo,
             size: result.tamanho,
             type: result.tipo,
-            download_url: `https://api.lowcostonco.com.br/backend-php/api/Previas/download_anexo.php?id=${result.id}`
+            download_url: `https://apiteste.lowcostonco.com.br/backend-php/api/Previas/download_anexo.php?id=${result.id}`
           };
           
           setAttachments(prev => [...prev, newAttachment]);
@@ -1027,11 +1027,11 @@ const NovaPreviaView = () => {
     
     // Função para gerar URLs
     const getViewUrl = (id) => {
-      return `https://api.lowcostonco.com.br/backend-php/api/Previas/view_anexo.php?id=${id}`;
+      return `https://apiteste.lowcostonco.com.br/backend-php/api/Previas/view_anexo.php?id=${id}`;
     };
     
     const getDownloadUrl = (id) => {
-      return `https://api.lowcostonco.com.br/backend-php/api/Previas/download_anexo.php?id=${id}`;
+      return `https://apiteste.lowcostonco.com.br/backend-php/api/Previas/download_anexo.php?id=${id}`;
     };
     
     // Manipulação de erros
@@ -1503,16 +1503,9 @@ const NovaPreviaView = () => {
     // Opções para os campos de status
     const parecerGuiaOptions = [
       { value: "Favorável", icon: <Check size={18} className="text-green-600" />, color: "bg-green-100 border-green-200" },
-      { value: "Desfavorável", icon: <X size={18} className="text-red-600" />, color: "bg-red-100 border-red-200" },
+      { value: "Favorável c/ inconsistência", icon: <AlertCircle size={18} className="text-orange-600" />, color: "bg-orange-100 border-orange-200" },
       { value: "Inconclusivo", icon: <HelpCircle size={18} className="text-yellow-600" />, color: "bg-yellow-100 border-yellow-200" },
-      { value: "Pendente", icon: <Clock size={18} className="text-blue-600" />, color: "bg-blue-100 border-blue-200" }
-    ];
-    
-    const inconsistenciaOptions = [
-      { value: "Completa", icon: <CheckCircle size={18} className="text-green-600" />, color: "bg-green-50 border-green-200" },
-      { value: "Dados Faltantes", icon: <AlertCircle size={18} className="text-orange-600" />, color: "bg-orange-50 border-orange-200" },
-      { value: "Requer Análise", icon: <Search size={18} className="text-blue-600" />, color: "bg-blue-50 border-blue-200" },
-      { value: "Informações Inconsistentes", icon: <AlertTriangle size={18} className="text-red-600" />, color: "bg-red-50 border-red-200" }
+      { value: "Desfavorável", icon: <X size={18} className="text-red-600" />, color: "bg-red-100 border-red-200" }
     ];
     
     // Função para lidar com a seleção do status por cartão
@@ -1604,27 +1597,7 @@ const NovaPreviaView = () => {
             </div>
           </div>
           
-          {/* Seleção de Status de Consistência */}
-          <div className="status-section-group">
-            <h4 className="status-section-subtitle">Status de Consistência</h4>
-            
-            <div className="status-cards-container">
-              {inconsistenciaOptions.map(option => (
-                <div 
-                  key={option.value}
-                  className={`status-card ${option.color} ${formData.inconsistencia === option.value ? 'status-card-selected' : ''}`}
-                  onClick={() => handleStatusCardSelect('inconsistencia', option.value)}
-                >
-                  <div className="status-card-icon">
-                    {option.icon}
-                  </div>
-                  <div className="status-card-label">
-                    {option.value}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* Seção de Status de Consistência removida */}
           
           {/* Métricas de tempo de análise */}
           <TempoAnaliseMetrics />
@@ -1632,6 +1605,31 @@ const NovaPreviaView = () => {
       </div>
     );
   };
+
+  useEffect(() => {
+    // Check if there's cached form data from protocol registration navigation
+    const cachedFormData = localStorage.getItem('previa_form_temp_data');
+    
+    if (cachedFormData && selectedPatient) {
+      try {
+        // Parse the cached form data
+        const parsedData = JSON.parse(cachedFormData);
+        
+        // Update the form with the cached data
+        setFormData(prev => ({
+          ...prev,
+          ...parsedData
+        }));
+        
+        console.log('Restored form data from cache after protocol registration');
+        
+        // Clear the cache after restoration
+        localStorage.removeItem('previa_form_temp_data');
+      } catch (error) {
+        console.error('Failed to restore cached form data:', error);
+      }
+    }
+  }, [selectedPatient]);
   
   return (
     <motion.div 
@@ -1828,7 +1826,7 @@ const NovaPreviaView = () => {
                   <div className="historico-item-icon">
                     <Calendar size={18} />
                   </div>
-                  <span className="historico-item-label">Data Último Atendimento:</span>
+                  <span className="historico-item-label">Data Última Solicitação:</span>
                   <span className="historico-item-value">{patientHistory.ultimaAnalise}</span>
                 </div>
                 
@@ -1836,7 +1834,7 @@ const NovaPreviaView = () => {
                   <div className="historico-item-icon">
                     <FilePlus size={18} />
                   </div>
-                  <span className="historico-item-label">Quantidade Atendimentos:</span>
+                  <span className="historico-item-label">Quantidade Solicitações:</span>
                   <span className="historico-item-value">{patientHistory.quantidadeGuias}</span>
                 </div>
                 
@@ -1844,7 +1842,7 @@ const NovaPreviaView = () => {
                   <div className="historico-item-icon">
                     <FileText size={18} />
                   </div>
-                  <span className="historico-item-label">Quantidade Protoc. Diferentes:</span>
+                  <span className="historico-item-label">Quantidade de Protoc. Diferentes:</span>
                   <span className="historico-item-value">{patientHistory.protocolosDiferentes}</span>
                 </div>
               </div>
@@ -1862,15 +1860,6 @@ const NovaPreviaView = () => {
                     </div>
                   </div>
                 </div>
-                
-                {/* Novo elemento: Indicador de fonte dos dados 
-                {dataSource && (
-                  <div className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
-                    Fonte: <span className={dataSource === 'cache' ? 'text-green-600' : 'text-blue-600'}>
-                      {dataSource === 'cache' ? 'Cache' : 'Servidor'}
-                    </span>
-                  </div>
-                )}*/}
               </div>
               
               <WeightChart 

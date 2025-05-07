@@ -115,11 +115,11 @@
   
   /* Sucesso */
   .custom-alert.success .custom-alert-header {
-    background: linear-gradient(90deg, #00adef 0%, #3871c1 100%);
+    background: linear-gradient(90deg, #c6d651 10%, #8cb369 100%);
   }
   
   .custom-alert.success .custom-alert-icon {
-    color: #00adef;
+    color: #8cb369;
   }
   
   /* Erro */
@@ -142,11 +142,11 @@
   
   /* Informação */
   .custom-alert.info .custom-alert-header {
-    background: linear-gradient(90deg, #4fc3f7 0%, #29b6f6 100%);
+    background: linear-gradient(90deg, #c6d651 10%, #8cb369 100%);
   }
   
   .custom-alert.info .custom-alert-icon {
-    color: #29b6f6;
+    color: #8cb369;
   }
   
   /* Estilos para manter compatibilidade com popup de sucesso existente */
@@ -186,7 +186,7 @@
   }
   
   .success-popup-header {
-    background: linear-gradient(90deg, #00adef 0%, #3871c1 100%);
+    background: linear-gradient(90deg, #c6d651 10%, #8cb369 100%);
     color: #f1f1f1;
     padding: 15px 20px;
     text-align: center;
