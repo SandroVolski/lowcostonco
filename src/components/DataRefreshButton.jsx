@@ -1,23 +1,42 @@
 import React, { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { useServiceData } from '../components/ServiceContext';
+import { usePatient } from '../context/PatientContext';
+import { useProtocolo } from '../context/ProtocoloContext';
 import { showSuccessAlert, showErrorAlert, showConfirmAlert } from '../utils/CustomAlerts';
 
 /**
  * Componente para atualização manual dos dados
- * Este botão limpa o cache de serviços e força uma nova busca ao servidor
+ * Este botão detecta o contexto atual e atualiza os dados correspondentes
  */
-const DataRefreshButton = ({ className, showText = true, size = 18, color = "text-green-500" }) => {
+const DataRefreshButton = ({ contextType = 'auto', className, showText = true, size = 18, color = "text-green-500" }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   
-  const { 
-    loadServiceData, 
-    clearCache,
-    isSearching,
-    clearSearch,
-    forceRevalidation
-  } = useServiceData();
+  // Importar todos os contextos possíveis
+  const serviceContext = useServiceData();
+  const patientContext = usePatient();
+  const protocoloContext = useProtocolo();
+  
+  // Determinar automaticamente qual contexto usar
+  const getActiveContext = () => {
+    if (contextType !== 'auto') {
+      // Usar o contexto especificado explicitamente
+      switch (contextType) {
+        case 'service': return serviceContext;
+        case 'patient': return patientContext;
+        case 'protocolo': return protocoloContext;
+        default: return serviceContext;
+      }
+    }
+    
+    // Auto-detecção baseada na rota atual ou pela disponibilidade de funções
+    const path = window.location.pathname.toLowerCase();
+    
+    if (path.includes('paciente')) return patientContext;
+    if (path.includes('protocolo')) return protocoloContext;
+    return serviceContext; // Fallback para service
+  };
 
   // Evento para forçar atualização dos dados
   const handleRefresh = async () => {
@@ -25,7 +44,7 @@ const DataRefreshButton = ({ className, showText = true, size = 18, color = "tex
       if (refreshing) return;
       
       // Pedir confirmação ao usuário antes de atualizar
-      const confirmed = await showConfirmAlert("Deseja atualizar a tabela?", 
+      const confirmed = await showConfirmAlert("Deseja atualizar os dados?", 
         "Esta ação irá buscar os dados mais recentes do servidor.");
       
       // Se o usuário cancelou, não fazer nada
@@ -33,21 +52,28 @@ const DataRefreshButton = ({ className, showText = true, size = 18, color = "tex
       
       setRefreshing(true);
       
-      // Primeiro, indique que os dados precisam de revalidação
-      if (typeof forceRevalidation === 'function') {
-        forceRevalidation();
+      // Obter o contexto ativo para esta página
+      const activeContext = getActiveContext();
+      
+      // Validar se o contexto possui as funções necessárias
+      if (!activeContext || !activeContext.clearCache || !activeContext.forceRevalidation) {
+        throw new Error("Contexto não disponível ou não possui métodos necessários");
       }
       
-      // Se estiver em modo de pesquisa, precisamos primeiro limpar a pesquisa
-      if (isSearching) {
-        await clearSearch();
+      // Forçar revalidação e limpar cache
+      activeContext.forceRevalidation();
+      activeContext.clearCache();
+      
+      // Método de recarga depende do contexto
+      if (activeContext.loadServiceData) {
+        await activeContext.loadServiceData(1, true);
+      } else if (activeContext.loadPatients) {
+        await activeContext.loadPatients(true);
+      } else if (activeContext.loadProtocolos) {
+        await activeContext.loadProtocolos(true);
+      } else if (activeContext.reloadAllData) {
+        await activeContext.reloadAllData();
       }
-      
-      // Limpar o cache para forçar uma nova busca ao servidor
-      clearCache();
-      
-      // Recarregar dados
-      await loadServiceData(1, true);
       
       // Mostrar mensagem de sucesso
       showSuccessAlert("Dados atualizados com sucesso", "", false, 1500);
@@ -68,6 +94,7 @@ const DataRefreshButton = ({ className, showText = true, size = 18, color = "tex
       style={{ backgroundColor: 'transparent' }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      title="Atualizar dados"
     >
       <RefreshCw 
         size={size} 

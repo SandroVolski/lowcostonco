@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { usePatient } from '../../../context/PatientContext';
 import { 
   Plus, Edit, Trash2, Search, X, Save, 
@@ -12,6 +12,7 @@ import PrestadorSearch from '../../../components/pacientes/PrestadorSearch';
 import PatientProtocoloCacheControl from '../../../components/PatientProtocoloCacheControl';
 import CIDSelection from '../../../components/pacientes/CIDSelection';
 import './PacientesEstilos.css';
+import Pagination from '../../../components/Pagination';
 
 const CadastroPaciente = () => {
   const { 
@@ -38,7 +39,14 @@ const CadastroPaciente = () => {
     clearCache,
     forceRevalidation,
     reloadAllData,
-    refreshDataAfterModification: contextRefreshData
+    refreshDataAfterModification: contextRefreshData,
+    
+    // NOVO: Propriedades de paginação
+    currentPage,
+    pageSize,
+    totalPages,
+    changePage,
+    changePageSize
   } = usePatient();
   
   // Estados para controle da UI
@@ -285,14 +293,26 @@ const CadastroPaciente = () => {
   const handleSearchTypeChange = (type) => {
     setSearchType(type);
     
-    if (searchTerm && searchTerm.trim().length >= 2) {
-      setLocalLoading(true);
-      searchPatients(searchTerm, type)
-        .finally(() => {
-          setLocalLoading(false);
-        });
+    if (searchInputRef.current) {
+      const value = searchInputRef.current.value.trim();
+      
+      if (value.length >= 2) {
+        setLocalLoading(true);
+        searchPatients(value, type, 1, pageSize)
+          .finally(() => {
+            setLocalLoading(false);
+          });
+      }
     }
   };
+
+  function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  }
 
   const getSearchTypeName = (type) => {
     switch(type) {
@@ -530,8 +550,8 @@ const CadastroPaciente = () => {
         // Atualizar estado local
         setLocalLoading(true);
         
-        // Executar a pesquisa com o tipo atual
-        searchPatients(value, searchType)
+        // Executar a pesquisa com o tipo atual e na primeira página
+        searchPatients(value, searchType, 1, pageSize)
           .finally(() => {
             setLocalLoading(false);
           });
@@ -542,11 +562,14 @@ const CadastroPaciente = () => {
   };
   
   // Manipulador de evento de input
-  const handleInput = () => {
-    if (searchInputRef.current) {
-      searchPatients(searchInputRef.current.value, searchType);
-    }
-  };
+  const handleInput = useCallback(
+    debounce((value) => {
+      if (value.length >= 2 || value.length === 0) {
+        searchPatients(value, searchType, 1, pageSize);
+      }
+    }, 500),
+    [searchType, pageSize, searchPatients]
+  );
   
   // Manipulador para evento de Enter no input
   const handleKeyDown = (event) => {
@@ -561,7 +584,27 @@ const CadastroPaciente = () => {
       searchInputRef.current.value = '';
     }
     setSearchType("nome"); // Redefinir para o tipo padrão
-    searchPatients('', 'nome');
+    searchPatients('', 'nome', 1, pageSize);
+  };
+
+  const handlePageChange = (page) => {
+    setLocalLoading(true);
+    
+    if (searchTerm) {
+      // Se houver um termo de busca ativo, usar a função de busca com a nova página
+      searchPatients(searchTerm, searchType, page, pageSize)
+        .finally(() => setLocalLoading(false));
+    } else {
+      // Caso contrário, carregar a nova página normalmente
+      loadPatients(false, page, pageSize)
+        .finally(() => setLocalLoading(false));
+    }
+  };
+
+  const handlePageSizeChange = (newSize) => {
+    setLocalLoading(true);
+    changePageSize(newSize)
+      .finally(() => setLocalLoading(false));
   };
   
   // Handler para recarregar prestadores manualmente
@@ -575,6 +618,40 @@ const CadastroPaciente = () => {
     } finally {
       setLocalLoading(false);
     }
+  };
+
+  const handleEditFixed = (patientToEdit) => {
+    if (!patientToEdit) {
+      showErrorAlert("Selecione um paciente", "Você precisa selecionar um paciente para editar.");
+      return;
+    }
+    
+    // Selecionar o paciente no contexto global
+    selectPatient(patientToEdit.id);
+    
+    // Extrair as datas para os campos de texto
+    const nascimento = patientToEdit.Nascimento || patientToEdit.Data_Nascimento || '';
+    const dataInicio = patientToEdit.Data_Inicio_Tratamento || '';
+    
+    // Atualizar os estados de texto das datas
+    setNascimentoText(nascimento);
+    setDataInicioText(dataInicio);
+    
+    // Usar o paciente passado para preencher o formulário
+    setFormData({
+      Operadora: patientToEdit.Operadora || '',
+      Prestador: patientToEdit.Prestador_Nome_Fantasia || patientToEdit.Prestador || '',
+      Paciente_Codigo: patientToEdit.Paciente_Codigo || patientToEdit.Codigo || '',
+      Nome: patientToEdit.Nome || patientToEdit.Paciente_Nome || '',
+      Sexo: patientToEdit.Sexo || '',
+      Nascimento: formatDateStringToYYYYMMDD(nascimento),
+      Data_Inicio_Tratamento: formatDateStringToYYYYMMDD(dataInicio),
+      CID: patientToEdit.CID || patientToEdit.Cid_Diagnostico || ''
+    });
+    
+    setIsEditing(true);
+    setIsAdding(false);
+    setIsDetailsOpen(false);
   };
 
   // Componente de Card para cada paciente
@@ -628,7 +705,10 @@ const CadastroPaciente = () => {
           </button>
           <button 
             className="action-button-pacientes edit"
-            onClick={(e) => { e.stopPropagation(); selectPatient(patient.id); handleEdit(); }}
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              handleEditFixed(patient); // Passar o paciente explicitamente
+            }}
             title="Editar paciente"
           >
             <Edit size={16} />
@@ -636,6 +716,20 @@ const CadastroPaciente = () => {
         </div>
       </div>
     );
+  };
+
+  const handleSelectPatientFixed = (patient) => {
+    const patientId = patient.id;
+    
+    // Se clicar no mesmo paciente, desselecioná-lo
+    if (selectedPatient && selectedPatient.id === patientId) {
+      setSelectedRows(new Set());
+      selectPatient(null);
+      setIsDetailsOpen(false);
+    } else {
+      setSelectedRows(new Set([patientId]));
+      selectPatient(patientId);
+    }
   };
   
   // Componente de linha para visão de lista (atualizado com todos os campos)
@@ -667,7 +761,10 @@ const CadastroPaciente = () => {
           </button>
           <button 
             className="action-button-pacientes edit"
-            onClick={(e) => { e.stopPropagation(); selectPatient(patient.id); handleEdit(); }}
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              handleEditFixed(patient); // Passar o paciente explicitamente
+            }}
             title="Editar paciente"
           >
             <Edit size={16} />
@@ -747,7 +844,10 @@ const CadastroPaciente = () => {
             <div className="details-actions">
               <button 
                 className="edit-button"
-                onClick={() => { setIsDetailsOpen(false); handleEdit(); }}
+                onClick={() => { 
+                  setIsDetailsOpen(false); 
+                  handleEditFixed(currentPatient); // Passar o paciente explicitamente
+                }}
               >
                 <Edit size={16} /> Editar
               </button>
@@ -759,6 +859,34 @@ const CadastroPaciente = () => {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    );
+  };
+
+  const InfoBarSelected = () => {
+    return (
+      <div className="selected-info">
+        <span>Selecionado:</span>
+        <strong>{selectedPatient.Nome}</strong>
+        <div className="selected-actions">
+          <button 
+            className="action-button-pacientes"
+            onClick={() => {
+              if (selectedPatient) {
+                handleEditFixed(selectedPatient); // Passar o paciente explicitamente
+              }
+            }}
+            disabled={isEditing}
+          >
+            <Edit size={16} /> Editar
+          </button>
+          <button 
+            className="action-button-pacientes"
+            onClick={handleDelete}
+          >
+            <Trash2 size={16} /> Excluir
+          </button>
         </div>
       </div>
     );
@@ -1083,7 +1211,7 @@ const CadastroPaciente = () => {
         </div>
         
         <div className="controls-container">
-          <DataRefreshButton />
+          <DataRefreshButton contextType="patient" />
           
           <button className="add-patient-button" onClick={handleAdd}>
             <Plus size={16} />
@@ -1109,7 +1237,11 @@ const CadastroPaciente = () => {
             <div className="selected-actions">
               <button 
                 className="action-button-pacientes"
-                onClick={handleEdit}
+                onClick={() => {
+                  if (selectedPatient) {
+                    handleEditFixed(selectedPatient);
+                  }
+                }}
                 disabled={isEditing}
               >
                 <Edit size={16} /> Editar
@@ -1150,34 +1282,47 @@ const CadastroPaciente = () => {
             )}
           </div>
         ) : (
-          viewMode === 'grid' ? (
-            <div className="patients-grid">
-              {(orderedPatients.length > 0 ? orderedPatients : filteredPatients).map(patient => (
-                <PatientCard key={patient.id} patient={patient} />
-              ))}
-            </div>
-          ) : (
-            <div className="patients-list">
-              <div className="list-header">
-                <div className="list-header-code">Código</div>
-                <div className="list-header-name">Nome</div>
-                <div className="list-header-prestador">Prestador</div>
-                <div className="list-header-gender">Sexo</div>
-                <div className="list-header-birthday">Data Nasc.</div>
-                <div className="list-header-age">Idade</div>
-                <div className="list-header-provider">Operadora</div>
-                <div className="list-header-first-request">1ª Solic.</div>
-                <div className="list-header-cid">CID</div>
-                <div className="list-header-actions">Ações</div>
-              </div>
-              
-              <div className="list-body">
+          <>
+            {viewMode === 'grid' ? (
+              <div className="patients-grid">
                 {(orderedPatients.length > 0 ? orderedPatients : filteredPatients).map(patient => (
-                  <PatientListItem key={patient.id} patient={patient} />
+                  <PatientCard key={patient.id} patient={patient} />
                 ))}
               </div>
-            </div>
-          )
+            ) : (
+              <div className="patients-list">
+                <div className="list-header">
+                  <div className="list-header-code">Código</div>
+                  <div className="list-header-name">Nome</div>
+                  <div className="list-header-prestador">Prestador</div>
+                  <div className="list-header-gender">Sexo</div>
+                  <div className="list-header-birthday">Data Nasc.</div>
+                  <div className="list-header-age">Idade</div>
+                  <div className="list-header-provider">Operadora</div>
+                  <div className="list-header-first-request">1ª Solic.</div>
+                  <div className="list-header-cid">CID</div>
+                  <div className="list-header-actions">Ações</div>
+                </div>
+                
+                <div className="list-body">
+                  {(orderedPatients.length > 0 ? orderedPatients : filteredPatients).map(patient => (
+                    <PatientListItem key={patient.id} patient={patient} />
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* NOVO: Componente de paginação */}
+            <Pagination 
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalRecords={totalRecords}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+              disabled={loading || localLoading}
+            />
+          </>
         )}
       </div>
       

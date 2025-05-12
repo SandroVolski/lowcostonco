@@ -1,14 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useProtocolo } from '../../../context/ProtocoloContext';
 import { 
-  Plus, Edit, Trash2, Search, X, Save, ArrowUpWideNarrow, 
-  ArrowDownWideNarrow, Database, ChevronDown, ChevronRight, Check,
-  Info, AlertCircle, Film, Pill, Calendar, Clock, Droplet
+  Plus, Edit, Trash2, Search, X, Save, 
+  ArrowUpWideNarrow, ArrowDownWideNarrow, Database, 
+  ChevronDown, ChevronRight, Calendar, Grid, List, 
+  Filter, Pill, Clock, Droplet, Activity, Bookmark,
+  Info, User, SlidersHorizontal, ArrowLeft
 } from 'lucide-react';
 import { showConfirmAlert, showSuccessAlert, showErrorAlert, showWarningAlert } from '../../../utils/CustomAlerts';
 import CIDSelection from '../../../components/pacientes/CIDSelection';
 import CacheService from '../../../services/CacheService';
+import DataRefreshButton from '../../../components/DataRefreshButton';
+import DiasAdministracaoSelector from '../../../components/pacientes/DiasAdministracaoSelector';
 import './PacientesEstilos.css';
+import ProtocoloFlipCard from '../../../components/pacientes/ProtocoloFlipCard';
+import '../../../components/pacientes/ProtocoloFlipCard.css';
 
 // Definições das constantes para as opções predefinidas
 const UNIDADES_MEDIDA_PREDEFINIDAS = [
@@ -26,798 +32,6 @@ const FREQUENCIAS_ADMINISTRACAO = [
   { value: '5x', label: '5x' }
 ];
 
-// Componente DiasAdministracaoSelector melhorado
-const DiasAdministracaoSelector = ({ value, onChange }) => {
-  // Gera dias de D0 a D70
-  const DIAS_OPTIONS = Array.from({ length: 71 }, (_, i) => ({
-    value: `D${i}`,
-    label: `D${i}`
-  }));
-  
-  // Parse o valor inicial
-  const [modo, setModo] = useState('isolado'); // 'isolado' ou 'intervalo'
-  const [diasSelecionados, setDiasSelecionados] = useState([]);
-  const [intervaloInicio, setIntervaloInicio] = useState('');
-  const [intervaloFim, setIntervaloFim] = useState('');
-  const [searchText, setSearchText] = useState('');
-  
-  // Estados para controlar a interação com a barra de intervalo
-  const [isDraggingStart, setIsDraggingStart] = useState(false);
-  const [isDraggingEnd, setIsDraggingEnd] = useState(false);
-  const [isDraggingVertical, setIsDraggingVertical] = useState(false);
-  const [lastMousePosition, setLastMousePosition] = useState({ x: 0, y: 0 });
-  const [dragSpeed, setDragSpeed] = useState(1); // Velocidade de arrasto (1-5)
-  const [animationStartTime, setAnimationStartTime] = useState(null);
-  const [animationActive, setAnimationActive] = useState(false);
-  const [dragDirection, setDragDirection] = useState(0); // -1: diminuindo, 0: parado, 1: aumentando
-  const [currentHandleValue, setCurrentHandleValue] = useState(null);
-  
-  const rangeRef = useRef(null);
-  const animationRef = useRef(null);
-  const initialDragDetectionDone = useRef(false);
-  const verticalDistanceAccumulator = useRef(0);
-
-
-  {/* // Função de debounce
-  const debounce = (func, delay) => {
-    return (...args) => {
-      if (debouncedUpdate.current) {
-        clearTimeout(debouncedUpdate.current);
-      }
-      debouncedUpdate.current = setTimeout(() => {
-        func(...args);
-      }, delay);
-    };
-  };
-
-  // Debounce para atualizações menos críticas
-  const updateIntervaloValue = debounce((tipo, valor) => {
-    onChange(tipo === 'inicio' 
-      ? `${valor}-${intervaloFim}` 
-      : `${intervaloInicio}-${valor}`);
-  }, 50); // 50ms de delay */}
-  
-  // Parse o valor recebido (string) para o estado interno
-  useEffect(() => {
-    if (!value) return;
-    
-    // Tenta detectar se é um intervalo (ex: D3-D10) ou dias isolados (ex: D1,D3,D7)
-    if (value.includes('-')) {
-      // É um intervalo
-      const [inicio, fim] = value.split('-');
-      setModo('intervalo');
-      setIntervaloInicio(inicio);
-      setIntervaloFim(fim);
-      
-      // Também define os dias selecionados correspondentes ao intervalo
-      const inicioNum = parseInt(inicio.replace('D', ''));
-      const fimNum = parseInt(fim.replace('D', ''));
-      
-      const novosSelecioados = [];
-      for (let i = inicioNum; i <= fimNum; i++) {
-        novosSelecioados.push(`D${i}`);
-      }
-      setDiasSelecionados(novosSelecioados);
-    } else {
-      // São dias isolados
-      setModo('isolado');
-      const dias = value.split(',').filter(d => d.trim()).map(d => d.trim());
-      setDiasSelecionados(dias);
-    }
-  }, [value]);
-  
-  // Função para atualizar o valor quando o modo muda
-  const handleModoChange = (novoModo) => {
-    setModo(novoModo);
-    
-    // Se mudar para intervalo, usa os dois primeiros dias selecionados como inicio/fim, se houver
-    if (novoModo === 'intervalo' && diasSelecionados.length >= 2) {
-      // Ordena os dias selecionados
-      const diasOrdenados = [...diasSelecionados].sort((a, b) => {
-        return parseInt(a.replace('D', '')) - parseInt(b.replace('D', ''));
-      });
-      
-      setIntervaloInicio(diasOrdenados[0]);
-      setIntervaloFim(diasOrdenados[diasOrdenados.length - 1]);
-      
-      // Agora atualizamos o valor
-      onChange(`${diasOrdenados[0]}-${diasOrdenados[diasOrdenados.length - 1]}`);
-    } else if (novoModo === 'isolado') {
-      // Se mudar para isolado, usa os dias já selecionados no intervalo
-      onChange(diasSelecionados.join(','));
-    }
-  };
-  
-  // Atualiza dias selecionados no modo isolado
-  const handleDiaChange = (dia, isChecked) => {
-    let novosDias;
-    
-    if (isChecked) {
-      novosDias = [...diasSelecionados, dia].sort((a, b) => {
-        return parseInt(a.replace('D', '')) - parseInt(b.replace('D', ''));
-      });
-    } else {
-      novosDias = diasSelecionados.filter(d => d !== dia);
-    }
-    
-    setDiasSelecionados(novosDias);
-    onChange(novosDias.join(','));
-  };
-  
-  // Atualiza o intervalo
-  const handleIntervaloChange = (tipo, valor) => {
-    if (tipo === 'inicio') {
-      setIntervaloInicio(valor);
-      
-      if (intervaloFim) {
-        const inicioNum = parseInt(valor.replace('D', ''));
-        const fimNum = parseInt(intervaloFim.replace('D', ''));
-        
-        if (inicioNum > fimNum) {
-          setIntervaloFim(valor);
-          onChange(`${valor}-${valor}`); // Mantém formato de intervalo
-          
-          // Atualiza os dias selecionados
-          setDiasSelecionados([valor]);
-          return;
-        }
-        
-        // Atualiza o valor com o novo intervalo
-        onChange(`${valor}-${intervaloFim}`); // Mantém formato de intervalo
-        
-        // Atualiza os dias selecionados
-        const novosSelecioados = [];
-        for (let i = inicioNum; i <= fimNum; i++) {
-          novosSelecioados.push(`D${i}`);
-        }
-        setDiasSelecionados(novosSelecioados);
-      } else {
-        setIntervaloFim(valor);
-        onChange(`${valor}-${valor}`); // Mantém formato de intervalo
-        setDiasSelecionados([valor]);
-      }
-    } else if (tipo === 'fim') {
-      setIntervaloFim(valor);
-      
-      if (intervaloInicio) {
-        const inicioNum = parseInt(intervaloInicio.replace('D', ''));
-        const fimNum = parseInt(valor.replace('D', ''));
-        
-        if (fimNum < inicioNum) {
-          setIntervaloInicio(valor);
-          onChange(`${valor}-${valor}`); // Mantém formato de intervalo
-          
-          setDiasSelecionados([valor]);
-          return;
-        }
-        
-        onChange(`${intervaloInicio}-${valor}`); // Mantém formato de intervalo
-        
-        const novosSelecioados = [];
-        for (let i = inicioNum; i <= fimNum; i++) {
-          novosSelecioados.push(`D${i}`);
-        }
-        setDiasSelecionados(novosSelecioados);
-      } else {
-        setIntervaloInicio(valor);
-        onChange(`${valor}-${valor}`); // Mantém formato de intervalo
-        setDiasSelecionados([valor]);
-      }
-    }
-  };
-  
-
-  // Função para remover um dia selecionado (modo isolado)
-  const removeDia = (dia) => {
-    const novosDias = diasSelecionados.filter(d => d !== dia);
-    setDiasSelecionados(novosDias);
-    onChange(novosDias.join(','));
-  };
-
-  // Animação para incrementar/decrementar valores quando arrastar verticalmente
-  const animateValueChange = useCallback((timestamp) => {
-    if (!animationActive || !currentHandleValue) {
-      animationRef.current = null;
-      return;
-    }
-    
-    if (!animationStartTime) {
-      setAnimationStartTime(timestamp);
-      animationRef.current = requestAnimationFrame(animateValueChange);
-      return;
-    }
-    
-    // Determine o intervalo entre frames de animação (quanto maior o dragSpeed, menor o intervalo)
-    const interval = 500 / dragSpeed; // milissegundos
-    
-    // Verificar se passou tempo suficiente para atualizar o valor
-    if (timestamp - animationStartTime >= interval) {
-      // Atualiza o valor com base na direção do arrasto
-      const currentValue = parseInt(currentHandleValue.replace('D', ''));
-      let newValue = currentValue + dragDirection;
-      
-      // Limita o valor entre 0 e 70
-      newValue = Math.max(0, Math.min(70, newValue));
-      
-      // Atualiza o valor apropriado (início ou fim)
-      if (isDraggingStart) {
-        const endValue = parseInt(intervaloFim.replace('D', ''));
-        if (newValue <= endValue) {
-          const newDay = `D${newValue}`;
-          setIntervaloInicio(newDay);
-          setCurrentHandleValue(newDay);
-          handleIntervaloChange('inicio', newDay);
-        }
-      } else if (isDraggingEnd) {
-        const startValue = parseInt(intervaloInicio.replace('D', ''));
-        if (newValue >= startValue) {
-          const newDay = `D${newValue}`;
-          setIntervaloFim(newDay);
-          setCurrentHandleValue(newDay);
-          handleIntervaloChange('fim', newDay);
-        }
-      }
-      
-      // Reinicia o tempo de animação
-      setAnimationStartTime(timestamp);
-    }
-    
-    // Continua a animação
-    animationRef.current = requestAnimationFrame(animateValueChange);
-  }, [animationActive, currentHandleValue, dragDirection, dragSpeed, animationStartTime, isDraggingStart, isDraggingEnd, intervaloInicio, intervaloFim, handleIntervaloChange]);
-
-  // Ativar a animação quando arrastar verticalmente
-  // Ativar a animação quando arrastar verticalmente
-  useEffect(() => {
-    if (animationActive && !animationRef.current) {
-      animationRef.current = requestAnimationFrame(animateValueChange);
-    }
-    
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-        animationRef.current = null;
-      }
-    };
-  }, [animationActive, animateValueChange]);
-
-  // Funções para manipular a interação com a barra
-  const handleMouseDown = (e, type) => {
-    e.preventDefault(); // Previne comportamento padrão
-    e.stopPropagation(); // Evita que o evento se propague
-    
-    // Define qual handle está sendo arrastado
-    if (type === 'start') {
-      setIsDraggingStart(true);
-    } else {
-      setIsDraggingEnd(true);
-    }
-    
-    // Armazena a posição inicial do clique
-    setLastMousePosition({ x: e.clientX, y: e.clientY });
-    
-    // Adiciona os event listeners para movimento e soltar
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    
-    // Define como ativo para iniciar o movimento
-    setDragDirection(0);
-    setIsDraggingVertical(false);
-    verticalDistanceAccumulator.current = 0;
-    
-    // Garante que o handle esteja em primeiro plano
-    e.currentTarget.style.zIndex = "100";
-  };
-
-  const handleTouchStart = (e, type) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    
-    if (type === 'start') {
-      setIsDraggingStart(true);
-    } else {
-      setIsDraggingEnd(true);
-    }
-    
-    setLastMousePosition({ x: touch.clientX, y: touch.clientY });
-    
-    document.addEventListener('touchmove', handleTouchMove);
-    document.addEventListener('touchend', handleTouchEnd);
-    
-    setDragDirection(0);
-    setIsDraggingVertical(false);
-    verticalDistanceAccumulator.current = 0;
-    
-    e.currentTarget.style.zIndex = "100";
-  };
-
-  // Função para atualizar o valor baseado na posição horizontal do mouse
-  const updatePositionFromMouse = (clientX) => {
-    if (!rangeRef.current || (!isDraggingStart && !isDraggingEnd)) return;
-    
-    // Cálculo direto e simples
-    const rect = rangeRef.current.getBoundingClientRect();
-    const total = 70;
-    
-    let relativePosition = (clientX - rect.left) / rect.width;
-    relativePosition = Math.max(0, Math.min(1, relativePosition));
-    
-    const dayIndex = Math.round(relativePosition * total);
-    const newDay = `D${dayIndex}`;
-    
-    // Atualização sem debounce ou requestAnimationFrame
-    if (isDraggingStart) {
-      const endIndex = parseInt(intervaloFim.replace('D', ''));
-      if (dayIndex <= endIndex) {
-        setIntervaloInicio(newDay);
-        setCurrentHandleValue(newDay);
-        // Atualização direta
-        onChange(`${newDay}-${intervaloFim}`);
-        
-        // Atualizar os dias selecionados
-        const novosSelecioados = [];
-        for (let i = dayIndex; i <= endIndex; i++) {
-          novosSelecioados.push(`D${i}`);
-        }
-        setDiasSelecionados(novosSelecioados);
-      }
-    } else if (isDraggingEnd) {
-      const startIndex = parseInt(intervaloInicio.replace('D', ''));
-      if (dayIndex >= startIndex) {
-        setIntervaloFim(newDay);
-        setCurrentHandleValue(newDay);
-        // Atualização direta
-        onChange(`${intervaloInicio}-${newDay}`);
-        
-        // Atualizar os dias selecionados
-        const novosSelecioados = [];
-        for (let i = startIndex; i <= dayIndex; i++) {
-          novosSelecioados.push(`D${i}`);
-        }
-        setDiasSelecionados(novosSelecioados);
-      }
-    }
-  };
-
-  const handleMouseMove = useCallback((e) => {
-    e.preventDefault();
-    
-    if (!rangeRef.current) return;
-    
-    // Obter a posição relativa no controle deslizante
-    const rect = rangeRef.current.getBoundingClientRect();
-    const percentage = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const day = Math.round(percentage * 70);
-    const newDay = `D${day}`;
-    
-    // Atualizar o valor com base em qual handle está sendo arrastado
-    if (isDraggingStart) {
-      const endDay = parseInt(intervaloFim.replace('D', ''));
-      if (day <= endDay) {
-        setIntervaloInicio(newDay);
-        // Manter o formato de intervalo
-        onChange(`${newDay}-${intervaloFim}`);
-        
-        // Atualizar a lista de dias selecionados para uso interno
-        const dias = [];
-        for (let i = day; i <= endDay; i++) {
-          dias.push(`D${i}`);
-        }
-        setDiasSelecionados(dias);
-      }
-    } else if (isDraggingEnd) {
-      const startDay = parseInt(intervaloInicio.replace('D', ''));
-      if (day >= startDay) {
-        setIntervaloFim(newDay);
-        // Manter o formato de intervalo
-        onChange(`${intervaloInicio}-${newDay}`);
-        
-        // Atualizar a lista de dias selecionados para uso interno
-        const dias = [];
-        for (let i = startDay; i <= day; i++) {
-          dias.push(`D${i}`);
-        }
-        setDiasSelecionados(dias);
-      }
-    }
-    
-    // Atualizar a posição do mouse para a próxima iteração
-    setLastMousePosition({ x: e.clientX, y: e.clientY });
-  }, [isDraggingStart, isDraggingEnd, intervaloInicio, intervaloFim, onChange]);
-
-  const handleTouchMove = useCallback((e) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    
-    if (!rangeRef.current) return;
-    
-    const rect = rangeRef.current.getBoundingClientRect();
-    const percentage = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
-    const day = Math.round(percentage * 70);
-    const newDay = `D${day}`;
-    
-    if (isDraggingStart) {
-      const endDay = parseInt(intervaloFim.replace('D', ''));
-      if (day <= endDay) {
-        setIntervaloInicio(newDay);
-        onChange(`${newDay}-${intervaloFim}`);
-      }
-    } else if (isDraggingEnd) {
-      const startDay = parseInt(intervaloInicio.replace('D', ''));
-      if (day >= startDay) {
-        setIntervaloFim(newDay);
-        onChange(`${intervaloInicio}-${newDay}`);
-      }
-    }
-    
-    setLastMousePosition({ x: touch.clientX, y: touch.clientY });
-  }, [isDraggingStart, isDraggingEnd, intervaloInicio, intervaloFim, onChange]);
-
-  const handleMouseUp = useCallback(() => {
-    setIsDraggingStart(false);
-    setIsDraggingEnd(false);
-    setIsDraggingVertical(false);
-    
-    // Remove os event listeners
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-  }, [handleMouseMove]);
-
-  const handleTouchEnd = useCallback(() => {
-    setIsDraggingStart(false);
-    setIsDraggingEnd(false);
-    setIsDraggingVertical(false);
-    
-    document.removeEventListener('touchmove', handleTouchMove);
-    document.removeEventListener('touchend', handleTouchEnd);
-  }, [handleTouchMove]);
-
-  // Limpe os event listeners quando o componente for desmontado
-  useEffect(() => {
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [handleMouseMove, handleMouseUp]);
-
-  // Filtra dias para busca rápida
-  const diasFiltrados = searchText.length > 0 
-    ? DIAS_OPTIONS.filter(dia => dia.label.toLowerCase().includes(searchText.toLowerCase()))
-    : DIAS_OPTIONS;
-  
-  // Agrupa dias em grupos de 10 para exibição mais organizada
-  const diasAgrupados = [];
-  if (modo === 'isolado') {
-    for (let i = 0; i < 71; i += 10) {
-      const grupo = DIAS_OPTIONS.slice(i, i + 10);
-      diasAgrupados.push(grupo);
-    }
-  }
-  
-  // Animação visual durante o arrasto vertical
-  const getHandleAnimationClass = (tipo) => {
-    if (dragDirection === 0) return '';
-    
-    if ((tipo === 'start' && isDraggingStart) || (tipo === 'end' && isDraggingEnd)) {
-      return dragDirection > 0 ? 'pulse-increase' : 'pulse-decrease';
-    }
-    
-    return '';
-  };
-  
-  return (
-    <div className="dias-administracao-selector">
-      {/* Abas para seleção de modo */}
-      <div className="flex mb-4 border border-gray-200 rounded-md overflow-hidden">
-        <button
-          type="button"
-          onClick={() => handleModoChange('isolado')}
-          className={`flex-1 py-2 px-4 text-sm focus:outline-none transition-colors ${
-            modo === 'isolado' 
-              ? 'bg-green-50 text-green-700 font-medium border-b-2 border-green-500' 
-              : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          Dias Isolados
-        </button>
-        <button
-          type="button"
-          onClick={() => handleModoChange('intervalo')}
-          className={`flex-1 py-2 px-4 text-sm focus:outline-none transition-colors ${
-            modo === 'intervalo' 
-              ? 'bg-green-50 text-green-700 font-medium border-b-2 border-green-500' 
-              : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          Intervalo de Dias
-        </button>
-      </div>
-      
-      {/* Interface baseada no modo */}
-      {modo === 'intervalo' ? (
-        <div className="bg-white border border-gray-200 rounded-md p-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Dia Inicial</label>
-              <select
-                value={intervaloInicio}
-                onChange={(e) => handleIntervaloChange('inicio', e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              >
-                <option value="">Selecione</option>
-                {DIAS_OPTIONS.map(dia => (
-                  <option key={dia.value} value={dia.value}>{dia.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Dia Final</label>
-              <select
-                value={intervaloFim}
-                onChange={(e) => handleIntervaloChange('fim', e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              >
-                <option value="">Selecione</option>
-                {DIAS_OPTIONS.map(dia => (
-                  <option key={dia.value} value={dia.value}>{dia.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          
-          {/* Visualização do intervalo interativa animada */}
-          {intervaloInicio && intervaloFim && (
-            <div className="mt-4 bg-green-50 p-3 rounded-md border border-green-100">
-              <div className="text-sm font-medium text-green-800 mb-2 flex justify-between">
-                <span>Intervalo selecionado:</span>
-                <span className="text-xs text-gray-500">Dica: arraste para cima/baixo para ajustar valores</span>
-              </div>
-              <div className="relative">
-                <div 
-                  ref={rangeRef}
-                  className="flex-1 h-3 bg-green-200 rounded-full relative mb-8 cursor-pointer"
-                  onClick={(e) => {
-                    if (!rangeRef.current) return;
-                    
-                    const rect = rangeRef.current.getBoundingClientRect();
-                    const relativePosition = (e.clientX - rect.left) / rect.width;
-                    const dayIndex = Math.round(relativePosition * 70); // D0 a D70
-                    const newDay = `D${dayIndex}`;
-                    
-                    // Determina se o clique está mais próximo do início ou do fim
-                    const startIndex = intervaloInicio ? parseInt(intervaloInicio.replace('D', '')) : 0;
-                    const endIndex = intervaloFim ? parseInt(intervaloFim.replace('D', '')) : 70;
-                    
-                    if (Math.abs(dayIndex - startIndex) <= Math.abs(dayIndex - endIndex)) {
-                      setIntervaloInicio(newDay);
-                      handleIntervaloChange('inicio', newDay);
-                    } else {
-                      setIntervaloFim(newDay);
-                      handleIntervaloChange('fim', newDay);
-                    }
-                  }}
-                >
-                  {/* Marcadores para cada 10 dias */}
-                  {[0, 10, 20, 30, 40, 50, 60, 70].map(day => (
-                    <div
-                      key={day}
-                      className="absolute bottom-0 w-0.5 h-1.5 bg-green-300 transform translate-y-1"
-                      style={{ left: `${(day / 70) * 100}%` }}
-                    ></div>
-                  ))}
-                  
-                  {/* Linha de preenchimento entre os pontos de início e fim */}
-                  {intervaloInicio && intervaloFim && (
-                    <div 
-                      className="absolute top-0 bottom-0 bg-green-500 rounded-full"
-                      style={{ 
-                        left: `${(parseInt(intervaloInicio.replace('D', '')) / 70) * 100}%`,
-                        right: `${100 - (parseInt(intervaloFim.replace('D', '')) / 70) * 100}%`
-                      }}
-                    ></div>
-                  )}
-                  
-                  {/* Ponto de início com transformação CSS */}
-                  <div 
-                    className={`absolute -top-2 w-6 h-6 bg-white border-2 border-green-600 rounded-full slider-handle ${isDraggingStart ? 'dragging' : ''} ${getHandleAnimationClass('start')}`}
-                    style={{ left: `calc(${(parseInt(intervaloInicio.replace('D', '')) / 70) * 100}% - 10px)` }}
-                    onMouseDown={(e) => handleMouseDown(e, 'start')}
-                    onTouchStart={(e) => handleTouchStart(e, 'start')} // Adicionando suporte a toque
-                    title="Arraste para ajustar valor"
-                  >
-                    <span className="text-xs font-semibold text-green-700">{intervaloInicio.replace('D', '')}</span>
-                  </div>
-
-                  <div 
-                    className={`absolute -top-2 w-6 h-6 bg-white border-2 border-green-600 rounded-full slider-handle ${isDraggingEnd ? 'dragging' : ''} ${getHandleAnimationClass('end')}`}
-                    style={{ left: `calc(${(parseInt(intervaloFim.replace('D', '')) / 70) * 100}% - 10px)` }}
-                    onMouseDown={(e) => handleMouseDown(e, 'end')}
-                    onTouchStart={(e) => handleTouchStart(e, 'end')} // Adicionando suporte a toque
-                    title="Arraste para ajustar valor"
-                  >
-                    <span className="text-xs font-semibold text-green-700">{intervaloFim.replace('D', '')}</span>
-                  </div>
-                  
-                  {/* Setas de direção de arrasto */}
-                  {isDraggingVertical && isDraggingStart && (
-                    <div className="absolute -top-11 text-green-700 animate-bounce" 
-                         style={{ left: `calc(${(parseInt(intervaloInicio.replace('D', '')) / 70) * 100}% - 4px)` }}>
-                      {dragDirection > 0 ? '↑' : '↓'}
-                    </div>
-                  )}
-                  
-                  {isDraggingVertical && isDraggingEnd && (
-                    <div className="absolute -top-11 text-green-700 animate-bounce" 
-                         style={{ left: `calc(${(parseInt(intervaloFim.replace('D', '')) / 70) * 100}% - 4px)` }}>
-                      {dragDirection > 0 ? '↑' : '↓'}
-                    </div>
-                  )}
-                </div>
-                
-                {/* Marcadores de texto para dias importantes */}
-                <div className="flex justify-between text-xs text-green-700 mt-1">
-                  <span>D0</span>
-                  <span>D10</span>
-                  <span>D20</span>
-                  <span>D30</span>
-                  <span>D40</span>
-                  <span>D50</span>
-                  <span>D60</span>
-                  <span>D70</span>
-                </div>
-                
-                <div className="text-sm text-center mt-4 text-green-700">
-                  {diasSelecionados.length} dias selecionados: {intervaloInicio} a {intervaloFim}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="bg-white border border-gray-200 rounded-md p-4">
-          {/* Dias selecionados como tags */}
-          {diasSelecionados.length > 0 && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Dias selecionados:</label>
-              <div className="flex flex-wrap gap-2">
-                {diasSelecionados.map(dia => (
-                  <span key={dia} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    {dia}
-                    <button
-                      type="button"
-                      onClick={() => removeDia(dia)}
-                      className="ml-1.5 h-4 w-4 rounded-full inline-flex items-center justify-center text-green-400 hover:text-green-500 focus:outline-none"
-                    >
-                      <span className="sr-only">Remover</span>
-                      <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {/* Pesquisa rápida */}
-          <div className="mb-3">
-            <div className="relative rounded-md shadow-sm">
-              <input
-                type="text"
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                placeholder="Buscar dia específico..."
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-              />
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                </svg>
-              </div>
-            </div>
-          </div>
-          
-          {/* Interface de seleção */}
-          {searchText.length > 0 ? (
-            // Opções filtradas quando há pesquisa
-            <div className="bg-gray-50 rounded-md border border-gray-200 p-2 max-h-48 overflow-auto">
-              {diasFiltrados.length > 0 ? (
-                <div className="grid grid-cols-5 sm:grid-cols-8 gap-1">
-                  {diasFiltrados.map(dia => (
-                    <label key={dia.value} className={`
-                      px-2 py-1 rounded text-sm text-center cursor-pointer 
-                      ${diasSelecionados.includes(dia.value) 
-                        ? 'bg-green-200 text-green-800 font-medium border border-green-300' 
-                        : 'hover:bg-gray-200 bg-white border border-gray-300'}
-                    `}>
-                      <input
-                        type="checkbox"
-                        checked={diasSelecionados.includes(dia.value)}
-                        onChange={(e) => handleDiaChange(dia.value, e.target.checked)}
-                        className="sr-only"
-                      />
-                      {dia.label}
-                    </label>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-3 text-gray-500 text-sm">
-                  Nenhum dia encontrado
-                </div>
-              )}
-            </div>
-          ) : (
-            // Opções agrupadas quando não há pesquisa
-            <div className="rounded-md border border-gray-200 max-h-48 overflow-auto">
-              {diasAgrupados.map((grupo, i) => (
-                <div key={i} className={`p-2 ${i % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
-                  <div className="grid grid-cols-5 sm:grid-cols-10 gap-1">
-                    {grupo.map(dia => (
-                      <label key={dia.value} className={`
-                        px-1 py-1 rounded text-xs text-center cursor-pointer 
-                        ${diasSelecionados.includes(dia.value) 
-                          ? 'bg-green-200 text-green-800 font-medium border border-green-300' 
-                          : 'hover:bg-gray-100 border border-gray-200'}
-                      `}>
-                        <input
-                          type="checkbox"
-                          checked={diasSelecionados.includes(dia.value)}
-                          onChange={(e) => handleDiaChange(dia.value, e.target.checked)}
-                          className="sr-only"
-                        />
-                        {dia.label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      
-      {/* Estilos para animações */}
-      <style jsx>{`
-        @keyframes pulse-increase {
-          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.4); }
-          50% { transform: scale(1.15); box-shadow: 0 0 0 6px rgba(22, 163, 74, 0.0); }
-          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.0); }
-        }
-        
-        @keyframes pulse-decrease {
-          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-          50% { transform: scale(0.85); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.0); }
-          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.0); }
-        }
-        
-        .pulse-increase {
-          animation: pulse-increase 0.8s ease infinite;
-          border-color: rgb(22, 163, 74);
-        }
-        
-        .pulse-decrease {
-          animation: pulse-decrease 0.8s ease infinite;
-          border-color: rgb(239, 68, 68);
-        }
-        
-        /* Transição suave para os handles */
-        .dias-administracao-selector [style*="left:"] {
-          transition: left 0.1s ease-out;
-        }
-        
-        /* Quando estiver arrastando, remova a transição para movimento mais responsivo */
-        .cursor-grabbing {
-          transition: none !important;
-        }
-      `}</style>
-    </div>
-  );
-};
-
 // Chaves para cache dos medicamentos
 const CACHE_KEYS = {
   MEDICAMENTOS_CACHE: 'cached_medicamentos_por_protocolo',
@@ -825,7 +39,8 @@ const CACHE_KEYS = {
   MEDICAMENTOS_TIMESTAMP: 'medicamentos_last_update'
 };
 
-const CadastroProtocolo = () => {
+// Componente Principal do Cadastro de Protocolo
+function ProtocoloForm() {
   // Contexto com todas as propriedades necessárias
   const { 
     filteredProtocolos, 
@@ -865,18 +80,21 @@ const CadastroProtocolo = () => {
   const [sortOrder, setSortOrder] = useState("asc");
   const [sortField, setSortField] = useState("Protocolo_Nome");
   const [searchType, setSearchType] = useState("nome");
-  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
-  const [expandedRows, setExpandedRows] = useState({});
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' ou 'list'
   const [updateError, setUpdateError] = useState(null);
   const [servicosLoading, setServicosLoading] = useState({});
   const [dataSource, setDataSource] = useState('');
   const [cacheRefreshed, setCacheRefreshed] = useState(false);
   const [orderedProtocolos, setOrderedProtocolos] = useState([]);
-  // Usamos as unidades predefinidas em vez de fazer a carga da API
+  const [cardFlipped, setCardFlipped] = useState({});
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  
+  // Estados específicos da tela de protocolos
   const [unidadesMedida, setUnidadesMedida] = useState(UNIDADES_MEDIDA_PREDEFINIDAS);
   const [allMedicamentosLoaded, setAllMedicamentosLoaded] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [medicamentosCache, setMedicamentosCache] = useState({});
+  const [expandedRows, setExpandedRows] = useState({});
 
   // Refs
   const searchInputRef = useRef(null);
@@ -891,7 +109,7 @@ const CadastroProtocolo = () => {
     Intervalo_Ciclos: '',
     Ciclos_Previstos: '',
     Linha: '',
-    medicamentos: [] // Iniciar como array vazio, não com um medicamento vazio
+    medicamentos: [] // Iniciar como array vazio
   });
 
   // Funções para gerenciar o cache de medicamentos
@@ -949,12 +167,6 @@ const CadastroProtocolo = () => {
     }
   };
 
-  // Função para carregar unidades de medida - Não é mais necessária, pois usamos unidades predefinidas
-  const loadUnidadesMedida = async () => {
-    // Apenas define as unidades predefinidas
-    setUnidadesMedida(UNIDADES_MEDIDA_PREDEFINIDAS);
-  };
-
   // Nova função para verificar se há medicamentos no cache
   const getMedicamentosFromCache = (protocoloId) => {
     return medicamentosCache[protocoloId] || null;
@@ -968,9 +180,6 @@ const CadastroProtocolo = () => {
         
         // Inicializar o serviço de cache
         CacheService.init();
-        
-        // Não precisamos mais carregar unidades de medida da API
-        // Já estão definidas na constante UNIDADES_MEDIDA_PREDEFINIDAS
         
         // Verificar se há medicamentos em cache
         const cachedMedicamentos = loadMedicamentosFromCache();
@@ -998,20 +207,6 @@ const CadastroProtocolo = () => {
     
     initializeData();
   }, [loadProtocolos]);
-
-  // Atualiza medicamentos específicos ao expandir um protocolo (apenas se não estiverem já carregados)
-  useEffect(() => {
-    const protocolIds = Object.keys(expandedRows).filter(id => expandedRows[id].expanded);
-    protocolIds.forEach(protocoloId => {
-      const numericId = parseInt(protocoloId, 10);
-      
-      // Verifica se já temos os medicamentos no cache
-      if (!getMedicamentosFromCache(numericId) && !loadedProtocolIds.current.has(numericId)) {
-        loadedProtocolIds.current.add(numericId);
-        fetchServicos(numericId);
-      }
-    });
-  }, [expandedRows]);
 
   // Função para carregar todos os medicamentos de uma vez
   const loadAllMedicamentos = async (protocolos) => {
@@ -1116,7 +311,7 @@ const CadastroProtocolo = () => {
       const aValue = a[sortField] || '';
       const bValue = b[sortField] || '';
       
-      const numericFields = ['id', 'Protocolo_Dose_M', 'Protocolo_Dose_Total'];
+      const numericFields = ['id', 'Protocolo_Dose_M', 'Protocolo_Dose_Total', 'Intervalo_Ciclos', 'Ciclos_Previstos', 'Linha'];
       
       if (numericFields.includes(sortField) && !isNaN(aValue) && !isNaN(bValue)) {
         const numA = Number(aValue);
@@ -1129,13 +324,28 @@ const CadastroProtocolo = () => {
       }
     });
     
-    // Manter medicamentos que já foram carregados anteriormente
+    // IMPORTANTE: Preservar medicamentos que já estavam nos protocolos anteriores
     const sortedWithMedicamentos = sorted.map(protocolo => {
-      // Verificar se há medicamentos no cache para este protocolo
+      // Buscar medicamentos em várias fontes e garantir que sejam preservados
+      
+      // 1. Verificar no orderedProtocolos atual
+      const protocoloAnterior = orderedProtocolos.find(p => p.id === protocolo.id);
+      if (protocoloAnterior && protocoloAnterior.medicamentos && protocoloAnterior.medicamentos.length > 0) {
+        return { ...protocolo, medicamentos: protocoloAnterior.medicamentos };
+      }
+      
+      // 2. Verificar no cache de medicamentos
       const cachedMedicamentos = getMedicamentosFromCache(protocolo.id);
-      if (cachedMedicamentos) {
+      if (cachedMedicamentos && cachedMedicamentos.length > 0) {
         return { ...protocolo, medicamentos: cachedMedicamentos };
       }
+      
+      // 3. Usar medicamentos do próprio protocolo se disponíveis
+      if (protocolo.medicamentos && protocolo.medicamentos.length > 0) {
+        return protocolo;
+      }
+      
+      // 4. Como último recurso, retornar o protocolo sem medicamentos
       return protocolo;
     });
     
@@ -1215,7 +425,7 @@ const CadastroProtocolo = () => {
     }
   }, [loadProtocoloServicos, medicamentosCache]);
 
-  // Função para alternar a expansão de uma linha
+  // Função para alternar a expansão de uma linha (modo lista)
   const toggleRowExpansion = useCallback((protocoloId) => {
     // Se estiver em modo de edição ou adição, não permitir expandir
     if (isEditing || isAdding) return;
@@ -1256,6 +466,66 @@ const CadastroProtocolo = () => {
     }
   }, [isEditing, isAdding, selectedRows, selectProtocolo, fetchServicos, allMedicamentosLoaded, medicamentosCache]);
 
+  // Função para alternar a virada do card (modo grid)
+  const toggleCardFlip = (protocoloId, e) => {
+    if (e) {
+      e.stopPropagation(); // Impedir propagação do evento
+    }
+    
+    // Se estiver em modo de edição ou adição, não permitir virar
+    if (isEditing || isAdding) return;
+    
+    // Verificar se protocoloId existe
+    if (!protocoloId) return;
+    
+    // Obter referência ao elemento do card
+    const cardElement = document.querySelector(`[data-protocol-id="${protocoloId}"]`);
+    if (cardElement) {
+      // Ajustar altura do card baseado no conteúdo do verso
+      const frontElement = cardElement.querySelector('.card-front');
+      const backElement = cardElement.querySelector('.card-back');
+      
+      // Verificar o estado atual
+      const isCurrentlyFlipped = cardFlipped[protocoloId];
+      
+      if (!isCurrentlyFlipped && backElement) {
+        // Se estamos virando para o verso, ajustar altura
+        const backHeight = backElement.scrollHeight;
+        cardElement.style.height = `${Math.max(280, backHeight + 20)}px`;
+      } else if (frontElement) {
+        // Se estamos voltando para a frente, restaurar altura padrão
+        cardElement.style.height = '280px';
+      }
+    }
+    
+    // Atualizar o estado de flipped para este card SEM resetar os outros
+    setCardFlipped(prev => {
+      // Se prev não for um objeto, inicializar como objeto vazio
+      const currentState = prev || {};
+      return {
+        ...currentState,
+        [protocoloId]: !currentState[protocoloId]
+      };
+    });
+    
+    // Carregar medicamentos se necessário
+    if (!cardFlipped[protocoloId] && 
+        typeof getMedicamentosFromCache === 'function' && 
+        !getMedicamentosFromCache(protocoloId) && 
+        !allMedicamentosLoaded && 
+        typeof fetchServicos === 'function') {
+      fetchServicos(protocoloId);
+    }
+  };
+
+  useEffect(() => {
+    // Se cardFlipped for undefined ou null, reinicializar como objeto vazio
+    if (!cardFlipped) {
+      setCardFlipped({});
+    }
+  }, [cardFlipped]);
+
+
   // Funções para gerenciar medicamentos no formulário
   const handleAddMedicamento = () => {
     setFormData(prev => ({
@@ -1268,8 +538,6 @@ const CadastroProtocolo = () => {
   };
 
   const handleRemoveMedicamento = (index) => {
-    
-    
     setFormData(prev => ({
       ...prev,
       medicamentos: prev.medicamentos.filter((_, i) => i !== index)
@@ -1555,23 +823,16 @@ const CadastroProtocolo = () => {
     }
   };
 
-  // Handlers para ordenação
-  const handleSortChange = (e) => {
-    setSortOrder(e.target.value);
-  };
-  
-  const handleSort = (field) => {
+  // Funções para ordenação
+  const handleSortChange = (field) => {
+    // Se o campo já está selecionado, inverte a direção
     if (field === sortField) {
       setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
+      // Se é um novo campo, começa com ascendente
       setSortField(field);
       setSortOrder('asc');
     }
-  };
-  
-  const handleResetSort = () => {
-    setSortField('Protocolo_Nome');
-    setSortOrder('asc');
   };
 
   // Handlers para CRUD de protocolos
@@ -1581,6 +842,8 @@ const CadastroProtocolo = () => {
     setIsEditing(false);
     setSelectedRows(new Set());
     setExpandedRows({});
+    setCardFlipped({});
+    setIsDetailsOpen(false);
     
     // Se o cache estiver habilitado, marcar para revalidação
     if (isCacheEnabled) {
@@ -1647,6 +910,8 @@ const CadastroProtocolo = () => {
     setIsEditing(true);
     setIsAdding(false);
     setExpandedRows({});
+    setCardFlipped({});
+    setIsDetailsOpen(false);
   };
   
   const handleDelete = async () => {
@@ -1673,6 +938,8 @@ const CadastroProtocolo = () => {
         showSuccessAlert("Protocolo excluído com sucesso!");
         setSelectedRows(new Set());
         setExpandedRows({});
+        setCardFlipped({});
+        setIsDetailsOpen(false);
         
         // Usar a função de atualização que lida com o cache
         await refreshDataAfterModification();
@@ -1701,45 +968,51 @@ const CadastroProtocolo = () => {
     resetForm();
   };
 
-  // Gerenciamento de linhas e seleção
-  const handleRowClick = (protocoloId) => {
+  // Handler para seleção de protocolo
+  const handleSelectProtocolo = (protocoloId) => {
+    // Se estiver em modo de edição ou adição, não permitir seleção
     if (isEditing || isAdding) return;
     
-    // Se clicar na linha já selecionada, desselecioná-la
-    if (selectedRows.has(protocoloId) && selectedProtocolo?.id === protocoloId) {
-      setSelectedRows(new Set());
-      selectProtocolo(null); // Limpa a seleção
-      
-      // Fechar todas as expansões quando desselecionado
-      setExpandedRows({});
-    } else {
-      // Selecionar a linha
-      setSelectedRows(new Set([protocoloId]));
-      selectProtocolo(protocoloId);
-      
-      // Verificar se há medicamentos no cache
-      const cachedMedicamentos = getMedicamentosFromCache(protocoloId);
-      
-      // Expandir apenas a linha selecionada, fechando todas as outras
-      setExpandedRows({
-        [protocoloId]: {
-          expanded: true,
-          servicos: cachedMedicamentos || [],
-          medicamentos: cachedMedicamentos || [],
-          isAddingMed: false
-        }
-      });
+    // Selecionar o protocolo
+    setSelectedRows(new Set([protocoloId]));
+    selectProtocolo(protocoloId);
+    
+    // No modo lista, expandir a linha ao selecionar
+    if (viewMode === 'list') {
+      toggleRowExpansion(protocoloId);
     }
+    
+    // NÃO resetar cardFlipped aqui!
+  };
+
+  // Função para mostrar detalhes do protocolo
+  const showProtocoloDetails = (protocoloId) => {
+    selectProtocolo(protocoloId);
+    setSelectedRows(new Set([protocoloId]));
+    setIsDetailsOpen(true);
+    
+    // Fechar qualquer card virado
+    setCardFlipped(prev => {
+      const newState = { ...prev };
+      Object.keys(newState).forEach(key => {
+        newState[key] = false;
+      });
+      return newState;
+    });
   };
 
   // Handlers para pesquisa
   const handleSearchTypeChange = (type) => {
     setSearchType(type);
     
-    if (searchTerm && searchTerm.trim().length >= 2) {
-      setLocalLoading(true);
-      searchProtocolos(searchTerm, type)
-        .finally(() => setLocalLoading(false));
+    if (searchInputRef.current) {
+      const value = searchInputRef.current.value.trim();
+      
+      if (value.length >= 2) {
+        setLocalLoading(true);
+        searchProtocolos(value, type)
+          .finally(() => setLocalLoading(false));
+      }
     }
   };
 
@@ -1766,11 +1039,22 @@ const CadastroProtocolo = () => {
     }
   };
   
-  const handleInput = () => {
-    if (searchInputRef.current) {
-      searchProtocolos(searchInputRef.current.value, searchType);
-    }
-  };
+  function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  }
+  
+  const handleInput = useCallback(
+    debounce((value) => {
+      if (value.length >= 2 || value.length === 0) {
+        searchProtocolos(value, searchType);
+      }
+    }, 500),
+    [searchType, searchProtocolos]
+  );
   
   const handleKeyDown = (event) => {
     if (event.key === 'Enter') {
@@ -1787,44 +1071,338 @@ const CadastroProtocolo = () => {
   };
 
   // Função auxiliar para formatar dias de administração
-  const formatDiasAdministracao = (dias) => {
+  const formatDiasAdministracao = (dias, options = {}) => {
     if (!dias) return 'N/D';
     
-    // Verifica se é um intervalo (contém hífen)
-    if (dias.includes('-')) {
+    // Opções padrão
+    const opts = {
+      maxDiasVisíveis: 3,        // Máximo de dias visíveis antes de truncar
+      mostrarTooltip: true,      // Se deve incluir o tooltip com todos os dias
+      formatoIntervalo: true,    // Se deve formatar intervalos consecutivos (D1-D5)
+      ...options
+    };
+    
+    // Verifica se é um intervalo simples (contém hífen)
+    if (dias.includes('-') && !dias.includes(',')) {
       const [inicio, fim] = dias.split('-');
       return `${inicio} a ${fim}`;
+    }
+    
+    // Se é uma lista de dias separados por vírgula
+    if (dias.includes(',')) {
+      const diasArray = dias.split(',').map(d => d.trim());
+      
+      // Analisar e agrupar dias consecutivos
+      if (opts.formatoIntervalo) {
+        const diasAgrupados = agruparDiasConsecutivos(diasArray);
+        
+        // Se temos muitos dias/grupos, truncar a lista
+        if (diasAgrupados.length > opts.maxDiasVisíveis) {
+          const visíveis = diasAgrupados.slice(0, opts.maxDiasVisíveis);
+          const resto = diasAgrupados.length - opts.maxDiasVisíveis;
+          
+          // Criar versão truncada para exibição
+          const diasExibidos = visíveis.join(', ');
+          
+          // Se devemos mostrar o tooltip, incluir um span com title contendo todos os dias
+          if (opts.mostrarTooltip) {
+            return (
+              <span title={diasAgrupados.join(', ')}>
+                {diasExibidos} <span className="text-xs text-green-600">+{resto} mais</span>
+              </span>
+            );
+          } else {
+            return `${diasExibidos} +${resto} mais`;
+          }
+        }
+        
+        // Se não precisamos truncar, apenas retorne os dias agrupados
+        return diasAgrupados.join(', ');
+      }
+      
+      // Sem agrupamento, apenas truncar se necessário
+      if (diasArray.length > opts.maxDiasVisíveis) {
+        const visíveis = diasArray.slice(0, opts.maxDiasVisíveis);
+        const resto = diasArray.length - opts.maxDiasVisíveis;
+        
+        // Versão truncada
+        const diasExibidos = visíveis.join(', ');
+        
+        // Com tooltip se necessário
+        if (opts.mostrarTooltip) {
+          return (
+            <span title={diasArray.join(', ')}>
+              {diasExibidos} <span className="text-xs text-green-600">+{resto} mais</span>
+            </span>
+          );
+        } else {
+          return `${diasExibidos} +${resto} mais`;
+        }
+      }
+      
+      // Se não precisamos truncar, retorne todos os dias
+      return diasArray.join(', ');
     }
     
     // Caso contrário, retorna os dias como estão
     return dias;
   };
 
+  const agruparDiasConsecutivos = (diasArray) => {
+    // Primeiro, vamos ordenar os dias
+    const diasOrdenados = [...diasArray].sort((a, b) => {
+      // Extrair os números dos dias (ex: 'D1' -> 1)
+      const numA = parseInt(a.replace(/\D/g, ''));
+      const numB = parseInt(b.replace(/\D/g, ''));
+      return numA - numB;
+    });
+    
+    if (diasOrdenados.length <= 1) return diasOrdenados;
+    
+    const resultado = [];
+    let inicioIntervalo = diasOrdenados[0];
+    let fimIntervalo = inicioIntervalo;
+    let emIntervalo = false;
+    
+    // Usar regex para extrair o prefixo (ex: 'D') e o número
+    const regex = /([^\d]*)(\d+)/;
+    
+    for (let i = 1; i < diasOrdenados.length; i++) {
+      const diaAtual = diasOrdenados[i];
+      const diaAnterior = diasOrdenados[i-1];
+      
+      // Extrair prefixo e número do dia atual e anterior
+      const matchAtual = diaAtual.match(regex);
+      const matchAnterior = diaAnterior.match(regex);
+      
+      if (!matchAtual || !matchAnterior) {
+        // Se não conseguimos extrair o padrão, apenas adicione o dia como está
+        if (emIntervalo) {
+          // Finalizar intervalo anterior
+          if (inicioIntervalo !== fimIntervalo) {
+            resultado.push(`${inicioIntervalo}-${fimIntervalo}`);
+          } else {
+            resultado.push(inicioIntervalo);
+          }
+          emIntervalo = false;
+        }
+        resultado.push(diaAtual);
+        continue;
+      }
+      
+      const [, prefixoAtual, numAtualStr] = matchAtual;
+      const [, prefixoAnterior, numAnteriorStr] = matchAnterior;
+      
+      const numAtual = parseInt(numAtualStr);
+      const numAnterior = parseInt(numAnteriorStr);
+      
+      // Verificar se os dias são consecutivos e têm o mesmo prefixo
+      if (prefixoAtual === prefixoAnterior && numAtual === numAnterior + 1) {
+        // Dias consecutivos, continuar o intervalo
+        fimIntervalo = diaAtual;
+        emIntervalo = true;
+      } else {
+        // Não consecutivo, finalizar o intervalo anterior (se houver)
+        if (emIntervalo) {
+          // Verificar se o intervalo tem mais de um dia
+          if (inicioIntervalo !== fimIntervalo) {
+            resultado.push(`${inicioIntervalo}-${fimIntervalo}`);
+          } else {
+            resultado.push(inicioIntervalo);
+          }
+        } else {
+          // Não estava em um intervalo, adicionar o dia anterior
+          resultado.push(diaAnterior);
+        }
+        
+        // Iniciar potencialmente um novo intervalo
+        inicioIntervalo = diaAtual;
+        fimIntervalo = diaAtual;
+        emIntervalo = false;
+      }
+    }
+    
+    // Verificar o último intervalo/dia
+    if (emIntervalo) {
+      if (inicioIntervalo !== fimIntervalo) {
+        resultado.push(`${inicioIntervalo}-${fimIntervalo}`);
+      } else {
+        resultado.push(inicioIntervalo);
+      }
+    } else {
+      // Adicionar o último dia se não estava em um intervalo
+      resultado.push(diasOrdenados[diasOrdenados.length - 1]);
+    }
+    
+    return resultado;
+  };
+
+  // 1. Componente de botão "Editar" corrigido que seleciona o protocolo correto
+  const EditButtonFixed = ({ protocolo, onEdit }) => {
+    return (
+      <button 
+        className="action-button-pacientes edit"
+        onClick={(e) => { 
+          e.stopPropagation();
+          // Execute diretamente o callback com este protocolo, sem depender do contexto
+          onEdit(protocolo);
+        }}
+        title="Editar protocolo"
+      >
+        <Edit size={16} />
+      </button>
+    );
+  };
+
+  // 2. Função handleEdit modificada para receber o protocolo explicitamente
+  const handleEditFixed = (protocoloToEdit) => {
+    if (!protocoloToEdit) {
+      showErrorAlert("Selecione um protocolo", "Você precisa selecionar um protocolo para editar.");
+      return;
+    }
+    
+    // Garantir que estamos usando o protocolo correto do parâmetro
+    selectProtocolo(protocoloToEdit.id);
+    
+    // Buscar medicamentos do cache, se disponíveis
+    const protocoloId = protocoloToEdit.id || protocoloToEdit.id_protocolo;
+    const cachedMedicamentos = getMedicamentosFromCache(protocoloId) || protocoloToEdit.medicamentos || [];
+    
+    // Converter o protocolo atual para o novo formato
+    setFormData({
+      Protocolo_Nome: protocoloToEdit.Protocolo_Nome || '',
+      Protocolo_Sigla: protocoloToEdit.Protocolo_Sigla || '',
+      CID: protocoloToEdit.CID || '',
+      Intervalo_Ciclos: protocoloToEdit.Intervalo_Ciclos || '',
+      Ciclos_Previstos: protocoloToEdit.Ciclos_Previstos || '',
+      Linha: protocoloToEdit.Linha || '',
+      medicamentos: cachedMedicamentos.length > 0 
+        ? cachedMedicamentos.map(med => {
+            // Encontrar a unidade pelo ID e obter a sigla, se disponível
+            let unidadeMedida = med.unidade_medida || '';
+            // Se a unidade_medida for um ID (numérico), tente convertê-la para sigla
+            if (unidadeMedida && !isNaN(unidadeMedida)) {
+              const unidadeEncontrada = UNIDADES_MEDIDA_PREDEFINIDAS.find(u => u.id === unidadeMedida);
+              if (unidadeEncontrada) {
+                unidadeMedida = unidadeEncontrada.sigla;
+              }
+            }
+            
+            return {
+              nome: med.nome || '',
+              dose: med.dose || med.dose_m2 || '',
+              unidade_medida: unidadeMedida,
+              via_adm: med.via_adm || med.via_administracao || '',
+              dias_adm: med.dias_adm || med.dias_aplicacao || '',
+              frequencia: med.frequencia || ''
+            };
+          }) 
+        : [{ 
+            nome: '', 
+            dose: '', 
+            unidade_medida: '', 
+            via_adm: '', 
+            dias_adm: '', 
+            frequencia: '' 
+          }]
+    });
+    
+    setIsEditing(true);
+    setIsAdding(false);
+    setExpandedRows({});
+    setCardFlipped({});
+    setIsDetailsOpen(false);
+  };
+
+  const handleEditFixedWithSelection = (protocoloToEdit) => {
+    if (!protocoloToEdit) {
+      showErrorAlert("Selecione um protocolo", "Você precisa selecionar um protocolo para editar.");
+      return;
+    }
+    
+    // Selecionar o protocolo no contexto global
+    const protocoloId = protocoloToEdit.id || protocoloToEdit.id_protocolo;
+    selectProtocolo(protocoloId);
+    
+    // Importante: Atualizar também o selectedRows para a interface visual refletir corretamente
+    setSelectedRows(new Set([protocoloId]));
+    
+    // Buscar medicamentos do cache, se disponíveis
+    const cachedMedicamentos = getMedicamentosFromCache(protocoloId) || protocoloToEdit.medicamentos || [];
+    
+    // Converter o protocolo atual para o novo formato
+    setFormData({
+      Protocolo_Nome: protocoloToEdit.Protocolo_Nome || '',
+      Protocolo_Sigla: protocoloToEdit.Protocolo_Sigla || '',
+      CID: protocoloToEdit.CID || '',
+      Intervalo_Ciclos: protocoloToEdit.Intervalo_Ciclos || '',
+      Ciclos_Previstos: protocoloToEdit.Ciclos_Previstos || '',
+      Linha: protocoloToEdit.Linha || '',
+      medicamentos: cachedMedicamentos.length > 0 
+        ? cachedMedicamentos.map(med => {
+            // Encontrar a unidade pelo ID e obter a sigla, se disponível
+            let unidadeMedida = med.unidade_medida || '';
+            // Se a unidade_medida for um ID (numérico), tente convertê-la para sigla
+            if (unidadeMedida && !isNaN(unidadeMedida)) {
+              const unidadeEncontrada = UNIDADES_MEDIDA_PREDEFINIDAS.find(u => u.id === unidadeMedida);
+              if (unidadeEncontrada) {
+                unidadeMedida = unidadeEncontrada.sigla;
+              }
+            }
+            
+            return {
+              nome: med.nome || '',
+              dose: med.dose || med.dose_m2 || '',
+              unidade_medida: unidadeMedida,
+              via_adm: med.via_adm || med.via_administracao || '',
+              dias_adm: med.dias_adm || med.dias_aplicacao || '',
+              frequencia: med.frequencia || ''
+            };
+          }) 
+        : [{ 
+            nome: '', 
+            dose: '', 
+            unidade_medida: '', 
+            via_adm: '', 
+            dias_adm: '', 
+            frequencia: '' 
+          }]
+    });
+    
+    setIsEditing(true);
+    setIsAdding(false);
+    setExpandedRows({});
+    setCardFlipped({});
+    setIsDetailsOpen(false);
+  };
+
+  const handleSelectProtocoloFixed = (protocolo) => {
+    // Se estiver em modo de edição ou adição, não permitir seleção
+    if (isEditing || isAdding) return;
+    
+    const protocoloId = protocolo.id;
+    
+    // Selecionar o protocolo
+    setSelectedRows(new Set([protocoloId]));
+    selectProtocolo(protocoloId);
+    
+    // No modo lista, expandir a linha ao selecionar
+    if (viewMode === 'list') {
+      toggleRowExpansion(protocoloId);
+    }
+  };
+
   // Helper function para obter texto de unidade de medida
   const getUnidadeMedidaText = (valor) => {
     if (!valor) return 'N/D';
-    return valor; // Já é o texto correto
-  };
-
-  // Função para converter intervalo para lista de dias individuais
-  const convertIntervaloDiasParaLista = (diasValue) => {
-    // Se não for um intervalo (não contém '-'), retorna como está
-    if (!diasValue || !diasValue.includes('-')) {
-      return diasValue;
+    
+    // Se for um ID (numérico), tentar encontrar a sigla correspondente
+    if (!isNaN(valor)) {
+      const unidade = unidadesMedida.find(u => u.id === valor);
+      return unidade ? unidade.sigla : 'N/D';
     }
     
-    // Se for um intervalo (ex: D5-D10), converter para lista individual
-    const [inicio, fim] = diasValue.split('-');
-    const inicioNum = parseInt(inicio.replace('D', ''));
-    const fimNum = parseInt(fim.replace('D', ''));
-    
-    // Gerar lista de dias entre início e fim
-    const diasIndividuais = [];
-    for (let i = inicioNum; i <= fimNum; i++) {
-      diasIndividuais.push(`D${i}`);
-    }
-    
-    return diasIndividuais.join(',');
+    return valor; // Se já for a sigla, retornar como está
   };
 
   // Helper function para obter via de administração
@@ -1834,7 +1412,7 @@ const CadastroProtocolo = () => {
     return via ? via.nome : 'N/D';
   };
 
-  // Renderização de medicamentos no formulário - Estilo mais elaborado e com a nova organização
+  // Renderização de medicamentos no formulário
   const renderMedicamentoRow = (med, index) => {
     return (
       <div key={`med-${index}`} className="medication-entry bg-white border border-gray-200 rounded-lg mb-4 shadow-sm overflow-hidden">
@@ -1846,7 +1424,6 @@ const CadastroProtocolo = () => {
             </span>
             Medicamento
           </h4>
-          {/* Remover a condição formData.medicamentos.length > 1 para sempre mostrar o botão */}
           <button 
             type="button" 
             onClick={async () => {
@@ -1911,7 +1488,7 @@ const CadastroProtocolo = () => {
             </div>
           </div>
           
-          {/* Linha 2: Frequência e Via (nova ordem) */}
+          {/* Linha 2: Frequência e Via */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div className="form-group">
               <label className="form-label text-sm font-medium text-gray-700">Frequência de Administração</label>
@@ -1946,13 +1523,13 @@ const CadastroProtocolo = () => {
             </div>
           </div>
           
-          {/* Linha 3: Dias de Administração (agora com mais espaço) */}
+          {/* Linha 3: Dias de Administração */}
           <div className="mt-2">
             <div className="form-group">
               <label className="form-label text-sm font-medium text-gray-700 mb-2">Dias de Administração</label>
               <DiasAdministracaoSelector
                 value={med.dias_adm || ''}
-                onChange={(value) => handleMedicamentoChange(index, 'dias_adm', value)}
+                onChange={(diasValue) => handleMedicamentoChange(index, 'dias_adm', diasValue)}
               />
             </div>
           </div>
@@ -1961,9 +1538,639 @@ const CadastroProtocolo = () => {
     );
   };
 
-  // Visualização expandida aprimorada para medicamentos
-  const renderExpandedContent = (protocolo) => {
-    const protocoloId = protocolo.id_protocolo || protocolo.id;
+  // Componente de Card para cada protocolo
+  // Componente ProtocoloCard revisado com animação de flip
+const ProtocoloCard = ({ 
+  protocolo, 
+  isSelected,
+  servicosLoading, 
+  showProtocoloDetails, 
+  handleSelectProtocolo,
+  handleEditFixedWithSelection, 
+  getMedicamentosFromCache, 
+  fetchServicos, 
+  allMedicamentosLoaded, 
+  formatDiasAdministracao, 
+  getUnidadeMedidaText, 
+  isEditing, 
+  isAdding
+}) => {
+  const protocoloId = protocolo?.id;
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [cardHeight, setCardHeight] = useState('280px');
+  const frontRef = useRef(null);
+  const backRef = useRef(null);
+  const cardRef = useRef(null);
+  
+  // Obter medicamentos do protocolo ou do cache
+  const medicamentos = useMemo(() => {
+    // Verificar medicamentos no protocolo
+    if (protocolo?.medicamentos && protocolo.medicamentos.length > 0) {
+      return protocolo.medicamentos;
+    } 
+    // Verificar no cache
+    else if (typeof getMedicamentosFromCache === 'function') {
+      const cachedMeds = getMedicamentosFromCache(protocoloId);
+      if (cachedMeds && cachedMeds.length > 0) {
+        return cachedMeds;
+      }
+    }
+    return [];
+  }, [protocolo, protocoloId, getMedicamentosFromCache]);
+
+  // Estado de carregamento
+  const isLoading = servicosLoading && servicosLoading[protocoloId];
+  
+  // Função para virar o card
+  const handleFlip = (e) => {
+    if (e) e.stopPropagation();
+    
+    // Se estiver em modo de edição ou adição, não permitir virar
+    if (isEditing || isAdding) return;
+    
+    // Calcular a altura apropriada antes de fazer o flip
+    if (!isFlipped && backRef.current) {
+      // Se estamos virando para o verso, ajustar a altura com base no conteúdo do verso
+      const backHeight = backRef.current.scrollHeight;
+      setCardHeight(`${Math.max(280, backHeight + 20)}px`);
+    } else if (frontRef.current) {
+      // Se estamos voltando para a frente, restaurar a altura padrão
+      setCardHeight('280px');
+    }
+    
+    // Alternar o estado do flip
+    setIsFlipped(!isFlipped);
+    
+    // Carregar medicamentos se virou o card e não estiverem no cache
+    if (!isFlipped && medicamentos.length === 0) {
+      if (typeof getMedicamentosFromCache === 'function' && 
+          typeof fetchServicos === 'function' && 
+          !allMedicamentosLoaded) {
+        console.log("Carregando medicamentos para protocolo:", protocoloId);
+        fetchServicos(protocoloId);
+      }
+    }
+  };
+  
+  // Ajustar a altura quando o conteúdo do verso mudar
+  useEffect(() => {
+    if (isFlipped && backRef.current) {
+      const backHeight = backRef.current.scrollHeight;
+      setCardHeight(`${Math.max(280, backHeight + 20)}px`);
+    }
+  }, [isFlipped, medicamentos]);
+  
+  return (
+    <div 
+      className={`protocol-card ${isSelected ? 'selected' : ''}`}
+      onClick={() => typeof handleSelectProtocolo === 'function' ? handleSelectProtocolo(protocoloId) : null}
+      ref={cardRef}
+      style={{ height: cardHeight, transition: 'height 0.3s ease-out' }}
+    >
+      <div className={`card-inner ${isFlipped ? 'flipped' : ''}`}>
+        {/* Frente do card - Informações do protocolo */}
+        <div className="card-front" ref={frontRef}>
+          <div className="card-header">
+            <div className="protocol-code">{protocolo?.Protocolo_Sigla || 'N/D'}</div>
+            {protocolo?.CID && (
+              <div className="protocol-cid">{protocolo.CID}</div>
+            )}
+          </div>
+          
+          <div className="protocol-name">{protocolo?.Protocolo_Nome || 'Sem nome'}</div>
+          
+          <div className="protocol-info">
+            <div className="info-row">
+              <Calendar size={14} />
+              <span>Intervalo: {protocolo?.Intervalo_Ciclos || 'N/D'} dias</span>
+            </div>
+            <div className="info-row">
+              <Activity size={14} />
+              <span>Ciclos: {protocolo?.Ciclos_Previstos || 'N/D'}</span>
+            </div>
+            <div className="info-row">
+              <Bookmark size={14} />
+              <span>Linha: {protocolo?.Linha || 'N/D'}</span>
+            </div>
+            <div className="info-row">
+              <Pill size={14} />
+              <span>Medicamentos: {medicamentos.length}</span>
+            </div>
+          </div>
+          
+          <div className="card-actions" onClick={e => e.stopPropagation()}>
+            <button 
+              className="action-button-pacientes info"
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                if (typeof showProtocoloDetails === 'function') {
+                  showProtocoloDetails(protocoloId); 
+                }
+              }}
+              title="Ver detalhes"
+            >
+              <Info size={16} />
+            </button>
+            <button 
+              className="action-button-pacientes edit"
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                if (typeof handleEditFixedWithSelection === 'function') {
+                  handleEditFixedWithSelection(protocolo);
+                }
+              }}
+              title="Editar protocolo"
+            >
+              <Edit size={16} />
+            </button>
+            <button 
+              className="action-button-pacientes flip"
+              onClick={handleFlip}
+              title="Ver medicamentos"
+            >
+              <Database size={16} />
+            </button>
+          </div>
+        </div>
+        
+        {/* Verso do card - Medicamentos */}
+        <div className="card-back" ref={backRef}>
+          <div className="card-header">
+            <h3 className="text-sm font-medium text-green-600">Medicamentos - {protocolo?.Protocolo_Sigla || 'N/D'}</h3>
+            <button 
+              className="action-button-pacientes flip-back"
+              onClick={handleFlip}
+              title="Voltar"
+            >
+              <ArrowLeft size={16} />
+            </button>
+          </div>
+          
+          <div className="medicamentos-container">
+            {isLoading ? (
+              <div className="loading-indicator">
+                <div className="spinner-small"></div>
+                <span>Carregando...</span>
+              </div>
+            ) : medicamentos.length > 0 ? (
+              <div className="medicamentos-list">
+                {medicamentos.map((med, idx) => (
+                  <div key={idx} className="medicamento-item">
+                    <div className="medicamento-nome">
+                      <Pill size={16} className="med-icon" />
+                      {med.nome || 'N/D'}
+                    </div>
+                    <div className="medicamento-details">
+                      <span className="pill-detail">
+                        <Droplet size={12} />
+                        {(med.dose || med.Dose) ? 
+                          `${med.dose || med.Dose} ${typeof getUnidadeMedidaText === 'function' ? getUnidadeMedidaText(med.unidade_medida) : med.unidade_medida || 'N/D'}` : 
+                          'N/D'
+                        }
+                      </span>
+                      <span className="pill-detail">
+                        <Calendar size={12} />
+                        {typeof formatDiasAdministracao === 'function' ? 
+                          formatDiasAdministracao(med.dias_adm || med.dias_aplicacao || 'N/D', {
+                            maxDiasVisíveis: 5,
+                            mostrarTooltip: true,
+                            formatoIntervalo: true
+                          }) : 
+                          med.dias_adm || med.dias_aplicacao || 'N/D'
+                        }
+                      </span>
+                      <span className="pill-detail">
+                        <Clock size={12} />
+                        {med.frequencia || 'N/D'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-medicamentos">
+                <Pill size={32} className="text-gray-300 mb-2" />
+                <p>Nenhum medicamento cadastrado</p>
+                <p className="text-xs text-gray-400 mt-1">Você pode adicionar medicamentos editando este protocolo</p>
+              </div>
+            )}
+          </div>
+          
+          <div className="card-actions back" onClick={e => e.stopPropagation()}>
+            <button 
+              className="detail-button"
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                if (typeof showProtocoloDetails === 'function') {
+                  showProtocoloDetails(protocoloId);
+                }
+              }}
+            >
+              <Info size={14} /> Ver detalhes
+            </button>
+            <button 
+              className="edit-button"
+              onClick={(e) => { 
+                e.stopPropagation();
+                if (typeof handleEditFixedWithSelection === 'function') {
+                  handleEditFixedWithSelection(protocolo);
+                }
+              }}
+            >
+              <Edit size={14} /> Editar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+  const ProtocoloCardFixed = ({ 
+    protocolo, 
+    servicosLoading, 
+    showProtocoloDetails, 
+    handleEditFixedWithSelection, 
+    getMedicamentosFromCache, 
+    fetchServicos, 
+    allMedicamentosLoaded, 
+    formatDiasAdministracao, 
+    getUnidadeMedidaText, 
+    isEditing, 
+    isAdding,
+    selectedRows,
+    cardFlipped,
+    toggleCardFlip,
+    handleSelectProtocolo,
+    selectProtocolo,
+    handleEdit
+  }) => {
+    // Adicionar verificações de segurança
+    const protocoloId = protocolo?.id;
+    // Verificar se selectedRows existe e é um objeto Set antes de chamar .has()
+    const isSelected = selectedRows && typeof selectedRows.has === 'function' ? selectedRows.has(protocoloId) : false;
+    // Verificar se cardFlipped existe
+    const isFlipped = cardFlipped && cardFlipped[protocoloId] ? true : false;
+  
+    const [cardHeight, setCardHeight] = useState('280px');
+    const frontRef = useRef(null);
+    const backRef = useRef(null);
+    const cardRef = useRef(null);
+    
+    // Obter medicamentos de múltiplas fontes possíveis
+    let medicamentos = [];
+    // 1. Verificar se o protocolo tem medicamentos
+    if (protocolo?.medicamentos && protocolo.medicamentos.length > 0) {
+      medicamentos = protocolo.medicamentos;
+    } 
+    // 2. Verificar no cache
+    else if (typeof getMedicamentosFromCache === 'function') {
+      const cachedMeds = getMedicamentosFromCache(protocoloId);
+      if (cachedMeds && cachedMeds.length > 0) {
+        medicamentos = cachedMeds;
+      }
+    }
+  
+    // Guardar medicamentos em um ref para preservá-los entre renderizações
+    const medicamentosRef = useRef(medicamentos);
+  
+    // Atualizar medicamentos no ref apenas se houver novos medicamentos válidos
+    useEffect(() => {
+      if (medicamentos && medicamentos.length > 0) {
+        medicamentosRef.current = medicamentos;
+      }
+    }, [medicamentos]);
+  
+    // Usar medicamentos do ref para renderização
+    const medicamentosToRender = medicamentosRef.current || [];
+    
+    // Estado de carregamento
+    const isLoading = servicosLoading && servicosLoading[protocoloId];
+    
+    // Função para alternar o estado de flip usando a função global
+    const handleFlip = (e) => {
+      if (e) e.stopPropagation();
+      
+      // Se estiver em modo de edição ou adição, não permitir virar
+      if (isEditing || isAdding) return;
+      
+      // Calcular a altura apropriada antes de fazer o flip
+      if (!isFlipped && backRef.current) {
+        // Se estamos virando para o verso, ajustar a altura com base no conteúdo do verso
+        const backHeight = backRef.current.scrollHeight;
+        setCardHeight(`${Math.max(280, backHeight)}px`);
+      } else if (frontRef.current) {
+        // Se estamos voltando para a frente, restaurar a altura padrão
+        setCardHeight('280px');
+      }
+      
+      // Verificar se toggleCardFlip existe antes de chamar
+      if (typeof toggleCardFlip === 'function') {
+        toggleCardFlip(protocoloId, e);
+      }
+      
+      // Carregar medicamentos se necessário
+      // Se virar o card E medicamentos ainda não estiverem carregados
+      if (!isFlipped && medicamentosToRender.length === 0) {
+        if (typeof getMedicamentosFromCache === 'function' && 
+            !getMedicamentosFromCache(protocoloId) && 
+            !allMedicamentosLoaded && 
+            typeof fetchServicos === 'function') {
+          console.log("Carregando medicamentos para protocolo:", protocoloId);
+          fetchServicos(protocoloId).then(meds => {
+            if (meds && meds.length > 0) {
+              medicamentosRef.current = meds; // Atualizar medicamentos no ref
+            }
+          });
+        }
+      }
+    };
+    
+    // Ajustar a altura quando o conteúdo do verso mudar
+    useEffect(() => {
+      if (isFlipped && backRef.current) {
+        const backHeight = backRef.current.scrollHeight;
+        setCardHeight(`${Math.max(280, backHeight)}px`);
+      }
+    }, [isFlipped, medicamentosToRender]);
+    
+    // Função segura para selecionar um protocolo
+    const handleSelectSafely = () => {
+      if (typeof handleSelectProtocolo === 'function') {
+        handleSelectProtocolo(protocoloId);
+      }
+    };
+    
+    return (
+      <div 
+        className={`protocol-card ${isSelected ? 'selected' : ''}`}
+        onClick={handleSelectSafely}
+        ref={cardRef}
+        data-protocol-id={protocoloId} // Adicione esta linha
+        style={{ height: cardHeight, transition: 'height 0.3s ease-out' }}
+      >
+        <div className={`card-inner ${isFlipped ? 'flipped' : ''}`}>
+          {/* Frente do card - Informações do protocolo */}
+          <div className="card-front" ref={frontRef}>
+            <div className="card-header">
+              <div className="protocol-code">{protocolo?.Protocolo_Sigla || 'N/D'}</div>
+              {protocolo?.CID && (
+                <div className="protocol-cid">{protocolo.CID}</div>
+              )}
+            </div>
+            
+            <div className="protocol-name">{protocolo?.Protocolo_Nome || 'Sem nome'}</div>
+            
+            <div className="protocol-info">
+              <div className="info-row">
+                <Calendar size={14} />
+                <span>Intervalo: {protocolo?.Intervalo_Ciclos || 'N/D'} dias</span>
+              </div>
+              <div className="info-row">
+                <Activity size={14} />
+                <span>Ciclos: {protocolo?.Ciclos_Previstos || 'N/D'}</span>
+              </div>
+              <div className="info-row">
+                <Bookmark size={14} />
+                <span>Linha: {protocolo?.Linha || 'N/D'}</span>
+              </div>
+              <div className="info-row">
+                <Pill size={14} />
+                <span>Medicamentos: {medicamentosToRender.length}</span>
+              </div>
+            </div>
+            
+            <div className="card-actions" onClick={e => e.stopPropagation()}>
+              <button 
+                className="action-button-pacientes info"
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  if (typeof showProtocoloDetails === 'function') {
+                    showProtocoloDetails(protocoloId); 
+                  }
+                }}
+                title="Ver detalhes"
+              >
+                <Info size={16} />
+              </button>
+              <button 
+                className="action-button-pacientes edit"
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  if (typeof handleEditFixedWithSelection === 'function') {
+                    handleEditFixedWithSelection(protocolo);
+                  }
+                }}
+                title="Editar protocolo"
+              >
+                <Edit size={16} />
+              </button>
+              <button 
+                className="action-button-pacientes flip"
+                onClick={handleFlip}
+                title="Ver medicamentos"
+              >
+                <Database size={16} />
+              </button>
+            </div>
+          </div>
+          
+          {/* Verso do card - Medicamentos */}
+          <div className="card-back" ref={backRef}>
+            <div className="card-header">
+              <h3 className="text-sm font-medium text-green-600">Medicamentos - {protocolo?.Protocolo_Sigla || 'N/D'}</h3>
+              <button 
+                className="action-button-pacientes flip-back"
+                onClick={handleFlip}
+                title="Voltar"
+              >
+                <ArrowLeft size={16} />
+              </button>
+            </div>
+            
+            <div className="medicamentos-container">
+              {isLoading ? (
+                <div className="loading-indicator">
+                  <div className="spinner-small"></div>
+                  <span>Carregando...</span>
+                </div>
+              ) : medicamentosToRender.length > 0 ? (
+                <div className="medicamentos-list">
+                  {medicamentosToRender.map((med, idx) => (
+                    <div key={idx} className="medicamento-item">
+                      <div className="medicamento-nome">
+                        <Pill size={16} className="med-icon" />
+                        {med.nome || 'N/D'}
+                      </div>
+                      <div className="medicamento-details">
+                        <span className="pill-detail">
+                          <Droplet size={12} />
+                          {(med.dose || med.Dose) ? 
+                            `${med.dose || med.Dose} ${typeof getUnidadeMedidaText === 'function' ? getUnidadeMedidaText(med.unidade_medida) : med.unidade_medida || 'N/D'}` : 
+                            'N/D'
+                          }
+                        </span>
+                        <span className="pill-detail">
+                          <Calendar size={12} />
+                          {typeof formatDiasAdministracao === 'function' ? 
+                            formatDiasAdministracao(med.dias_adm || med.dias_aplicacao || 'N/D', {
+                              maxDiasVisíveis: 5,
+                              mostrarTooltip: true,
+                              formatoIntervalo: true
+                            }) : 
+                            med.dias_adm || med.dias_aplicacao || 'N/D'
+                          }
+                        </span>
+                        <span className="pill-detail">
+                          <Clock size={12} />
+                          {med.frequencia || 'N/D'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-medicamentos">
+                  <Pill size={32} className="text-gray-300 mb-2" />
+                  <p>Nenhum medicamento cadastrado</p>
+                  <p className="text-xs text-gray-400 mt-1">Você pode adicionar medicamentos editando este protocolo</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="card-actions back" onClick={e => e.stopPropagation()}>
+              <button 
+                className="detail-button"
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  if (typeof showProtocoloDetails === 'function') {
+                    showProtocoloDetails(protocoloId);
+                  }
+                }}
+              >
+                <Info size={14} /> Ver detalhes
+              </button>
+              <button 
+                className="edit-button"
+                onClick={(e) => { 
+                  e.stopPropagation();
+                  if (typeof selectProtocolo === 'function') {
+                    selectProtocolo(protocoloId);
+                  }
+                  if (typeof handleEdit === 'function') {
+                    handleEdit();
+                  }
+                }}
+              >
+                <Edit size={14} /> Editar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  useEffect(() => {
+    // Logging para ajudar a diagnosticar problemas com medicamentos
+    console.log("Estado do cardFlipped:", cardFlipped);
+    
+    // Verificar se os medicamentos estão corretamente associados aos protocolos
+    if (orderedProtocolos.length > 0) {
+      const protocolosComMedicamentos = orderedProtocolos.filter(p => 
+        p.medicamentos && p.medicamentos.length > 0
+      );
+      
+      console.log(
+        `Protocolos com medicamentos: ${protocolosComMedicamentos.length}/${orderedProtocolos.length}`,
+        protocolosComMedicamentos.map(p => ({ 
+          id: p.id, 
+          nome: p.Protocolo_Nome, 
+          numMeds: p.medicamentos.length 
+        }))
+      );
+    }
+    
+    // Verificar o cache de medicamentos
+    console.log("Tamanho do cache de medicamentos:", Object.keys(medicamentosCache).length);
+  }, [orderedProtocolos, cardFlipped, medicamentosCache]);
+
+  useEffect(() => {
+    if (selectedProtocolo) {
+      const protocoloId = selectedProtocolo.id || selectedProtocolo.id_protocolo;
+      setSelectedRows(new Set([protocoloId]));
+    }
+  }, [selectedProtocolo]);
+
+  useEffect(() => {
+    if (filteredProtocolos && filteredProtocolos.length > 0 && selectedProtocolo) {
+      // Forçar a recriação do ordenedProtocolos para atualizar a renderização
+      const sorted = [...filteredProtocolos].sort((a, b) => {
+        const aValue = a[sortField] || '';
+        const bValue = b[sortField] || '';
+        
+        if (sortOrder === 'asc') {
+          return String(aValue).localeCompare(String(bValue));
+        } else {
+          return String(bValue).localeCompare(String(aValue));
+        }
+      });
+      
+      setOrderedProtocolos(sorted);
+    }
+  }, [selectedProtocolo, filteredProtocolos]);
+  
+  
+  // Componente de linha para visão de lista
+  const ProtocoloListItem = ({ protocolo }) => {
+    const protocoloId = protocolo.id;
+    const isSelected = selectedRows.has(protocoloId);
+    const isExpanded = expandedRows[protocoloId]?.expanded;
+    
+    return (
+      <div 
+        className={`protocol-list-item ${isSelected ? 'selected' : ''}`}
+        onClick={() => handleSelectProtocolo(protocoloId)}
+      >
+        <div className="list-item-code">
+          <button 
+            className="expand-button"
+            onClick={(e) => { e.stopPropagation(); toggleRowExpansion(protocoloId); }}
+          >
+            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+          {protocolo.id}
+        </div>
+        <div className="list-item-name">{protocolo.Protocolo_Nome}</div>
+        <div className="list-item-sigla">{protocolo.Protocolo_Sigla}</div>
+        <div className="list-item-intervalo">{protocolo.Intervalo_Ciclos || 'N/D'}</div>
+        <div className="list-item-ciclos">{protocolo.Ciclos_Previstos || 'N/D'}</div>
+        <div className="list-item-linha">{protocolo.Linha || 'N/D'}</div>
+        <div className="list-item-cid">{protocolo.CID || 'N/D'}</div>
+        
+        <div className="list-item-actions">
+          <button 
+            className="action-button-pacientes info"
+            onClick={(e) => { e.stopPropagation(); showProtocoloDetails(protocoloId); }}
+            title="Ver detalhes"
+          >
+            <Info size={16} />
+          </button>
+          <button 
+            className="action-button-pacientes edit"
+            onClick={(e) => { e.stopPropagation(); selectProtocolo(protocoloId); handleEdit(); }}
+            title="Editar protocolo"
+          >
+            <Edit size={16} />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Componente de linha expandida na visão de lista
+  const ExpandedRow = ({ protocolo }) => {
+    const protocoloId = protocolo.id;
     const rowData = expandedRows[protocoloId] || {};
     const isLoading = servicosLoading[protocoloId];
     
@@ -1983,744 +2190,1178 @@ const CadastroProtocolo = () => {
     else if (rowData.medicamentos && rowData.medicamentos.length > 0) {
       medicamentos = rowData.medicamentos;
     } 
-    // 4. Verificar nos serviços
-    else if (rowData.servicos && rowData.servicos.length > 0) {
-      medicamentos = rowData.servicos;
-    }
     
     return (
-      <tr className="expanded-content">
-        <td colSpan="7" className="p-0 border-b border-gray-200">
-          <div className="expanded-content-container bg-gradient-to-b from-gray-50 to-white p-5 shadow-inner">
-            <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
-              <h4 className="text-base font-medium flex items-center text-green-800">
-                <Database size={18} className="mr-2" />
-                Medicamentos do Protocolo: <span className="ml-1 font-bold text-orange-500">{protocolo.Protocolo_Nome}</span>
-              </h4>
+      <div className="expanded-row">
+        {isLoading ? (
+          <div className="expanded-loading">
+            <div className="spinner-small"></div>
+            <span>Carregando medicamentos...</span>
+          </div>
+        ) : medicamentos.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+            {medicamentos.map((med, index) => (
+              <div key={index} className="med-card bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                <div className="med-card-header bg-gradient-to-r from-green-50 to-gray-50 border-b border-gray-200 px-4 py-2 flex justify-between items-center">
+                  <h5 className="font-medium text-green-800 flex items-center">
+                    <Pill size={15} className="mr-2" />
+                    Medicamento {index + 1}
+                  </h5>
+                  <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">
+                    {getViaAdmText(med.via_administracao || med.via_adm)}
+                  </span>
+                </div>
+                <div className="med-card-body p-4">
+                  <h6 className="text-lg font-bold text-gray-800 mb-3">{med.nome || 'N/D'}</h6>
+                  
+                  <div className="grid grid-cols-2 gap-3 text-sm mb-2">
+                    <div className="info-item flex items-center">
+                      <Droplet size={14} className="text-green-600 mr-1.5" />
+                      <span className="text-gray-500 mr-1">Dose:</span>
+                      <span className="font-medium text-gray-800">
+                        {(med.dose || med.Dose) ? 
+                          `${med.dose || med.Dose} ${getUnidadeMedidaText(med.unidade_medida)}` : 
+                          'N/D'
+                        }
+                      </span>
+                    </div>
+                    
+                    <div className="info-item flex items-center">
+                      <Calendar size={14} className="text-green-600 mr-1.5" />
+                      <span className="text-gray-500 mr-1">Dias:</span>
+                      <span className="font-medium text-gray-800">
+                        {med.dias_adm || med.dias_aplicacao ? (
+                          <span className="inline-flex items-center">
+                            {formatDiasAdministracao(med.dias_adm || med.dias_aplicacao, {
+                              maxDiasVisíveis: 3,
+                              mostrarTooltip: true,
+                              formatoIntervalo: true
+                            })}
+                            {(med.dias_adm || med.dias_aplicacao).includes('-') && !med.dias_adm.includes(',') && (
+                              <span className="ml-1 text-xs text-green-600 rounded-full bg-green-100 px-1.5 py-0.5">
+                                Intervalo
+                              </span>
+                            )}
+                          </span>
+                        ) : 'N/D'}
+                      </span>
+                    </div>
+                    
+                    <div className="info-item col-span-2 flex items-center">
+                      <Clock size={14} className="text-green-600 mr-1.5" />
+                      <span className="text-gray-500 mr-1">Frequência:</span>
+                      <span className="font-medium text-gray-800">{med.frequencia || 'N/D'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="expanded-empty">
+            <p>Nenhum medicamento cadastrado para este protocolo.</p>
+            <button 
+              className="text-sm px-4 py-2 mt-3 bg-green-50 text-green-700 rounded-md hover:bg-green-100 border border-green-200 transition-colors flex items-center"
+              onClick={() => handleEdit()}
+            >
+              <Plus size={14} className="mr-1" />
+              Adicionar Medicamento
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  useEffect(() => {
+    console.log("Card flipped state:", cardFlipped);
+  }, [cardFlipped]);
+
+  // Modal de detalhes do protocolo melhorado
+  const ProtocoloDetails = () => {
+    if (!selectedProtocolo || !isDetailsOpen) return null;
+    
+    const currentProtocolo = filteredProtocolos.find(p => p.id === selectedProtocolo.id) || selectedProtocolo;
+    const protocoloId = currentProtocolo.id || currentProtocolo.id_protocolo;
+    const medicamentos = getMedicamentosFromCache(protocoloId) || currentProtocolo.medicamentos || [];
+    
+    return (
+      <div className="modal-overlay" onClick={() => setIsDetailsOpen(false)}>
+        <div className="protocolo-details-modal" onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <h2>Detalhes do Protocolo</h2>
+            <button className="close-button" onClick={() => setIsDetailsOpen(false)}>
+              <X size={20} />
+            </button>
+          </div>
+          
+          <div className="details-content">
+            {/* Cabeçalho com badge do protocolo */}
+            <div className="protocolo-hero">
+              <div className="protocolo-badge">
+                <Activity size={24} className="protocolo-icon" />
+              </div>
+              <div className="protocolo-title">
+                <h3>{currentProtocolo.Protocolo_Nome}</h3>
+                <div className="protocolo-code">{currentProtocolo.Protocolo_Sigla}</div>
+                {currentProtocolo.CID && (
+                  <div className="protocolo-cid-badge">CID: {currentProtocolo.CID}</div>
+                )}
+              </div>
+            </div>
+            
+            {/* Cards de informações básicas */}
+            <div className="info-cards-grid">
+              <div className="info-card">
+                <div className="info-card-icon">
+                  <Calendar />
+                </div>
+                <div className="info-card-content">
+                  <h4>Intervalo entre Ciclos</h4>
+                  <div className="info-card-value">{currentProtocolo.Intervalo_Ciclos ? `${currentProtocolo.Intervalo_Ciclos} dias` : 'Não definido'}</div>
+                </div>
+              </div>
               
-              <div className="flex items-center gap-3">
-                <div className="text-xs text-gray-500 bg-white px-3 py-1 rounded-full border border-gray-200">
-                  {medicamentos.length} {medicamentos.length === 1 ? 'medicamento' : 'medicamentos'} cadastrados
+              <div className="info-card">
+                <div className="info-card-icon">
+                  <Activity />
+                </div>
+                <div className="info-card-content">
+                  <h4>Ciclos Previstos</h4>
+                  <div className="info-card-value">{currentProtocolo.Ciclos_Previstos || 'Não definido'}</div>
+                </div>
+              </div>
+              
+              <div className="info-card">
+                <div className="info-card-icon">
+                  <Bookmark />
+                </div>
+                <div className="info-card-content">
+                  <h4>Linha</h4>
+                  <div className="info-card-value">{currentProtocolo.Linha || 'Não definido'}</div>
+                </div>
+              </div>
+              
+              <div className="info-card">
+                <div className="info-card-icon">
+                  <Database />
+                </div>
+                <div className="info-card-content">
+                  <h4>Código Interno</h4>
+                  <div className="info-card-value">{currentProtocolo.id}</div>
                 </div>
               </div>
             </div>
             
-            {isLoading ? (
-              <div className="flex justify-center py-8 my-4">
-                <div className="animate-pulse flex space-x-2 items-center">
-                  <div className="h-3 w-3 bg-green-400 rounded-full animate-bounce"></div>
-                  <div className="h-3 w-3 bg-green-400 rounded-full animate-bounce delay-75"></div>
-                  <div className="h-3 w-3 bg-green-400 rounded-full animate-bounce delay-150"></div>
-                  <span className="text-sm text-green-600 ml-2">Carregando medicamentos...</span>
-                </div>
+            {/* Seção de medicamentos */}
+            <div className="medicamentos-section">
+              <div className="medicamentos-header">
+                <h3>
+                  <Pill size={16} className="mr-2" />
+                  Medicamentos ({medicamentos.length})
+                </h3>
               </div>
-            ) : medicamentos && medicamentos.length > 0 ? (
-              <div className="bg-white  rounded-lg ">                
-                {/* Visualização em Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-                  {medicamentos.map((med, index) => (
-                    <div key={index} className="med-card bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                      <div className="med-card-header bg-gradient-to-r from-green-50 to-gray-50 border-b border-gray-200 px-4 py-2 flex justify-between items-center">
-                        <h5 className="font-medium text-green-800 flex items-center">
-                          <Pill size={15} className="mr-2" />
-                          Medicamento {index + 1}
-                        </h5>
-                        <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">
-                          {getViaAdmText(med.via_administracao || med.via_adm)}
-                        </span>
+              
+              {medicamentos.length > 0 ? (
+                <div className="medicamentos-details-grid">
+                  {medicamentos.map((med, idx) => (
+                    <div key={idx} className="medicamento-details-card">
+                      <div className="medicamento-details-header">
+                        <h4>{med.nome || 'Sem nome'}</h4>
+                        <div className="medicamento-via-badge">
+                          {getViaAdmText(med.via_adm || med.via_administracao)}
+                        </div>
                       </div>
-                      <div className="med-card-body p-4">
-                        <h6 className="text-lg font-bold text-gray-800 mb-3">{med.nome || 'N/D'}</h6>
-                        
-                        <div className="grid grid-cols-2 gap-3 text-sm mb-2">
-                          <div className="info-item flex items-center">
-                            <Droplet size={14} className="text-green-600 mr-1.5" />
-                            <span className="text-gray-500 mr-1">Dose:</span>
-                            <span className="font-medium text-gray-800">
+                      
+                      <div className="medicamento-details-body">
+                        <div className="med-detail-item">
+                          <div className="med-detail-icon">
+                            <Droplet size={16} />
+                          </div>
+                          <div className="med-detail-content">
+                            <div className="med-detail-label">Dose</div>
+                            <div className="med-detail-value">
                               {(med.dose || med.Dose) ? 
                                 `${med.dose || med.Dose} ${getUnidadeMedidaText(med.unidade_medida)}` : 
-                                'N/D'
+                                'Não definida'
                               }
-                            </span>
+                            </div>
                           </div>
-                          
-                          <div className="info-item flex items-center">
-                            <Calendar size={14} className="text-green-600 mr-1.5" />
-                            <span className="text-gray-500 mr-1">Dias:</span>
-                            <span className="font-medium text-gray-800">
-                              {med.dias_adm || med.dias_aplicacao ? (
-                                <span className="inline-flex items-center">
-                                  {formatDiasAdministracao(med.dias_adm || med.dias_aplicacao)}
-                                  {(med.dias_adm || med.dias_aplicacao).includes('-') && (
-                                    <span className="ml-1 text-xs text-green-600 rounded-full bg-green-100 px-1.5 py-0.5">
-                                      Intervalo
-                                    </span>
-                                  )}
-                                </span>
-                              ) : 'N/D'}
-                            </span>
+                        </div>
+                        
+                        <div className="med-detail-item">
+                          <div className="med-detail-icon">
+                            <Calendar size={16} />
                           </div>
-                          
-                          <div className="info-item col-span-2 flex items-center">
-                            <Clock size={14} className="text-green-600 mr-1.5" />
-                            <span className="text-gray-500 mr-1">Frequência:</span>
-                            <span className="font-medium text-gray-800">{med.frequencia || 'N/D'}</span>
+                          <div className="med-detail-content">
+                            <div className="med-detail-label">Dias de Administração</div>
+                            <div className="med-detail-value">
+                              {formatDiasAdministracao(med.dias_adm || med.dias_aplicacao || 'Não definidos', {
+                                maxDiasVisíveis: 5, // Mostrar mais dias nos detalhes
+                                mostrarTooltip: true,
+                                formatoIntervalo: true
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="med-detail-item">
+                          <div className="med-detail-icon">
+                            <Clock size={16} />
+                          </div>
+                          <div className="med-detail-content">
+                            <div className="med-detail-label">Frequência</div>
+                            <div className="med-detail-value">{med.frequencia || 'Não definida'}</div>
                           </div>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            ) : (
-              <div className="text-center py-10 bg-white border border-gray-200 rounded-lg shadow-sm text-gray-500 flex flex-col items-center">
-                <Database size={40} className="text-gray-300 mb-3" />
-                <p className="mb-2">Nenhum medicamento cadastrado para este protocolo.</p>
-                <button 
-                  className="text-sm px-4 py-2 mt-3 bg-green-50 text-green-700 rounded-md hover:bg-green-100 border border-green-200 transition-colors flex items-center"
-                  onClick={() => {
-                    // Lógica para adicionar medicamento ao protocolo existente
-                    handleEdit();
-                  }}
-                >
-                  <Plus size={14} className="mr-1" />
-                  Adicionar Medicamento
-                </button>
-              </div>
-            )}
-            
-            {/* Botões de ação para a seção de medicamentos */}
-            {medicamentos && medicamentos.length > 0 && (
-              <div className="flex justify-end mt-4">
-                <button 
-                  className="text-sm px-3 py-1.5 bg-green-50 text-green-700 rounded-md hover:bg-green-100 border border-green-200 transition-colors flex items-center mr-2"
-                  onClick={() => handleEdit()}
-                >
-                  <Edit size={14} className="mr-1" />
-                  Editar Medicamentos
-                </button>
-              </div>
-            )}
-          </div>
-        </td>
-      </tr>
-    );
-  };
-
-  // Renderização principal
-  return (
-    <div className="patient-container">
-      <div className="mb-6 flex justify-between items-center encimatabela">
-        {/* Área de ordenação */}
-        <div className="organize-container"> 
-          <h2 className="organize-text">Ordenação</h2>
-          <div className="custom-select">
-            <select 
-              className="select-style" 
-              value={sortOrder} 
-              onChange={handleSortChange}
-            >
-              <option value="asc">Crescente</option>
-              <option value="desc">Decrescente</option>
-            </select>
-          </div>
-        </div>
-        
-        {/* Mostrar informação sobre ordenação atual */}
-        {sortField !== 'Protocolo_Nome' && (
-          <div className="px-3 py-1 rounded-md flex items-center ordenacao" style={{color: '#575654', background: '#E4E9C0'}}>
-            <span className="text-sm">
-              Ordenado por: <strong style={{color: '#f26b6b'}} >{sortField}</strong> ({sortOrder === 'asc' ? 'crescente' : 'decrescente'})
-            </span>
-            <button 
-              className="ml-2 text-green-600 hover:text-green-800" 
-              onClick={handleResetSort}
-              title="Resetar ordenação"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        )}
-        
-        <div className="flex items-center gap-4">
-          {/* Área de pesquisa */}
-          <div className="flex flex-col">
-            <div className="search-container">
-              <div className="search-bar">
-                <button
-                  onClick={executeSearch}
-                  className={`pesquisa-icone ${searchTerm ? 'search-icon-blinking' : ''}`}
-                  title="Clique para pesquisar"
-                >
-                  <Search size={18} />
-                </button>
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder={`Pesquisar por ${getSearchTypeName(searchType)}...`}
-                  className="border pesquisa"
-                  defaultValue={searchTerm}
-                  onInput={handleInput}
-                  onKeyDown={handleKeyDown}
-                />
-                {searchTerm && (
-                  <button 
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    onClick={handleClearSearch}
-                    title="Limpar pesquisa"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
-              </div>
-              
-              {/* Botão para expandir/recolher opções de pesquisa */}
-              <button 
-                onClick={() => setIsSearchExpanded(!isSearchExpanded)} 
-                className="text-xs text-gray-600 mt-1 ml-2 hover:text-green-700 flex items-center"
-              >
-                <span>{isSearchExpanded ? 'Ocultar opções' : 'Opções de busca'}</span>
-                <ChevronDown size={14} className={`ml-1 transform transition-transform ${isSearchExpanded ? 'rotate-180' : ''}`} />
-              </button>
-              
-              {/* Seletor do tipo de pesquisa - mostrar apenas quando expandido */}
-              {isSearchExpanded && (
-                <div className="search-type-selector mt-2 flex items-center">
-                  <div className="text-xs mr-2 text-gray-600">Buscar por:</div>
-                  <div className="flex flex-wrap space-x-3">
-                    <label className={`cursor-pointer flex items-center ${searchType === 'nome' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
-                      <input
-                        type="radio"
-                        name="searchType"
-                        value="nome"
-                        checked={searchType === 'nome'}
-                        onChange={() => handleSearchTypeChange('nome')}
-                        className="mr-1 h-3 w-3"
-                      />
-                      <span className="text-xs">Nome</span>
-                    </label>
-                    
-                    <label className={`cursor-pointer flex items-center ${searchType === 'sigla' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
-                      <input
-                        type="radio"
-                        name="searchType"
-                        value="sigla"
-                        checked={searchType === 'sigla'}
-                        onChange={() => handleSearchTypeChange('sigla')}
-                        className="mr-1 h-3 w-3"
-                      />
-                      <span className="text-xs">Descrição</span>
-                    </label>
-                    
-                    <label className={`cursor-pointer flex items-center ${searchType === 'cid' ? 'text-green-800 font-medium' : 'text-gray-600'}`}>
-                      <input
-                        type="radio"
-                        name="searchType"
-                        value="cid"
-                        checked={searchType === 'cid'}
-                        onChange={() => handleSearchTypeChange('cid')}
-                        className="mr-1 h-3 w-3"
-                      />
-                      <span className="text-xs">CID</span>
-                    </label>
-                  </div>
+              ) : (
+                <div className="empty-medicamentos-state">
+                  <Pill size={40} className="text-gray-300" />
+                  <p>Nenhum medicamento cadastrado para este protocolo</p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Você pode adicionar medicamentos ao editar este protocolo
+                  </p>
                 </div>
               )}
             </div>
             
-            {/* Indicador de resultados da pesquisa */}
-            {searchTerm && (
-              <div className="text-xs text-gray-600 mt-1 ml-2 pesquisatinha">
-                {filteredProtocolos.length === 0 ? (
-                  <span className="text-red-500">Nenhum resultado encontrado. Tente refinar sua busca.</span>
-                ) : (
-                  <span>
-                    {`${filteredProtocolos.length} resultados encontrados para "${searchTerm}"`}
-                    <span className="search-type-badge search-type-${searchType}">
-                      {getSearchTypeName(searchType)}
-                    </span>
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-          
-          {/* Botões de ação (Adicionar, Editar, Excluir) */}
-          <div className="button-container">
-            {selectedRows.size > 0 ? (
-              <>
-                {isEditing ? (
-                  <button 
-                    className="btn btn-danger" 
-                    onClick={handleCancel}
-                    disabled={localLoading}
-                  >
-                    Cancelar
-                  </button>
-                ) : (
-                  <button 
-                    className="btn btn-danger" 
-                    onClick={handleDelete}
-                    disabled={localLoading}
-                  >
-                    <Trash2 className="w-5 h-5" /> Excluir
-                  </button>
-                )}
-                {isEditing ? (
-                  <button 
-                    className="btn btn-success" 
-                    onClick={handleSubmit}
-                    disabled={localLoading}
-                  >
-                    {localLoading ? 'Salvando...' : 'Salvar'}
-                  </button>
-                ) : (
-                  <button 
-                    className="btn btn-warning" 
-                    onClick={handleEdit}
-                    disabled={localLoading}
-                  >
-                    <Edit className="w-5 h-5" /> Alterar
-                  </button>
-                )}
-              </>
-            ) : (
-              isAdding ? (
-                <>
-                  <button 
-                    className="btn btn-danger" 
-                    onClick={handleCancel}
-                    disabled={localLoading}
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    className="btn btn-success" 
-                    onClick={handleSubmit}
-                    disabled={localLoading}
-                  >
-                    {localLoading ? (
-                      <>
-                        <span className="animate-spin mr-2 h-4 w-4 border-b-2 border-white rounded-full"></span>
-                        Salvando...
-                      </>
-                    ) : 'Salvar'}
-                  </button>
-                </>
-              ) : (
-                <button 
-                  className="button buttontxt btn-primary" 
-                  onClick={handleAdd}
-                  disabled={localLoading}
-                >
-                  <Plus /> Adicionar
-                </button>
-              )
-            )}
+            {/* Botões de ação */}
+            <div className="details-actions">
+              <button 
+                className="edit-button"
+                onClick={() => { setIsDetailsOpen(false); handleEdit(); }}
+              >
+                <Edit size={16} /> Editar Protocolo
+              </button>
+              <button 
+                className="delete-button"
+                onClick={() => { setIsDetailsOpen(false); handleDelete(); }}
+              >
+                <Trash2 size={16} /> Excluir
+              </button>
+            </div>
           </div>
         </div>
       </div>
-      
-      {/* Formulário de edição/adição */}
-      {(isAdding || isEditing) && (
-        <form onSubmit={handleSubmit} className="patient-form bg-white p-4 rounded-lg mb-4 shadow-md">
-          {/* Mensagem de erro de atualização, se houver */}
-          {updateError && (
-            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
-              <p className="font-semibold">Erro ao processar dados:</p>
-              <p>{updateError}</p>
-            </div>
-          )}
+    );
+  };
+  
+  // Renderização do formulário de adição/edição
+  const renderProtocoloForm = () => {
+    if (!isAdding && !isEditing) return null;
+    
+    return (
+      <div className="modal-overlay" onClick={handleCancel}>
+        <div className="patient-form-modal" onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <h2>{isEditing ? 'Editar Protocolo' : 'Adicionar Protocolo'}</h2>
+            <button className="close-button" onClick={handleCancel}>
+              <X size={20} />
+            </button>
+          </div>
           
-          {/* Seção principal do protocolo */}
-          <div className="form-header border-b border-gray-200 pb-4 mb-4">
-            <h3 className="text-lg font-medium text-green-800 mb-3">Informações do Protocolo</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="form-group">
-                <label htmlFor="protocoloNome" className="form-label text-sm font-medium text-gray-700 block mb-1">
-                  Nome do Protocolo*
-                </label>
-                <input 
-                  type="text"
-                  id="protocoloNome"
-                  name="Protocolo_Nome"
-                  value={formData.Protocolo_Nome}
-                  onChange={handleInputChange}
-                  className="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  required
-                  placeholder="Nome do protocolo"
-                />
+          <div className="form-container">
+            {/* Mensagem de erro de atualização, se houver */}
+            {updateError && (
+              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
+                <p className="font-semibold">Erro ao processar dados:</p>
+                <p>{updateError}</p>
               </div>
+            )}
+          
+            {/* Seção principal do protocolo */}
+            <div className="form-header border-b border-gray-200 pb-4 mb-4">
+              <h3 className="text-lg font-medium text-green-800 mb-3">Informações do Protocolo</h3>
               
-              <div className="form-group">
-                <label htmlFor="protocoloSigla" className="form-label text-sm font-medium text-gray-700 block mb-1">
-                  Descrição do Protocolo*
-                </label>
-                <input 
-                  type="text"
-                  id="protocoloSigla"
-                  name="Protocolo_Sigla"
-                  value={formData.Protocolo_Sigla}
-                  onChange={handleInputChange}
-                  className="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  required
-                  placeholder="Descrição do protocolo"
-                />
-              </div>
-            </div>
-            
-            <div className="mt-3">
-              <label htmlFor="cid" className="form-label text-sm font-medium text-gray-700 block mb-1">
-                CID Associado
-              </label>
-              <CIDSelection
-                value={formData.CID}
-                onChange={(selectedCIDs) => {
-                  if (Array.isArray(selectedCIDs) && selectedCIDs.length > 0) {
-                    const cidValues = selectedCIDs.map(cid => 
-                      typeof cid === 'string' ? cid : cid.codigo
-                    ).join(',');
-                    
-                    setFormData(prev => ({
-                      ...prev,
-                      CID: cidValues
-                    }));
-                  } else if (selectedCIDs === null || selectedCIDs.length === 0) {
-                    setFormData(prev => ({
-                      ...prev,
-                      CID: ''
-                    }));
-                  }
-                }}
-                placeholder="Selecione um ou mais CIDs..."
-              />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
-              <div className="form-group">
-                <label htmlFor="intervaloCiclos" className="form-label text-sm font-medium text-gray-700 block mb-1">
-                  Intervalo entre Ciclos (dias)
-                </label>
-                <input 
-                  type="number"
-                  id="intervaloCiclos"
-                  name="Intervalo_Ciclos"
-                  value={formData.Intervalo_Ciclos || ''}
-                  onChange={handleInputChange}
-                  className="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  min="0"
-                  placeholder="Dias entre ciclos"
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="numerosCiclosPrevistos" className="form-label text-sm font-medium text-gray-700 block mb-1">
-                  Número de Ciclos Previstos
-                </label>
-                <input 
-                  type="number"
-                  id="numerosCiclosPrevistos"
-                  name="Ciclos_Previstos"
-                  value={formData.Ciclos_Previstos || ''}
-                  onChange={handleInputChange}
-                  className="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  min="0"
-                  placeholder="Quantidade de ciclos"
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="linha" className="form-label text-sm font-medium text-gray-700 block mb-1">
-                  Linha
-                </label>
-                <input 
-                  type="number"
-                  id="linha"
-                  name="Linha"
-                  value={formData.Linha || ''}
-                  onChange={handleInputChange}
-                  className="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Linha do protocolo"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Seção de Medicamentos com estilo melhorado */}
-          <div className="form-section mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-green-800 flex items-center">
-                <Pill size={18} className="mr-2" />
-                Medicamentos do Protocolo
-                <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                  Opcional
-                </span>
-              </h3>
-              <button 
-                type="button" 
-                onClick={handleAddMedicamento}
-                className="flex items-center gap-1 px-3 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 border border-green-200 transition-colors shadow-sm"
-              >
-                <Plus size={16} />
-                <span>Adicionar Medicamento</span>
-              </button>
-            </div>
-            
-            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 mb-4">
-              {formData.medicamentos.length === 0 ? (
-                <div className="text-center py-6 bg-white rounded-lg border border-dashed border-gray-300">
-                  <p className="text-gray-500 mb-2">Nenhum medicamento adicionado</p>
-                  <p className="text-sm text-gray-400 mb-3">
-                    Você pode cadastrar o protocolo sem medicamentos ou adicionar medicamentos usando o botão abaixo
-                  </p>
-                  <button 
-                    type="button" 
-                    onClick={handleAddMedicamento}
-                    className="inline-flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-md hover:bg-green-100 text-sm"
-                  >
-                    <Plus size={14} className="mr-1" />
-                    Adicionar Medicamento (Opcional)
-                  </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="form-group">
+                  <label htmlFor="protocoloNome" className="form-label text-sm font-medium text-gray-700 block mb-1">
+                    Nome do Protocolo*
+                  </label>
+                  <input 
+                    type="text"
+                    id="protocoloNome"
+                    name="Protocolo_Nome"
+                    value={formData.Protocolo_Nome}
+                    onChange={handleInputChange}
+                    className="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    required
+                    placeholder="Nome do protocolo"
+                  />
                 </div>
-              ) : (
-                <div className="medication-list space-y-4">
-                  {formData.medicamentos.map((med, index) => renderMedicamentoRow(med, index))}
+                
+                <div className="form-group">
+                  <label htmlFor="protocoloSigla" className="form-label text-sm font-medium text-gray-700 block mb-1">
+                    Descrição do Protocolo*
+                  </label>
+                  <input 
+                    type="text"
+                    id="protocoloSigla"
+                    name="Protocolo_Sigla"
+                    value={formData.Protocolo_Sigla}
+                    onChange={handleInputChange}
+                    className="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    required
+                    placeholder="Descrição do protocolo"
+                  />
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Botões de ação */}
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              Cancelar
-            </button>
-            
-            <button
-              type="submit"
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-            >
-              {localLoading ? (
-                <span className="flex items-center">
-                  <span className="animate-spin mr-2 h-4 w-4 border-b-2 border-white rounded-full"></span>
-                  Salvando...
-                </span>
-              ) : 'Salvar Protocolo'}
-            </button>
-          </div>
-        </form>
-      )}
-      
-      {/* Lista de protocolos com layout solicitado */}
-      {!isAdding && !isEditing && (
-        <div className="table-container h-[calc(100vh-250px)] overflow-auto">
-          {(loading || initialLoading) ? (
-            <div className="flex justify-center items-center h-full">
-              <img src="/images/loadingcorreto-semfundo.gif" alt="Carregando..." className="w-12 h-12" />
-            </div>
-          ) : error ? (
-            <div className="flex flex-col items-center justify-center h-64 gap-4">
-              <p className="text-red-500">Erro: {error}</p>
-              <button
-                onClick={() => loadProtocolos(true)}
-                className="button buttontxt flex items-center gap-2"
-              >
-                Tentar novamente
-              </button>
-            </div>
-          ) : Array.isArray(filteredProtocolos) && filteredProtocolos.length > 0 ? (
-            <table className="data-table w-full">
-              <thead>
-                <tr>
-                  <th onClick={() => handleSort('id')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'id' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'id' ? '#f26b6b' : 'inherit' }}>
-                        ID
-                      </span>
-                      {sortField === 'id' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => handleSort('Protocolo_Nome')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'Protocolo_Nome' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'Protocolo_Nome' ? '#f26b6b' : 'inherit' }}>
-                        Nome
-                      </span>
-                      {sortField === 'Protocolo_Nome' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => handleSort('Protocolo_Sigla')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'Protocolo_Sigla' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'Protocolo_Sigla' ? '#f26b6b' : 'inherit' }}>
-                        Descrição
-                      </span>
-                      {sortField === 'Protocolo_Sigla' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => handleSort('Intervalo_Ciclos')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'Intervalo_Ciclos' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'Intervalo_Ciclos' ? '#f26b6b' : 'inherit' }}>
-                        Intervalo Ciclos
-                      </span>
-                      {sortField === 'Intervalo_Ciclos' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => handleSort('Ciclos_Previstos')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'Ciclos_Previstos' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'Ciclos_Previstos' ? '#f26b6b' : 'inherit' }}>
-                        Ciclos Previstos
-                      </span>
-                      {sortField === 'Ciclos_Previstos' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => handleSort('Linha')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'Linha' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'Linha' ? '#f26b6b' : 'inherit' }}>
-                        Linha
-                      </span>
-                      {sortField === 'Linha' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => handleSort('CID')} className="cursor-pointer">
-                    <div className="header-sort flex items-center justify-center gap-1">
-                      <span className={sortField === 'CID' ? 'text-sort-active' : ''} 
-                            style={{ color: sortField === 'CID' ? '#f26b6b' : 'inherit' }}>
-                        CID
-                      </span>
-                      {sortField === 'CID' && (
-                        sortOrder === 'asc' 
-                          ? <ArrowUpWideNarrow size={16} style={{ color: '#f26b6b' }} /> 
-                          : <ArrowDownWideNarrow size={16} style={{ color: '#f26b6b' }} />
-                      )}
-                    </div>
-                  </th>
-                </tr> 
-              </thead>
-              <tbody>
-                {(Array.isArray(orderedProtocolos) && orderedProtocolos.length > 0 ? orderedProtocolos : filteredProtocolos).map((protocolo, index) => {
-                  const protocoloId = protocolo.id;
-                  const isExpanded = Boolean(expandedRows[protocoloId]);
-                  const isSelected = selectedRows.has(protocoloId);
-                  
-                  return (
-                    <React.Fragment key={protocoloId || `protocolo-${index}`}>
-                      <tr 
-                        onClick={() => handleRowClick(protocoloId)}
-                        className={`cursor-pointer transition-colors ${isSelected ? 'selected-row' : ''}`}
-                      >
-                        <td className="relative">
-                          <div className="flex items-center">
-                            <button 
-                              className="mr-2 text-gray-500 hover:text-gray-800 focus:outline-none"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleRowExpansion(protocoloId);
-                              }}
-                            >
-                              {isExpanded ? 
-                                <ChevronDown size={18} className="text-green-600" /> : 
-                                <ChevronRight size={18} />
-                              }
-                            </button>
-                            {protocolo.id}
-                          </div>
-                        </td>
-                        <td>{protocolo.Protocolo_Nome}</td>
-                        <td>{protocolo.Protocolo_Sigla}</td>
-                        <td>{protocolo.Intervalo_Ciclos || 'N/D'}</td>
-                        <td>{protocolo.Ciclos_Previstos || 'N/D'}</td>
-                        <td>{protocolo.Linha || 'N/D'}</td>
-                        <td>{protocolo.CID || 'N/D'}</td>
-                      </tr>
+              </div>
+              
+              <div className="mt-3">
+                <label htmlFor="cid" className="form-label text-sm font-medium text-gray-700 block mb-1">
+                  CID Associado
+                </label>
+                <CIDSelection
+                  value={formData.CID}
+                  onChange={(selectedCIDs) => {
+                    if (Array.isArray(selectedCIDs) && selectedCIDs.length > 0) {
+                      const cidValues = selectedCIDs.map(cid => 
+                        typeof cid === 'string' ? cid : cid.codigo
+                      ).join(',');
                       
-                      {isExpanded && renderExpandedContent(protocolo)}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-64 gap-4">
-              <p className="text-gray-500">
-                {searchTerm ? "Nenhum resultado encontrado para esta pesquisa" : "Não há protocolos cadastrados"}
-              </p>
+                      setFormData(prev => ({
+                        ...prev,
+                        CID: cidValues
+                      }));
+                    } else if (selectedCIDs === null || selectedCIDs.length === 0) {
+                      setFormData(prev => ({
+                        ...prev,
+                        CID: ''
+                      }));
+                    }
+                  }}
+                  placeholder="Selecione um ou mais CIDs..."
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                <div className="form-group">
+                  <label htmlFor="intervaloCiclos" className="form-label text-sm font-medium text-gray-700 block mb-1">
+                    Intervalo entre Ciclos (dias)
+                  </label>
+                  <input 
+                    type="number"
+                    id="intervaloCiclos"
+                    name="Intervalo_Ciclos"
+                    value={formData.Intervalo_Ciclos || ''}
+                    onChange={handleInputChange}
+                    className="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    min="0"
+                    placeholder="Dias entre ciclos"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="numerosCiclosPrevistos" className="form-label text-sm font-medium text-gray-700 block mb-1">
+                    Número de Ciclos Previstos
+                  </label>
+                  <input 
+                    type="number"
+                    id="numerosCiclosPrevistos"
+                    name="Ciclos_Previstos"
+                    value={formData.Ciclos_Previstos || ''}
+                    onChange={handleInputChange}
+                    className="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    min="0"
+                    placeholder="Quantidade de ciclos"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="linha" className="form-label text-sm font-medium text-gray-700 block mb-1">
+                    Linha
+                  </label>
+                  <input 
+                    type="number"
+                    id="linha"
+                    name="Linha"
+                    value={formData.Linha || ''}
+                    onChange={handleInputChange}
+                    className="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Linha do protocolo"
+                  />
+                </div>
+              </div>
             </div>
-          )}
+
+            {/* Seção de Medicamentos com estilo melhorado */}
+            <div className="form-section mb-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-green-800 flex items-center">
+                  <Pill size={18} className="mr-2" />
+                  Medicamentos do Protocolo
+                  <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                    Opcional
+                  </span>
+                </h3>
+                <button 
+                  type="button" 
+                  onClick={handleAddMedicamento}
+                  className="flex items-center gap-1 px-3 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 border border-green-200 transition-colors shadow-sm"
+                >
+                  <Plus size={16} />
+                  <span>Adicionar Medicamento</span>
+                </button>
+              </div>
+              
+              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 mb-4">
+                {formData.medicamentos.length === 0 ? (
+                  <div className="text-center py-6 bg-white rounded-lg border border-dashed border-gray-300">
+                    <p className="text-gray-500 mb-2">Nenhum medicamento adicionado</p>
+                    <p className="text-sm text-gray-400 mb-3">
+                      Você pode cadastrar o protocolo sem medicamentos ou adicionar medicamentos usando o botão abaixo
+                    </p>
+                    <button 
+                      type="button" 
+                      onClick={handleAddMedicamento}
+                      className="inline-flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-md hover:bg-green-100 text-sm"
+                    >
+                      <Plus size={14} className="mr-1" />
+                      Adicionar Medicamento (Opcional)
+                    </button>
+                  </div>
+                ) : (
+                  <div className="medication-list space-y-4">
+                    {formData.medicamentos.map((med, index) => renderMedicamentoRow(med, index))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Botões de ação */}
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              
+              <button
+                type="button"
+                onClick={handleSubmit}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+              >
+                {localLoading ? (
+                  <span className="flex items-center">
+                    <span className="animate-spin mr-2 h-4 w-4 border-b-2 border-white rounded-full"></span>
+                    Salvando...
+                  </span>
+                ) : 'Salvar Protocolo'}
+              </button>
+            </div>
+          </div>
         </div>
-      )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="patient-dashboard">
+      {/* Barra superior com ações */}
+      <div className="dashboard-header">
+        <div className="view-toggle">
+          <button 
+            className={`view-button ${viewMode === 'grid' ? 'active' : ''}`}
+            onClick={() => setViewMode('grid')}
+            title="Visualização em grade"
+          >
+            <Grid size={18} />
+          </button>
+          <button 
+            className={`view-button ${viewMode === 'list' ? 'active' : ''}`}
+            onClick={() => setViewMode('list')}
+            title="Visualização em lista"
+          >
+            <List size={18} />
+          </button>
+        </div>
+        
+        <div className="search-container-pacientes">
+          <div className="search-bar-pacientes">
+            <Search size={18} className="search-icon-pacientes" />
+            <input 
+              ref={searchInputRef}
+              type="text" 
+              placeholder={`Pesquisar por ${getSearchTypeName(searchType)}...`}
+              defaultValue={searchTerm}
+              onInput={(e) => handleInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+            {searchTerm && (
+              <button className="clear-search-pacientes" onClick={handleClearSearch}>
+                <X size={16} />
+              </button>
+            )}
+          </div>
+          
+          <div className="search-options">
+            {/* Opções de pesquisa sempre visíveis */}
+            <div className="search-types">
+              <label className={searchType === 'nome' ? 'active' : ''}>
+                <input 
+                  type="radio" 
+                  name="searchType" 
+                  checked={searchType === 'nome'} 
+                  onChange={() => handleSearchTypeChange('nome')} 
+                />
+                <span>Nome</span>
+              </label>
+              <label className={searchType === 'sigla' ? 'active' : ''}>
+                <input 
+                  type="radio" 
+                  name="searchType" 
+                  checked={searchType === 'sigla'} 
+                  onChange={() => handleSearchTypeChange('sigla')} 
+                />
+                <span>Sigla</span>
+              </label>
+              <label className={searchType === 'cid' ? 'active' : ''}>
+                <input 
+                  type="radio" 
+                  name="searchType" 
+                  checked={searchType === 'cid'} 
+                  onChange={() => handleSearchTypeChange('cid')} 
+                />
+                <span>CID</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        
+        <div className="sort-container-pacientes">
+          <div className="sort-label">
+            <SlidersHorizontal size={14} /> Ordenar por
+          </div>
+          <div className="sort-options">
+            <select 
+              value={sortField}
+              onChange={(e) => handleSortChange(e.target.value)}
+            >
+              <option value="Protocolo_Nome">Nome</option>
+              <option value="Protocolo_Sigla">Sigla</option>
+              <option value="CID">CID</option>
+              <option value="Intervalo_Ciclos">Intervalo Ciclos</option>
+              <option value="Ciclos_Previstos">Ciclos Previstos</option>
+              <option value="Linha">Linha</option>
+            </select>
+            <button 
+              className="sort-order-button"
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            >
+              {sortOrder === 'asc' ? <ArrowUpWideNarrow size={16} /> : <ArrowDownWideNarrow size={16} />}
+            </button>
+          </div>
+        </div>
+        
+        <div className="controls-container">
+          <DataRefreshButton contextType="protocolo" />
+          
+          <button className="add-patient-button" onClick={handleAdd}>
+            <Plus size={16} />
+            <span>Adicionar</span>
+          </button>
+        </div>
+      </div>
+      
+      {/* Barra de informações */}
+      <div className="info-bar">
+        <div className="patient-count">
+          <Activity size={16} />
+          <span>
+            {filteredProtocolos.length} {filteredProtocolos.length === 1 ? 'protocolo' : 'protocolos'}
+            {searchTerm && ` encontrado${filteredProtocolos.length === 1 ? '' : 's'} para "${searchTerm}"`}
+          </span>
+        </div>
+        
+        {selectedProtocolo && (
+          <div className="selected-info">
+            <span>Selecionado:</span>
+            <strong>{selectedProtocolo.Protocolo_Nome}</strong>
+            <div className="selected-actions">
+              <button 
+                className="action-button-pacientes"
+                onClick={handleEdit}
+                disabled={isEditing}
+              >
+                <Edit size={16} /> Editar
+              </button>
+              <button 
+                className="action-button-pacientes"
+                onClick={handleDelete}
+              >
+                <Trash2 size={16} /> Excluir
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Lista de protocolos - visão de grid ou lista */}
+      <div className="patients-container">
+        {loading || localLoading || initialLoading ? (
+          <div className="loading-state">
+            <div className="spinner"></div>
+            <p>Carregando protocolos...</p>
+          </div>
+        ) : error ? (
+          <div className="error-state">
+            <p className="error-message">Erro: {error}</p>
+            <button className="reload-button" onClick={() => loadProtocolos(true)}>
+              Tentar novamente
+            </button>
+          </div>
+        ) : filteredProtocolos.length === 0 ? (
+          <div className="empty-state">
+            <Activity size={48} />
+            <p>Nenhum protocolo encontrado</p>
+            {searchTerm && (
+              <button className="clear-search-button" onClick={handleClearSearch}>
+                Limpar pesquisa
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            {viewMode === 'grid' ? (
+              <div className="patients-grid">
+                {(orderedProtocolos.length > 0 ? orderedProtocolos : filteredProtocolos).map(protocolo => (
+                  <ProtocoloFlipCard 
+                  key={protocolo.id} 
+                  protocolo={protocolo}
+                  isSelected={selectedRows.has(protocolo.id)}
+                  servicosLoading={servicosLoading}
+                  handleSelectProtocolo={handleSelectProtocolo}
+                  showProtocoloDetails={showProtocoloDetails}
+                  handleEditFixedWithSelection={handleEditFixedWithSelection}
+                  getMedicamentosFromCache={getMedicamentosFromCache}
+                  fetchServicos={fetchServicos}
+                  allMedicamentosLoaded={allMedicamentosLoaded}
+                  formatDiasAdministracao={formatDiasAdministracao}
+                  getUnidadeMedidaText={getUnidadeMedidaText}
+                  isEditing={isEditing}
+                  isAdding={isAdding}
+                />
+                ))}
+              </div>
+            ) : (
+              <div className="protocols-list">
+                <div className="list-header">
+                  <div className="list-header-code">ID</div>
+                  <div className="list-header-name">Nome</div>
+                  <div className="list-header-sigla">Sigla</div>
+                  <div className="list-header-intervalo">Intervalo</div>
+                  <div className="list-header-ciclos">Ciclos</div>
+                  <div className="list-header-linha">Linha</div>
+                  <div className="list-header-cid">CID</div>
+                  <div className="list-header-actions">Ações</div>
+                </div>
+                
+                <div className="list-body">
+                  {(orderedProtocolos.length > 0 ? orderedProtocolos : filteredProtocolos).map(protocolo => (
+                    <React.Fragment key={protocolo.id}>
+                      <ProtocoloListItem protocolo={protocolo} />
+                      {expandedRows[protocolo.id]?.expanded && (
+                        <ExpandedRow protocolo={protocolo} />
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      
+      {/* Formulário modal */}
+      {renderProtocoloForm()}
+      
+      {/* Modal de detalhes */}
+      <ProtocoloDetails />
       
       {/* Indicador de atualização de cache */}
       {cacheRefreshed && (
-        <div className="fixed bottom-4 right-4 bg-green-100 text-green-800 px-4 py-2 rounded-lg shadow-lg flex items-center animate-fade-in">
-          <Database size={16} className="mr-2" />
+        <div className="cache-updated-indicator">
+          <Database size={16} />
           <span>Dados atualizados com sucesso</span>
         </div>
       )}
       
-      {/* Estilos específicos */}
+      {/* Estilos específicos para o card de protocolo com flipping */}
       <style jsx>{`
-        /* Estilização da linha selecionada com opacidade ajustada */
-        .selected-row {
-          background-color: rgba(242, 107, 107, 0.15) !important;
+        /* Estilos para o flip card de protocolo */
+        .protocol-card {
+          position: relative;
+          perspective: 1000px;
+          height: 280px;
+          width: 100%;
+          cursor: pointer;
+          margin-bottom: 16px;
+        }
+        
+        .card-inner {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          text-align: left;
+          transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275), height 0.3s ease-out;
+          transform-style: preserve-3d;
+          box-shadow: var(--shadow-sm);
+          border-radius: var(--radius-md);
+        }
+        
+        .protocol-card:hover .card-inner:not(.flipped) {
+          transform: translateY(-5px);
+          box-shadow: var(--shadow-md);
+        }
+        
+        .protocol-card.selected .card-inner {
+          border: 2px solid var(--color-secondary);
+          box-shadow: var(--shadow-lg);
+        }
+        
+        .card-inner.flipped {
+          transform: rotateY(180deg);
+        }
+        
+        .card-front, .card-back {
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          -webkit-backface-visibility: hidden;
+          backface-visibility: hidden;
+          border-radius: var(--radius-md);
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+        }
+        
+        .card-front {
+          background-color: white;
+          z-index: 2;
+        }
+        
+        .card-back {
+          background-color: white;
+          transform: rotateY(180deg);
+          display: flex;
+          flex-direction: column;
+        }
+        
+        .card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 16px;
+          background-color: var(--color-bg-light);
+          border-bottom: 1px solid var(--color-border);
+        }
+        
+        .card-back .card-header {
+          background: linear-gradient(to right, #edf8ed, #f8fafc);
+        }
+        
+        .protocol-code {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--color-primary);
+          display: flex;
+          align-items: center;
+        }
+        
+        .protocol-cid {
+          background-color: var(--color-primary-light);
+          color: var(--color-primary);
+          padding: 3px 8px;
+          border-radius: 4px;
+          font-size: 12px;
           font-weight: 500;
         }
         
-        /* Animação de expansão */
-        .expanded-content {
-          animation: fadeIn 0.3s ease-in-out;
+        .protocol-name {
+          padding: 12px 16px;
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--color-text-dark);
+          border-bottom: 1px solid var(--color-bg-light);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
+        .protocol-info {
+          padding: 12px 16px;
+          flex-grow: 1;
         }
         
-        /* Animação para transições */
-        .transition-colors {
-          transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+        .info-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 10px;
+          font-size: 13px;
+          color: var(--color-text-light);
         }
         
-        /* Animação para o indicador de cache */
-        .animate-fade-in {
-          animation: fadeIn 0.5s ease-in-out;
+        .info-row:last-child {
+          margin-bottom: 0;
+        }
+        
+        .info-row svg {
+          color: var(--color-primary);
+        }
+        
+        .card-actions {
+          padding: 12px 16px;
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          background-color: var(--color-bg-light);
+          border-top: 1px solid var(--color-border);
+        }
+        
+        .card-actions.back {
+          margin-top: auto;
+          justify-content: space-between;
+          background: linear-gradient(to right, #f0f7f0, #f8fafc);
+        }
+        
+        .card-actions .action-button-pacientes {
+          width: 32px;
+          height: 32px;
+          padding: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+          color: var(--color-text-light);
+        }
+        
+        .card-actions .action-button-pacientes:hover {
+          background-color: rgba(255, 255, 255, 0.8);
+          color: var(--color-primary);
+          transform: translateY(-2px);
+        }
+        
+        .card-actions .action-button-pacientes.info {
+          color: var(--color-info);
+        }
+        
+        .card-actions .action-button-pacientes.edit {
+          color: var(--color-primary);
+        }
+        
+        .card-actions .action-button-pacientes.flip {
+          color: var(--color-secondary);
+          animation: pulse 2s infinite;
+        }
+        
+        .card-actions .action-button-pacientes.flip-back {
+          color: var(--color-text-dark);
+          animation: pulse-small 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+          0% {
+            box-shadow: 0 0 0 0 rgba(198, 214, 81, 0.4);
+          }
+          70% {
+            box-shadow: 0 0 0 6px rgba(198, 214, 81, 0);
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(198, 214, 81, 0);
+          }
+        }
+        
+        @keyframes pulse-small {
+          0% {
+            box-shadow: 0 0 0 0 rgba(140, 179, 105, 0.3);
+          }
+          70% {
+            box-shadow: 0 0 0 4px rgba(140, 179, 105, 0);
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(140, 179, 105, 0);
+          }
+        }
+        
+        /* Área de medicamentos no verso do card */
+        .medicamentos-container {
+          flex-grow: 1;
+          overflow-y: auto;
+          padding: 12px;
+          background-color: white;
+        }
+        
+        .medicamentos-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        
+        .medicamento-item {
+          background-color: #f0f7f0;
+          border-radius: 8px;
+          padding: 12px;
+          transition: transform 0.2s, background-color 0.2s;
+          border-left: 3px solid var(--color-primary);
+        }
+        
+        .medicamento-item:hover {
+          background-color: #e6f3e6;
+          transform: translateX(3px);
+        }
+        
+        .medicamento-nome {
+          font-weight: 600;
+          font-size: 14px;
+          margin-bottom: 8px;
+          color: var(--color-text-dark);
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        
+        .med-icon {
+          color: var(--color-primary);
+        }
+        
+        .medicamento-details {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        
+        .pill-detail {
+          background-color: white;
+          padding: 4px 10px;
+          border-radius: 12px;
+          font-size: 11px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          color: var(--color-text-dark);
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .pill-detail svg {
+          color: var(--color-primary);
+        }
+        
+        .empty-medicamentos {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100%;
+          color: var(--color-text-light);
+          font-size: 13px;
+          padding: 24px 0;
+        }
+        
+        .detail-button, .edit-button {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          border-radius: var(--radius-sm);
+          font-size: 13px;
+          transition: all 0.2s ease;
+          border: 1px solid var(--color-border);
+        }
+        
+        .detail-button {
+          background-color: white;
+          color: var(--color-info);
+        }
+        
+        .detail-button:hover {
+          background-color: var(--color-info);
+          color: white;
+          border-color: var(--color-info);
+        }
+        
+        .edit-button {
+          background-color: white;
+          color: var(--color-primary);
+        }
+        
+        .edit-button:hover {
+          background-color: var(--color-primary);
+          color: white;
+          border-color: var(--color-primary);
+        }
+        
+        /* Efeito de brilho na animação de flip */
+        @keyframes card-glow {
+          0% { box-shadow: 0 0 5px rgba(140, 179, 105, 0.3); }
+          50% { box-shadow: 0 0 20px rgba(140, 179, 105, 0.7); }
+          100% { box-shadow: 0 0 5px rgba(140, 179, 105, 0.3); }
+        }
+        
+        .card-inner.flipped {
+          animation: card-glow 2s ease-in-out;
+        }
+        
+        /* Estilos para o modo lista */
+        .protocols-list {
+          background-color: white;
+          border-radius: var(--radius-md);
+          overflow: hidden;
+          box-shadow: var(--shadow-sm);
+        }
+        
+        .list-header {
+          display: grid;
+          grid-template-columns: 0.7fr 1.7fr 1.2fr 0.8fr 0.8fr 0.6fr 0.8fr 0.7fr;
+          padding: 12px 16px;
+          background-color: var(--color-bg-light);
+          border-bottom: 1px solid var(--color-border);
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--color-text-light);
+        }
+        
+        .protocol-list-item {
+          display: grid;
+          grid-template-columns: 0.7fr 1.7fr 1.2fr 0.8fr 0.8fr 0.6fr 0.8fr 0.7fr;
+          padding: 12px 16px;
+          border-bottom: 1px solid var(--color-bg-light);
+          align-items: center;
+          transition: var(--transition-default);
+          cursor: pointer;
+        }
+        
+        .protocol-list-item:hover {
+          background-color: var(--color-bg-light);
+        }
+        
+        .protocol-list-item.selected {
+          background-color: rgba(198, 214, 81, 0.1);
+          border-left: 3px solid var(--color-secondary);
+        }
+        
+        .list-item-code {
+          display: flex;
+          align-items: center;
+          font-weight: 500;
+        }
+        
+        .expand-button {
+          background: none;
+          border: none;
+          color: var(--color-text-light);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          padding: 2px;
+          margin-right: 8px;
+          border-radius: 4px;
+          transition: background-color 0.2s;
+        }
+        
+        .expand-button:hover {
+          background-color: rgba(0, 0, 0, 0.05);
+          color: var(--color-text-dark);
+        }
+        
+        .list-item-name, 
+        .list-item-sigla, 
+        .list-item-intervalo, 
+        .list-item-ciclos, 
+        .list-item-linha, 
+        .list-item-cid {
+          font-size: 12px;
+          color: var(--color-text-light);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        
+        .list-item-name {
+          font-weight: 500;
+          color: var(--color-text-dark);
+        }
+        
+        .list-item-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+        }
+        
+        .expanded-row {
+          background-color: #f7fafc;
+          padding: 16px;
+          border-bottom: 1px solid var(--color-border);
+          max-height: 500px;
+          overflow-y: auto;
+          animation: expandDown 0.3s ease-out forwards;
+        }
+        
+        @keyframes expandDown {
+          from {
+            max-height: 0;
+            opacity: 0;
+            transform: translateY(-16px);
+          }
+          to {
+            max-height: 500px;
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .expanded-loading {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+          color: var(--color-text-light);
+          gap: 8px;
+        }
+        
+        .expanded-empty {
+          text-align: center;
+          padding: 24px;
+          color: var(--color-text-light);
+        }
+        
+        /* Animação para bolhas no medicamento */
+        @keyframes bubble-float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-2px); }
+        }
+        
+        .medicamento-item {
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .medicamento-item::after {
+          content: '';
+          position: absolute;
+          top: -5px;
+          right: -5px;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background-color: rgba(140, 179, 105, 0.3);
+          animation: bubble-float 2s ease-in-out infinite;
         }
       `}</style>
     </div>
   );
+}
+
+// Exportar o componente principal como default para resolver o problema de referência circular
+const CadastroProtocolo = () => {
+  return <ProtocoloForm />;
 };
 
 export default CadastroProtocolo;

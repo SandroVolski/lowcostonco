@@ -1,7 +1,7 @@
 // src/context/PatientContext.jsx
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useToast } from '../components/ui/Toast';
-import CacheService from '../services/CacheService'; // Add this import
+import CacheService from '../services/CacheService';
 
 // API base URL
 const API_BASE_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/PacientesEmTratamento";
@@ -47,12 +47,17 @@ export const PatientProvider = ({ children }) => {
   const [finalidadeTratamento, setFinalidadeTratamento] = useState([]);
   const [searchType, setSearchType] = useState('nome');
   
-  // New cache-related states
+  // Cache-related states
   const [isCacheEnabled, setIsCacheEnabled] = useState(true);
   const [lastFetch, setLastFetch] = useState(null);
   const [dataSource, setDataSource] = useState('');
   const [needsRevalidation, setNeedsRevalidation] = useState(false);
   const [totalRecords, setTotalRecords] = useState(0);
+  
+  // NOVO: Estados para paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalPages, setTotalPages] = useState(0);
   
   // Funções para exibir alertas
   const showSuccessAlert = (message) => {
@@ -73,7 +78,6 @@ export const PatientProvider = ({ children }) => {
   
   // Function to initialize the cache service
   useEffect(() => {
-    // Initialize CacheService if it exists
     if (typeof CacheService !== 'undefined' && CacheService.init) {
       CacheService.init();
     }
@@ -129,26 +133,288 @@ export const PatientProvider = ({ children }) => {
     console.log("Patient cache marked for revalidation");
   };
   
-  // Cache patients data
-  const cachePatients = (data) => {
-    if (!isCacheEnabled) return;
-    
+  // MODIFICADO: loadPatients com suporte para paginação
+  const loadPatients = async (force = false, page = currentPage, limit = pageSize) => {
     try {
-      const cacheItem = {
-        data,
-        timestamp: Date.now(),
-        expiry: Date.now() + CACHE_EXPIRY
+      setLoading(true);
+      setError(null);
+      
+      // Verificar se podemos usar o cache para a página atual
+      const cacheKey = `${CACHE_KEYS.PATIENTS_DATA}_page${page}_limit${limit}`;
+      
+      if (isCacheEnabled && !force && !needsRevalidation) {
+        const cachedItem = localStorage.getItem(cacheKey);
+        
+        if (cachedItem) {
+          const cacheData = JSON.parse(cachedItem);
+          
+          // Verificar se o cache expirou
+          if (Date.now() <= cacheData.expiry) {
+            console.log(`Usando dados em cache para página ${page}`);
+            
+            setPatients(cacheData.data);
+            setFilteredPatients(cacheData.data);
+            setCurrentPage(page);
+            setTotalPages(cacheData.meta.pages);
+            setTotalRecords(cacheData.meta.total);
+            setDataSource('cache');
+            
+            setLoading(false);
+            return cacheData.data;
+          }
+        }
+      }
+      
+      // URL com parâmetros de paginação
+      const url = `${API_BASE_URL}/get_pacientes.php?page=${page}&limit=${limit}`;
+      console.log(`Buscando pacientes da API: ${url}`);
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`Error loading patients: ${response.status}`);
+      }
+      
+      const responseData = await response.json();
+      
+      // Extrair dados e metadados
+      const data = responseData.data || [];
+      const meta = responseData.meta || { 
+        total: data.length,
+        page: page,
+        limit: limit,
+        pages: Math.ceil(data.length / limit)
       };
       
-      localStorage.setItem(CACHE_KEYS.PATIENTS_DATA, JSON.stringify(cacheItem));
-      setTotalRecords(data.length);
-      console.log(`Cached ${data.length} patients successfully`);
+      // Atualizar estados
+      setPatients(data);
+      setFilteredPatients(data);
+      setCurrentPage(meta.page);
+      setTotalPages(meta.pages);
+      setTotalRecords(meta.total);
+      setDataSource('server');
+      setInitialized(true);
+      setNeedsRevalidation(false);
+      
+      // Armazenar em cache se habilitado
+      if (isCacheEnabled) {
+        try {
+          const cacheItem = {
+            data: data,
+            meta: meta,
+            timestamp: Date.now(),
+            expiry: Date.now() + CACHE_EXPIRY
+          };
+          
+          localStorage.setItem(cacheKey, JSON.stringify(cacheItem));
+          console.log(`Dados da página ${page} armazenados em cache`);
+        } catch (error) {
+          console.error("Erro ao armazenar em cache:", error);
+        }
+      }
+      
+      return data;
+      
     } catch (error) {
-      console.error("Error caching patients data:", error);
+      console.error("Erro ao carregar pacientes:", error);
+      setError(error.message);
+      return [];
+    } finally {
+      setLoading(false);
     }
   };
   
-  // Cache reference data (operadoras, prestadores, etc.)
+  // MODIFICADO: searchPatients para fazer busca via API
+  const searchPatients = async (term, type = 'nome', page = 1, limit = pageSize) => {
+    try {
+      setSearchTerm(term);
+      setSearchType(type);
+      
+      if (!term) {
+        // Se o termo de busca estiver vazio, carregar página atual normal
+        return loadPatients(false, page, limit);
+      }
+      
+      setLoading(true);
+      
+      // Gerar chave de cache para esta busca
+      const searchCacheKey = `patients_search_${type}_${term.toLowerCase()}_page${page}`;
+      
+      // Verificar cache para esta busca
+      if (isCacheEnabled) {
+        const cachedSearch = localStorage.getItem(searchCacheKey);
+        
+        if (cachedSearch) {
+          const searchData = JSON.parse(cachedSearch);
+          
+          if (Date.now() < searchData.expiry) {
+            console.log(`Usando resultados em cache para "${term}" na página ${page}`);
+            setFilteredPatients(searchData.results);
+            setTotalPages(searchData.meta.pages);
+            setTotalRecords(searchData.meta.total);
+            setLoading(false);
+            return searchData.results;
+          } else {
+            localStorage.removeItem(searchCacheKey);
+          }
+        }
+      }
+      
+      // Buscar da API com parâmetros
+      const url = `${API_BASE_URL}/get_pacientes.php?search=${encodeURIComponent(term)}&type=${type}&page=${page}&limit=${limit}`;
+      console.log(`Buscando: ${url}`);
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`Erro na busca: ${response.status}`);
+      }
+      
+      const responseData = await response.json();
+      
+      // Extrair dados e metadados
+      const data = responseData.data || [];
+      const meta = responseData.meta || {
+        total: data.length,
+        page: page,
+        limit: limit,
+        pages: Math.ceil(data.length / limit)
+      };
+      
+      // Atualizar estados
+      setFilteredPatients(data);
+      setCurrentPage(meta.page);
+      setTotalPages(meta.pages);
+      setTotalRecords(meta.total);
+      
+      // Armazenar resultados da busca em cache
+      if (isCacheEnabled) {
+        try {
+          const searchData = {
+            results: data,
+            meta: meta,
+            expiry: Date.now() + (5 * 60 * 1000) // 5 minutos para resultados de busca
+          };
+          
+          localStorage.setItem(searchCacheKey, JSON.stringify(searchData));
+        } catch (error) {
+          console.error("Erro ao armazenar busca em cache:", error);
+        }
+      }
+      
+      return data;
+      
+    } catch (error) {
+      console.error("Erro na busca de pacientes:", error);
+      setError(error.message);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // NOVO: Função para mudar de página
+  const changePage = async (newPage) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    
+    setCurrentPage(newPage);
+    
+    if (searchTerm) {
+      // Se houver um termo de busca ativo, usar a função de busca com a nova página
+      return searchPatients(searchTerm, searchType, newPage, pageSize);
+    } else {
+      // Caso contrário, carregar a nova página normalmente
+      return loadPatients(false, newPage, pageSize);
+    }
+  };
+
+  // NOVO: Função para mudar o tamanho da página
+  const changePageSize = async (newSize) => {
+    setPageSize(newSize);
+    // Voltar para a primeira página ao mudar o tamanho
+    return changePage(1);
+  };
+  
+  // Carregar dados de referência como antes (sem modificações necessárias)
+  const loadReferenceData = async () => {
+    try {
+      console.log("Loading reference data...");
+      
+      if (isCacheEnabled) {
+        const cachedData = getCachedReferenceData();
+        
+        if (cachedData) {
+          console.log("Using cached reference data");
+          
+          const { operadoras, prestadores, finalidadeTratamento } = cachedData.data;
+          setOperadoras(operadoras);
+          setPrestadores(prestadores);
+          setFinalidadeTratamento(finalidadeTratamento);
+          
+          return { operadoras, prestadores, finalidadeTratamento };
+        }
+      }
+      
+      const results = await Promise.allSettled([
+        fetch(`${API_BASE_URL}/get_operadoras.php`).then(res => res.ok ? res.json() : []),
+        fetch(`${API_BASE_URL}/get_prestadores.php`).then(res => res.ok ? res.json() : []),
+        fetch(`${API_BASE_URL}/get_finalidades_tratamento.php`).then(res => res.ok ? res.json() : [])
+      ]);
+      
+      const loadedOperadoras = results[0].status === 'fulfilled' ? results[0].value : [];
+      const loadedPrestadores = results[1].status === 'fulfilled' ? results[1].value : [];
+      const loadedFinalidades = results[2].status === 'fulfilled' ? results[2].value : [];
+      
+      const processedPrestadores = loadedPrestadores.map(p => ({
+        ...p,
+        nome: p.nome || p.nome_fantasia || p.nome_original || `Prestador ${p.id}`
+      })).sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+      
+      setOperadoras(loadedOperadoras);
+      setPrestadores(processedPrestadores);
+      setFinalidadeTratamento(loadedFinalidades);
+      
+      if (isCacheEnabled) {
+        cacheReferenceData(loadedOperadoras, processedPrestadores, loadedFinalidades);
+      }
+      
+      return {
+        operadoras: loadedOperadoras,
+        prestadores: processedPrestadores,
+        finalidadeTratamento: loadedFinalidades
+      };
+      
+    } catch (error) {
+      console.error("Error loading reference data:", error);
+      return {
+        operadoras: [],
+        prestadores: [],
+        finalidadeTratamento: []
+      };
+    }
+  };
+  
+  // Função para obter dados em cache (sem modificação)
+  const getCachedReferenceData = () => {
+    try {
+      const cachedItem = localStorage.getItem(CACHE_KEYS.REFERENCE_DATA);
+      if (!cachedItem) return null;
+      
+      const cacheData = JSON.parse(cachedItem);
+      
+      if (Date.now() > cacheData.expiry) {
+        localStorage.removeItem(CACHE_KEYS.REFERENCE_DATA);
+        return null;
+      }
+      
+      return cacheData;
+    } catch (error) {
+      console.error("Error retrieving cached reference data:", error);
+      return null;
+    }
+  };
+  
+  // Cache reference data (sem modificação)
   const cacheReferenceData = (operadoras, prestadores, finalidades) => {
     if (!isCacheEnabled) return;
     
@@ -171,378 +437,12 @@ export const PatientProvider = ({ children }) => {
       console.error("Error caching reference data:", error);
     }
   };
-  
-  // Get cached patients data
-  const getCachedPatients = () => {
-    try {
-      const cachedItem = localStorage.getItem(CACHE_KEYS.PATIENTS_DATA);
-      if (!cachedItem) return null;
-      
-      const cacheData = JSON.parse(cachedItem);
-      
-      // Check if cache is expired
-      if (Date.now() > cacheData.expiry) {
-        localStorage.removeItem(CACHE_KEYS.PATIENTS_DATA);
-        return null;
-      }
-      
-      // Check if cache is stale
-      const isStale = isCacheStale(cacheData.timestamp);
-      if (isStale) {
-        console.log("Patients cache is stale, will revalidate in background");
-        cacheData.isStale = true;
-      }
-      
-      return cacheData;
-    } catch (error) {
-      console.error("Error retrieving cached patients:", error);
-      return null;
-    }
-  };
-  
-  // Get cached reference data
-  const getCachedReferenceData = () => {
-    try {
-      const cachedItem = localStorage.getItem(CACHE_KEYS.REFERENCE_DATA);
-      if (!cachedItem) return null;
-      
-      const cacheData = JSON.parse(cachedItem);
-      
-      // Check if cache is expired
-      if (Date.now() > cacheData.expiry) {
-        localStorage.removeItem(CACHE_KEYS.REFERENCE_DATA);
-        return null;
-      }
-      
-      return cacheData;
-    } catch (error) {
-      console.error("Error retrieving cached reference data:", error);
-      return null;
-    }
-  };
-  
-  // Update a patient in cache selectively
-  const updatePatientInCache = (updatedPatient) => {
-    if (!isCacheEnabled) return;
-    
-    try {
-      const cachedItem = localStorage.getItem(CACHE_KEYS.PATIENTS_DATA);
-      if (!cachedItem) return;
-      
-      const cacheData = JSON.parse(cachedItem);
-      
-      // Update the patient in the cached data
-      cacheData.data = cacheData.data.map(patient => 
-        patient.id === updatedPatient.id ? { ...patient, ...updatedPatient } : patient
-      );
-      
-      // Update timestamp
-      cacheData.timestamp = Date.now();
-      
-      // Save back to localStorage
-      localStorage.setItem(CACHE_KEYS.PATIENTS_DATA, JSON.stringify(cacheData));
-      updateWriteTimestamp();
-      
-      console.log(`Patient #${updatedPatient.id} updated in cache`);
-    } catch (error) {
-      console.error("Error updating patient in cache:", error);
-    }
-  };
-  
-  // Remove a patient from cache
-  const removePatientFromCache = (patientId) => {
-    if (!isCacheEnabled) return;
-    
-    try {
-      const cachedItem = localStorage.getItem(CACHE_KEYS.PATIENTS_DATA);
-      if (!cachedItem) return;
-      
-      const cacheData = JSON.parse(cachedItem);
-      
-      // Remove the patient from the cached data
-      cacheData.data = cacheData.data.filter(patient => patient.id !== patientId);
-      
-      // Update timestamp
-      cacheData.timestamp = Date.now();
-      
-      // Save back to localStorage
-      localStorage.setItem(CACHE_KEYS.PATIENTS_DATA, JSON.stringify(cacheData));
-      updateWriteTimestamp();
-      
-      console.log(`Patient #${patientId} removed from cache`);
-    } catch (error) {
-      console.error("Error removing patient from cache:", error);
-    }
-  };
-  
-  // Add a patient to cache
-  const addPatientToCache = (newPatient) => {
-    if (!isCacheEnabled) return;
-    
-    try {
-      const cachedItem = localStorage.getItem(CACHE_KEYS.PATIENTS_DATA);
-      if (!cachedItem) return;
-      
-      const cacheData = JSON.parse(cachedItem);
-      
-      // Add the new patient to the cached data
-      cacheData.data = [...cacheData.data, newPatient];
-      
-      // Update timestamp
-      cacheData.timestamp = Date.now();
-      
-      // Save back to localStorage
-      localStorage.setItem(CACHE_KEYS.PATIENTS_DATA, JSON.stringify(cacheData));
-      updateWriteTimestamp();
-      
-      console.log(`Patient #${newPatient.id} added to cache`);
-    } catch (error) {
-      console.error("Error adding patient to cache:", error);
-    }
-  };
-  
-  // Enhanced loadPatients function with caching
-  const loadPatients = async (force = false) => {
-    // If already initialized and not forced, don't reload
-    if (initialized && !force && !needsRevalidation) return;
-    
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Check if we can use cached data
-      if (isCacheEnabled && !force && !needsRevalidation) {
-        const cachedData = getCachedPatients();
-        
-        if (cachedData) {
-          console.log("Using cached patients data");
-          
-          const patientData = cachedData.data;
-          setPatients(patientData);
-          setFilteredPatients(patientData);
-          setInitialized(true);
-          setDataSource('cache');
-          setTotalRecords(patientData.length);
-          
-          // If the cache is stale, update in background
-          if (cachedData.isStale) {
-            console.log("Cache is stale, updating in background");
-            setTimeout(() => {
-              loadPatients(true);
-            }, 100);
-          }
-          
-          setLoading(false);
-          return patientData;
-        }
-      }
-      
-      // Make the actual API request
-      console.log("Fetching patients from server");
-      const response = await fetch(`${API_BASE_URL}/get_pacientes.php`);
-      
-      if (!response.ok) {
-        throw new Error(`Error loading patients: ${response.status}`);
-      }
-      
-      const responseData = await response.json();
-      const data = responseData.data || responseData; // Compatibility with both formats
-      
-      // Cache the data if caching is enabled
-      if (isCacheEnabled) {
-        cachePatients(data);
-      }
-      
-      setPatients(data);
-      setFilteredPatients(data);
-      setInitialized(true);
-      setDataSource('server');
-      setNeedsRevalidation(false);
-      setLastFetch(Date.now());
-      setTotalRecords(data.length);
-      
-      return data;
-      
-    } catch (error) {
-      console.error("Error loading patients:", error);
-      setError(error.message);
-      return [];
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Enhanced loadReferenceData with caching
-  const loadReferenceData = async () => {
-    try {
-      console.log("Loading reference data...");
-      
-      // Check if we can use cached reference data
-      if (isCacheEnabled) {
-        const cachedData = getCachedReferenceData();
-        
-        if (cachedData) {
-          console.log("Using cached reference data");
-          
-          const { operadoras, prestadores, finalidadeTratamento } = cachedData.data;
-          setOperadoras(operadoras);
-          setPrestadores(prestadores);
-          setFinalidadeTratamento(finalidadeTratamento);
-          
-          return { operadoras, prestadores, finalidadeTratamento };
-        }
-      }
-      
-      // If no cache or cache disabled, load from server
-      const results = await Promise.allSettled([
-        fetch(`${API_BASE_URL}/get_operadoras.php`).then(res => res.ok ? res.json() : []),
-        fetch(`${API_BASE_URL}/get_prestadores.php`).then(res => res.ok ? res.json() : []),
-        fetch(`${API_BASE_URL}/get_finalidades_tratamento.php`).then(res => res.ok ? res.json() : [])
-      ]);
-      
-      // Process results even if some requests failed
-      const loadedOperadoras = results[0].status === 'fulfilled' ? results[0].value : [];
-      const loadedPrestadores = results[1].status === 'fulfilled' ? results[1].value : [];
-      const loadedFinalidades = results[2].status === 'fulfilled' ? results[2].value : [];
-      
-      // Process prestadores to ensure nome field
-      const processedPrestadores = loadedPrestadores.map(p => ({
-        ...p,
-        nome: p.nome || p.nome_fantasia || p.nome_original || `Prestador ${p.id}`
-      })).sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
-      
-      // Update state
-      setOperadoras(loadedOperadoras);
-      setPrestadores(processedPrestadores);
-      setFinalidadeTratamento(loadedFinalidades);
-      
-      // Cache reference data
-      if (isCacheEnabled) {
-        cacheReferenceData(loadedOperadoras, processedPrestadores, loadedFinalidades);
-      }
-      
-      return {
-        operadoras: loadedOperadoras,
-        prestadores: processedPrestadores,
-        finalidadeTratamento: loadedFinalidades
-      };
-      
-    } catch (error) {
-      console.error("Error loading reference data:", error);
-      return {
-        operadoras: [],
-        prestadores: [],
-        finalidadeTratamento: []
-      };
-    }
-  };
-  
-  // Enhanced searchPatients with caching for search results
-  const searchPatients = async (term, type = 'nome') => {
-    setSearchTerm(term);
-    setSearchType(type);
-    
-    if (!term) {
-      setFilteredPatients(patients);
-      return patients;
-    }
-    
-    // Generate a cache key for this search
-    const searchCacheKey = `patients_search_${type}_${term.toLowerCase()}`;
-    
-    // Check if we have this search in cache
-    if (isCacheEnabled) {
-      try {
-        const cachedSearch = localStorage.getItem(searchCacheKey);
-        
-        if (cachedSearch) {
-          const searchData = JSON.parse(cachedSearch);
-          
-          // Check if cache is expired
-          if (Date.now() < searchData.expiry) {
-            console.log(`Using cached search results for "${term}"`);
-            setFilteredPatients(searchData.results);
-            return searchData.results;
-          } else {
-            // Remove expired cache
-            localStorage.removeItem(searchCacheKey);
-          }
-        }
-      } catch (error) {
-        console.error("Error retrieving cached search:", error);
-      }
-    }
-    
-    // No cache or expired, perform search
-    // Normalize search term
-    const normalizedTerm = term.toLowerCase();
-    
-    let filtered = [];
-    switch (type) {
-      case 'nome':
-        filtered = patients.filter(patient => 
-          patient.Nome && patient.Nome.toLowerCase().includes(normalizedTerm)
-        );
-        break;
-      case 'codigo':
-        filtered = patients.filter(patient => 
-          patient.Paciente_Codigo && 
-          String(patient.Paciente_Codigo).toLowerCase().includes(normalizedTerm)
-        );
-        break;
-      case 'cid':
-        filtered = patients.filter(patient => 
-          patient.CID && patient.CID.toLowerCase().includes(normalizedTerm)
-        );
-        break;
-      case 'operadora':
-        filtered = patients.filter(patient => 
-          patient.Operadora && patient.Operadora.toLowerCase().includes(normalizedTerm)
-        );
-        break;
-      case 'prestador':
-        filtered = patients.filter(patient => 
-          patient.Prestador && patient.Prestador.toLowerCase().includes(normalizedTerm)
-        );
-        break;
-      case 'finalidade':
-        filtered = patients.filter(patient => 
-          patient.Finalidade && patient.Finalidade.toLowerCase().includes(normalizedTerm)
-        );
-        break;
-      default:
-        // Search in all fields if type not recognized
-        filtered = patients.filter(patient => 
-          (patient.Nome && patient.Nome.toLowerCase().includes(normalizedTerm)) ||
-          (patient.Paciente_Codigo && String(patient.Paciente_Codigo).toLowerCase().includes(normalizedTerm)) ||
-          (patient.CID && patient.CID.toLowerCase().includes(normalizedTerm))
-        );
-    }
-    
-    // Cache the search results
-    if (isCacheEnabled) {
-      try {
-        const searchData = {
-          results: filtered,
-          expiry: Date.now() + (5 * 60 * 1000) // 5 minutes expiry for search results
-        };
-        
-        localStorage.setItem(searchCacheKey, JSON.stringify(searchData));
-      } catch (error) {
-        console.error("Error caching search results:", error);
-      }
-    }
-    
-    setFilteredPatients(filtered);
-    return filtered;
-  };
 
-  // Enhanced addPatient with cache update
+  // MODIFICADO: addPatient para recarregar após adição
   const addPatient = async (patientData) => {
     try {
       setLoading(true);
       
-      // Make the API call
       const response = await fetch(`${API_BASE_URL}/create_paciente.php`, {
         method: 'POST',
         headers: {
@@ -556,54 +456,39 @@ export const PatientProvider = ({ children }) => {
       }
       
       const data = await response.json();
-      
-      // Get the new patient ID
       const newPatientId = data.id;
       
       if (!newPatientId) {
         throw new Error("Invalid response from server");
       }
       
-      // Create a complete patient object with the new ID
-      const newPatient = {
-        ...patientData,
-        id: newPatientId
-      };
+      showSuccessAlert("Paciente adicionado com sucesso");
       
-      // Update local state
-      setPatients(prev => [...prev, newPatient]);
-      setFilteredPatients(prev => [...prev, newPatient]);
+      // Recarregar dados após adição
+      forceRevalidation();
+      await loadPatients(true, currentPage, pageSize);
       
-      // Update cache
-      addPatientToCache(newPatient);
-      
-      // Mark cache as updated
-      updateWriteTimestamp();
-      
-      showSuccessAlert("Patient added successfully");
       return newPatientId;
       
     } catch (error) {
       console.error("Error adding patient:", error);
-      showErrorAlert("Error adding patient", error.message);
+      showErrorAlert("Erro ao adicionar paciente", error.message);
       throw error;
     } finally {
       setLoading(false);
     }
   };
   
-  // Enhanced updatePatient with cache update
+  // MODIFICADO: updatePatient para recarregar após atualização
   const updatePatient = async (patientId, patientData) => {
     try {
       setLoading(true);
       
-      // Ensure ID is in the data object
       const updateData = {
         ...patientData,
         id: patientId
       };
       
-      // Make the API call
       const response = await fetch(`${API_BASE_URL}/update_paciente.php`, {
         method: 'POST',
         headers: {
@@ -616,40 +501,28 @@ export const PatientProvider = ({ children }) => {
         throw new Error(`Error updating patient: ${response.status}`);
       }
       
-      // Update local state
-      setPatients(prev => 
-        prev.map(p => p.id === patientId ? { ...p, ...patientData } : p)
-      );
+      showSuccessAlert("Paciente atualizado com sucesso");
       
-      setFilteredPatients(prev => 
-        prev.map(p => p.id === patientId ? { ...p, ...patientData } : p)
-      );
+      // Recarregar dados após atualização
+      forceRevalidation();
+      await loadPatients(true, currentPage, pageSize);
       
-      if (selectedPatient?.id === patientId) {
-        setSelectedPatient({ ...selectedPatient, ...patientData });
-      }
-      
-      // Update cache
-      updatePatientInCache({ ...patientData, id: patientId });
-      
-      showSuccessAlert("Patient updated successfully");
       return true;
       
     } catch (error) {
       console.error("Error updating patient:", error);
-      showErrorAlert("Error updating patient", error.message);
+      showErrorAlert("Erro ao atualizar paciente", error.message);
       throw error;
     } finally {
       setLoading(false);
     }
   };
   
-  // Enhanced deletePatient with cache update
+  // MODIFICADO: deletePatient para recarregar após exclusão
   const deletePatient = async (patientId) => {
     try {
       setLoading(true);
       
-      // Make the API call
       const response = await fetch(`${API_BASE_URL}/delete_paciente.php?id=${patientId}`, {
         method: 'DELETE'
       });
@@ -658,47 +531,42 @@ export const PatientProvider = ({ children }) => {
         throw new Error(`Error deleting patient: ${response.status}`);
       }
       
-      // Update local state
-      setPatients(prev => prev.filter(p => p.id !== patientId));
-      setFilteredPatients(prev => prev.filter(p => p.id !== patientId));
-      
       if (selectedPatient?.id === patientId) {
         setSelectedPatient(null);
       }
       
-      // Update cache
-      removePatientFromCache(patientId);
+      showSuccessAlert("Paciente excluído com sucesso");
       
-      showSuccessAlert("Patient deleted successfully");
+      // Recarregar dados após exclusão
+      forceRevalidation();
+      await loadPatients(true, currentPage, pageSize);
+      
       return true;
       
     } catch (error) {
       console.error("Error deleting patient:", error);
-      showErrorAlert("Error deleting patient", error.message);
+      showErrorAlert("Erro ao excluir paciente", error.message);
       throw error;
     } finally {
       setLoading(false);
     }
   };
   
-  // Enhanced selectPatient with caching for detailed patient
+  // selectPatient sem modificações significativas
   const selectPatient = async (patientId) => {
-    // If patientId is null, clear the selection and return
     if (patientId === null) {
       setSelectedPatient(null);
       return;
     }
     
     try {
-      // Check if patient exists in the current state
-      const existingPatient = patients.find(p => p.id === patientId);
+      const existingPatient = filteredPatients.find(p => p.id === patientId);
       
       if (existingPatient) {
         setSelectedPatient(existingPatient);
         return;
       }
       
-      // Try to fetch from API
       const response = await fetch(`${API_BASE_URL}/get_paciente_by_id.php?id=${patientId}`);
       
       if (!response.ok) {
@@ -708,43 +576,24 @@ export const PatientProvider = ({ children }) => {
       const patientData = await response.json();
       setSelectedPatient(patientData);
       
-      // Update the main patient list with this detailed data
-      setPatients(prev => {
-        const index = prev.findIndex(p => p.id === patientId);
-        
-        if (index >= 0) {
-          // Replace existing patient with detailed data
-          const updatedList = [...prev];
-          updatedList[index] = patientData;
-          return updatedList;
-        } else {
-          // Add the new patient to the list
-          return [...prev, patientData];
-        }
-      });
-      
     } catch (error) {
       console.error("Error selecting patient:", error);
-      showErrorAlert("Error loading patient details", error.message);
+      showErrorAlert("Erro ao carregar detalhes do paciente", error.message);
     }
   };
   
-  // Reload all data (used for cache management)
+  // MODIFICADO: reloadAllData para considerar paginação
   const reloadAllData = async () => {
-    await loadPatients(true);
+    await loadPatients(true, 1, pageSize);
     await loadReferenceData();
     return true;
   };
   
-  // Function to refresh data after modifying a patient
+  // MODIFICADO: refreshDataAfterModification para considerar paginação
   const refreshDataAfterModification = async () => {
     try {
-      // Mark cache for revalidation
       forceRevalidation();
-      
-      // Reload data
-      await loadPatients(true);
-      
+      await loadPatients(true, currentPage, pageSize);
       return true;
     } catch (error) {
       console.error("Error refreshing data after modification:", error);
@@ -752,7 +601,7 @@ export const PatientProvider = ({ children }) => {
     }
   };
   
-  // Calculator functions (no changes needed here)
+  // Funções de cálculo (sem modificações)
   const calculateAUC = (peso, idade, creatinina, sexo) => {
     if (peso <= 0 || idade <= 0 || creatinina <= 0 || !['M', 'F'].includes(sexo)) {
       return 'Invalid parameters';
@@ -777,7 +626,7 @@ export const PatientProvider = ({ children }) => {
     return sc.toFixed(4);
   };
   
-  // Initialize data when context is first used
+  // Inicializar dados (sem modificações significativas)
   useEffect(() => {
     if (!initialized) {
       loadPatients();
@@ -785,7 +634,7 @@ export const PatientProvider = ({ children }) => {
     }
   }, [initialized]);
   
-  // Export context values
+  // Exportar valores do contexto (com adições para paginação)
   const value = {
     patients,
     filteredPatients,
@@ -804,6 +653,11 @@ export const PatientProvider = ({ children }) => {
     dataSource,
     totalRecords,
     
+    // NOVO: Informações de paginação
+    currentPage,
+    pageSize,
+    totalPages,
+    
     // Core functions
     setSelectedPatient,
     loadPatients,
@@ -813,6 +667,10 @@ export const PatientProvider = ({ children }) => {
     deletePatient,
     selectPatient,
     loadReferenceData,
+    
+    // NOVO: Funções de paginação
+    changePage,
+    changePageSize,
     
     // Cache management functions
     toggleCache,

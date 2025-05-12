@@ -7,6 +7,7 @@ import { useToast } from '../../../components/ui/Toast';
 import CIDSelection from '../../../components/pacientes/CIDSelection';
 import ProtocoloSelection from '../../../components/pacientes/ProtocoloSelection';
 import PreviasCacheControl from '../../../components/PreviasCacheControl'; // New import for cache control component
+
 import {
   Search, X, UserPlus, Save, Paperclip, Download, Trash2, Eye,
   Upload, Calendar, BarChart3, Clock, PlusCircle, ChevronDown,
@@ -69,11 +70,19 @@ const NovaPreviaView = () => {
   // Estados para dados do paciente
   const { 
     patients, 
-    searchPatients, 
+    searchPatients,  // Certifique-se de que isso esteja aqui
     selectedPatient,
-    selectPatient
+    selectPatient,
+    loading: patientContextLoading, // Adicione isto
+    pageSize: contextPageSize,     // Adicione isto
+    changePage                     // Adicione isto
   } = usePatient();
   
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchPage, setSearchPage] = useState(1);
+  const [searchTotalPages, setSearchTotalPages] = useState(0);
+
   // Estado para filtragem de pacientes
   const [filteredPatients, setFilteredPatients] = useState([]);
   
@@ -166,18 +175,106 @@ const NovaPreviaView = () => {
   useEffect(() => {
     if (localSearchTerm.trim() === '') {
       setFilteredPatients([]);
+      setSearchResults([]);
       return;
     }
-    
-    const normalizedSearchTerm = localSearchTerm.toLowerCase();
-    const filtered = patients.filter(patient => 
-      (patient.Nome && patient.Nome.toLowerCase().includes(normalizedSearchTerm)) ||
-      (patient.Paciente_Codigo && String(patient.Paciente_Codigo).includes(normalizedSearchTerm))
-    );
-    
-    setFilteredPatients(filtered);
-  }, [localSearchTerm, patients]);
   
+    // Debounce para não fazer muitas requisições
+    const timer = setTimeout(() => {
+      handleSearchPatients(localSearchTerm);
+    }, 300);
+  
+    return () => clearTimeout(timer);
+  }, [localSearchTerm]);
+
+  const handleSearchPatients = async (term, page = 1) => {
+    if (term.trim().length < 2) return;
+    
+    try {
+      setIsSearching(true);
+      // Buscar resultados da API
+      const results = await searchPatients(term, 'nome', page, 1000);
+      
+      // Ordenar resultados por relevância
+      const sortedResults = [...results].sort((a, b) => {
+        const scoreA = calculateRelevanceScore(a, term);
+        const scoreB = calculateRelevanceScore(b, term);
+        return scoreB - scoreA; // Ordem decrescente de pontuação
+      });
+      
+      // Se estamos carregando a primeira página, substituir completamente
+      if (page === 1) {
+        setSearchResults(sortedResults);
+        setFilteredPatients(sortedResults);
+      } else {
+        // Se estamos carregando mais páginas, anexar aos resultados existentes
+        // e reordenar tudo junto
+        const allResults = [...searchResults, ...sortedResults];
+        const uniqueResults = removeDuplicates(allResults, 'id');
+        
+        // Ordenar todos os resultados combinados
+        const allSorted = uniqueResults.sort((a, b) => {
+          const scoreA = calculateRelevanceScore(a, term);
+          const scoreB = calculateRelevanceScore(b, term);
+          return scoreB - scoreA;
+        });
+        
+        setSearchResults(allSorted);
+        setFilteredPatients(allSorted);
+      }
+      
+      setSearchPage(page);
+      setSearchTotalPages(results.totalPages || 1);
+      
+    } catch (error) {
+      console.error("Erro ao buscar pacientes:", error);
+      toast({
+        title: "Erro na busca",
+        description: "Ocorreu um erro ao buscar pacientes",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const removeDuplicates = (array, key) => {
+    return array.filter((item, index, self) =>
+      index === self.findIndex((t) => t[key] === item[key])
+    );
+  };
+  
+  const loadMoreResults = async () => {
+    if (searchPage >= searchTotalPages) return;
+    
+    try {
+      setIsSearching(true);
+      const nextPage = searchPage + 1;
+      const moreResults = await searchPatients(localSearchTerm, 'nome', nextPage, 1000);
+      
+      // Combinar resultados existentes com novos
+      const combinedResults = [...searchResults, ...moreResults];
+      
+      // Remover duplicatas (caso existam)
+      const uniqueResults = removeDuplicates(combinedResults, 'id');
+      
+      // Ordenar por relevância
+      const sortedResults = uniqueResults.sort((a, b) => {
+        const scoreA = calculateRelevanceScore(a, localSearchTerm);
+        const scoreB = calculateRelevanceScore(b, localSearchTerm);
+        return scoreB - scoreA;
+      });
+      
+      setSearchResults(sortedResults);
+      setFilteredPatients(sortedResults);
+      setSearchPage(nextPage);
+    } catch (error) {
+      console.error("Erro ao carregar mais resultados:", error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   // Efeito para carregar histórico do paciente quando um paciente é selecionado
   useEffect(() => {
     if (selectedPatient) {
@@ -340,9 +437,12 @@ const NovaPreviaView = () => {
     return `${day}/${month}/${year}`;
   }
   
+  const [localPatientId, setLocalPatientId] = useState(null);
+
   // Função para lidar com a seleção de um paciente
   const handleSelectPatient = (patient) => {
     selectPatient(patient.id);
+    setLocalPatientId(patient.id); // Guarda o ID localmente também
     setShowSearchModal(false);
   };
   
@@ -548,13 +648,24 @@ const NovaPreviaView = () => {
       });
       return;
     }
+
+    // ADICIONAR ESTA VERIFICAÇÃO:
+    if (!selectedPatient || !selectedPatient.id) {
+      toast({
+        title: "Erro de dados",
+        description: "Não foi possível identificar o paciente selecionado. Por favor, selecione o paciente novamente.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       // Preparar dados para envio
       const dadosPrevia = {
         // Incluir id apenas se estiver editando
         ...(formData.id ? { id: formData.id } : {}),
-        paciente_id: selectedPatient.id,
+        paciente_id: (selectedPatient && selectedPatient.id) || localPatientId,
         guia: formData.guia,
         protocolo: formData.protocolo,
         cid: formData.cid,
@@ -573,6 +684,8 @@ const NovaPreviaView = () => {
           is_full_cycle: entry.fullCycle ? 1 : 0
         }))
       };
+
+      console.log("Dados enviados:", dadosPrevia);
       
       let response;
       
@@ -640,6 +753,43 @@ const NovaPreviaView = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Adicione esta função antes do return do componente NovaPreviaView
+  const handleAlturaChange = (e) => {
+    // Obtém o valor digitado e remove qualquer caractere não numérico ou ponto
+    let value = e.target.value.replace(/[^\d.]/g, '');
+    
+    // Remove pontos extras (mantém apenas o primeiro ponto)
+    if (value.split('.').length > 2) {
+      const parts = value.split('.');
+      value = parts[0] + '.' + parts.slice(1).join('');
+    }
+    
+    // Caso especial: se for um valor como "190" (centímetros)
+    if (!value.includes('.') && value.length >= 3 && parseFloat(value) > 3) {
+      // Converte de centímetros para metros (ex: 190 -> 1.90)
+      value = (parseFloat(value) / 100).toFixed(2);
+    } 
+    // Se for um valor de 2 dígitos sem ponto, adiciona o ponto após o primeiro dígito
+    else if (!value.includes('.') && value.length === 2) {
+      value = value.substring(0, 1) + '.' + value.substring(1);
+    }
+    // Se for um valor de 1 dígito, deixa como está
+    
+    // Limita a 2 casas decimais
+    if (value.includes('.')) {
+      const parts = value.split('.');
+      if (parts[1].length > 2) {
+        value = parts[0] + '.' + parts[1].substring(0, 2);
+      }
+    }
+    
+    // Atualiza o estado formData
+    setFormData(prev => ({
+      ...prev,
+      altura: value
+    }));
   };
   
   // Modificado para usar o contexto com cache
@@ -1630,6 +1780,66 @@ const NovaPreviaView = () => {
       }
     }
   }, [selectedPatient]);
+
+  /**
+   * Calcula a pontuação de relevância para um paciente com base no termo de busca
+   * @param {Object} patient - O objeto do paciente
+   * @param {string} searchTerm - O termo de busca
+   * @returns {number} Pontuação de relevância (maior = mais relevante)
+   */
+  const calculateRelevanceScore = (patient, searchTerm) => {
+    if (!patient || !searchTerm) return 0;
+    
+    const term = searchTerm.toLowerCase().trim();
+    const name = (patient.Nome || '').toLowerCase();
+    const code = (patient.Paciente_Codigo || '').toString().toLowerCase();
+    
+    // Pontuação inicial
+    let score = 0;
+    
+    // Correspondência exata no nome completo (prioridade máxima)
+    if (name === term) {
+      score += 1000;
+    }
+    
+    // Correspondência exata no código (alta prioridade)
+    if (code === term) {
+      score += 900;
+    }
+    
+    // Nome começa com o termo (muito alta prioridade)
+    if (name.startsWith(term)) {
+      score += 800;
+    }
+    
+    // Correspondência no início de qualquer palavra do nome (alta prioridade)
+    const nameParts = name.split(' ');
+    if (nameParts.some(part => part.startsWith(term))) {
+      score += 700;
+    }
+    
+    // Código começa com o termo (prioridade média-alta)
+    if (code.startsWith(term)) {
+      score += 600;
+    }
+    
+    // Nome contém o termo como substring (prioridade média)
+    if (name.includes(term)) {
+      score += 500;
+    }
+    
+    // Código contém o termo como substring (prioridade média-baixa)
+    if (code.includes(term)) {
+      score += 400;
+    }
+    
+    // Penalidade baseada na diferença de comprimento entre o nome e o termo
+    // (para favorecer correspondências mais próximas do tamanho do termo)
+    const lengthDifference = Math.abs(name.length - term.length);
+    score -= lengthDifference;
+    
+    return score;
+  };
   
   return (
     <motion.div 
@@ -1699,7 +1909,21 @@ const NovaPreviaView = () => {
                   Nenhum paciente encontrado com este termo.
                 </p>
               ) : null}
-              
+              {isSearching && (
+                <div className="flex justify-center my-4">
+                  <div className="loading-spinner w-8 h-8 border-2 border-t-blue-500"></div>
+                </div>
+              )}
+
+              {/* Botão para carregar mais resultados */}
+              {!isSearching && searchResults.length > 0 && searchPage < searchTotalPages && (
+                <button 
+                  className="w-full py-2 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 mt-4"
+                  onClick={loadMoreResults}
+                >
+                  Carregar mais resultados
+                </button>
+              )}
               <button 
                 className="new-patient-button"
                 onClick={handleNewPatient}
@@ -1983,9 +2207,9 @@ const NovaPreviaView = () => {
                   id="altura"
                   name="altura"
                   value={formData.altura}
-                  onChange={handleInputChange}
+                  onChange={handleAlturaChange}
                   className="form-input"
-                  placeholder="Altura em metros"
+                  placeholder="Altura em metros (ex: 1.70)"
                 />
               </div>
             </div>

@@ -2851,7 +2851,7 @@ function ServicoRelacionadaContent() {
                 
                 {/* Seletor de ordenação ao lado do campo de busca */}
                 <div className="sr-search-controls">
-                  <DataRefreshButton />
+                  <DataRefreshButton contextType="service" />
                   <div className="sr-sort-container">
                     <select 
                       className="sr-sort-select" 
