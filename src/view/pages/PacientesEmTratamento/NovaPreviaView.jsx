@@ -567,7 +567,7 @@ const NovaPreviaView = () => {
             name: result.nome_arquivo,
             size: result.tamanho,
             type: result.tipo,
-            download_url: `https://apiteste.lowcostonco.com.br/backend-php/api/Previas/download_anexo.php?id=${result.id}`
+            download_url: `https://api.lowcostonco.com.br/backend-php/api/Previas/download_anexo.php?id=${result.id}` //AQUI MUDAR
           };
           
           setAttachments(prev => [...prev, newAttachment]);
@@ -1177,11 +1177,11 @@ const NovaPreviaView = () => {
     
     // Função para gerar URLs
     const getViewUrl = (id) => {
-      return `https://apiteste.lowcostonco.com.br/backend-php/api/Previas/view_anexo.php?id=${id}`;
+      return `https://api.lowcostonco.com.br/backend-php/api/Previas/view_anexo.php?id=${id}`; //AQUI MUDAR
     };
     
     const getDownloadUrl = (id) => {
-      return `https://apiteste.lowcostonco.com.br/backend-php/api/Previas/download_anexo.php?id=${id}`;
+      return `https://api.lowcostonco.com.br/backend-php/api/Previas/download_anexo.php?id=${id}`; //AQUI MUDAR
     };
     
     // Manipulação de erros
@@ -1653,7 +1653,7 @@ const NovaPreviaView = () => {
     // Opções para os campos de status
     const parecerGuiaOptions = [
       { value: "Favorável", icon: <Check size={18} className="text-green-600" />, color: "bg-green-100 border-green-200" },
-      { value: "Favorável c/ inconsistência", icon: <AlertCircle size={18} className="text-orange-600" />, color: "bg-orange-100 border-orange-200" },
+      { value: "Favorável com inconsistência", icon: <AlertCircle size={18} className="text-orange-600" />, color: "bg-orange-100 border-orange-200" },
       { value: "Inconclusivo", icon: <HelpCircle size={18} className="text-yellow-600" />, color: "bg-yellow-100 border-yellow-200" },
       { value: "Desfavorável", icon: <X size={18} className="text-red-600" />, color: "bg-red-100 border-red-200" }
     ];

@@ -19,9 +19,11 @@ import '../../../components/pacientes/ProtocoloFlipCard.css';
 // Definições das constantes para as opções predefinidas
 const UNIDADES_MEDIDA_PREDEFINIDAS = [
   { id: 'Mg', sigla: 'Mg', nome: 'Miligrama' },
-  { id: 'Mg2', sigla: 'Mg2', nome: 'Miligrama por m²' },
+  { id: 'Mgm2', sigla: 'Mgm2', nome: 'Miligrama por m2' }, 
   { id: 'MgKg', sigla: 'MgKg', nome: 'Miligrama por quilograma' },
-  { id: 'AUC', sigla: 'AUC', nome: 'Área sob a curva' }
+  { id: 'AUC', sigla: 'AUC', nome: 'Área sob a curva' },
+  { id: 'UI', sigla: 'UI', nome: 'Unidade Internacional' }, // Nova unidade
+  { id: 'mcg', sigla: 'mcg', nome: 'Micrograma' } // Nova unidade
 ];
 
 const FREQUENCIAS_ADMINISTRACAO = [

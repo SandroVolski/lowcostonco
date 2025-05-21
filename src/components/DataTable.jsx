@@ -79,8 +79,8 @@ const EditableCell = ({
   dropdownOptions,
   isDropdown,
   dropdownType,
-  onDropdownChange, // Nova prop para lidar especificamente com dropdowns
-  isNew // Flag para indicar se é uma célula de adição ou edição
+  onDropdownChange,
+  isNew
 }) => {
   const [value, setValue] = useState(initialValue);
   const inputRef = useRef(null);
@@ -93,7 +93,6 @@ const EditableCell = ({
   }, []);
   
   const handleBlur = () => {
-    // Para inputs normais, usamos o onUpdate normal
     if (!isDropdown) {
       onUpdate(rowId, columnId, value);
     }
@@ -103,7 +102,6 @@ const EditableCell = ({
     const newValue = e.target.value;
     setValue(newValue);
     
-    // Para dropdowns, chamamos onDropdownChange para permitir autopreenchimento
     if (isDropdown && onDropdownChange) {
       onDropdownChange(e, dropdownType, rowId === 'new-row');
     }
@@ -111,43 +109,57 @@ const EditableCell = ({
   
   const handleClick = (e) => {
     e.stopPropagation();
+    // Logging crítico para debug
+    if (isDropdown) {
+      console.log(`Dropdown clicado: ${dropdownType}, opções:`, dropdownOptions);
+    }
   };
   
   if (isDropdown) {
+    // Adicionar logging para verificar as opções sendo passadas
+    console.log(`Renderizando dropdown ${dropdownType} com ${dropdownOptions?.length || 0} opções`);
+    
     return (
-      <select
-        ref={inputRef}
-        value={value || ''}
-        onChange={handleDropdownChange}
-        onBlur={handleBlur}
-        onClick={handleClick}
-        className="select-styled w-full p-1 border rounded"
-        data-dropdown-type={dropdownType} // Adicionando atributo para identificar o tipo de dropdown
-        style={{
-          color: '#35524a', 
-          zIndex: 1000,
-          backgroundColor: '#f68484',
-          border: '1px solid rgba(255, 255, 255, 0.5)',
-          borderRadius: '4px',
-          textAlign: 'left' // Garantir alinhamento à esquerda
-        }}
-      >
-        <option value="" style={{ color: '#35524a', textAlign: 'left', paddingLeft: '5px' }}>Selecione...</option>
-        {dropdownOptions?.map((option) => (
-          <option 
-            key={`${option.value}-${option.label}`} 
-            value={option.value} 
-            style={{ 
-              color: '#333', 
-              textAlign: 'left', 
-              paddingLeft: '5px',
-              backgroundColor: 'white'
-            }}
-          >
-            {option.label}
-          </option>
-        ))}
-      </select>
+      <div className="dropdown-container" style={{ position: 'relative' }}>
+        <select
+          ref={inputRef}
+          value={value || ''}
+          onChange={handleDropdownChange}
+          onBlur={handleBlur}
+          onClick={handleClick}
+          className="dropdown-styled"
+          data-dropdown-type={dropdownType}
+          style={{
+            width: '100%',
+            padding: '8px',
+            color: '#35524a', 
+            backgroundColor: '#f68484',
+            border: '1px solid rgba(255, 255, 255, 0.5)',
+            borderRadius: '4px',
+            appearance: 'menulist',
+            WebkitAppearance: 'menulist',
+            MozAppearance: 'menulist',
+            position: 'relative',
+            zIndex: 9999
+          }}
+        >
+          <option value="" style={{ color: '#35524a', textAlign: 'left', paddingLeft: '5px' }}>Selecione...</option>
+          {Array.isArray(dropdownOptions) && dropdownOptions.map((option) => (
+            <option 
+              key={`${option.value}-${option.label}`} 
+              value={option.value} 
+              style={{ 
+                color: '#333', 
+                textAlign: 'left', 
+                paddingLeft: '5px',
+                backgroundColor: 'white'
+              }}
+            >
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
     );
   }
   
@@ -181,7 +193,11 @@ const selectStyles = `
   }
 
   select {
-    text-align: left !important;
+    position: relative;
+    z-index: 5000 !important;
+    appearance: menulist !important;
+    -webkit-appearance: menulist !important;
+    -moz-appearance: menulist !important;
   }
 
   /* Estilo específico para as opções do select de Princípio Ativo */
@@ -307,9 +323,12 @@ export const DataTable = forwardRef(({
     'ID': 'id',
     'Cod': 'Cod',
     'Código TUSS': 'Codigo_TUSS',
-    'Descricao_Apresentacao': 'Descricao_Apresentacao',
+    'Código Celos': 'Codigo_Celos', // Adicionado
+    'Descricao_Padronizada': 'Descricao_Padronizada', // Modificado
     'Descricao_Resumida': 'Descricao_Resumida',
     'Descricao_Comercial': 'Descricao_Comercial',
+    'Descricao_Comercial_Completa': 'Descricao_Comercial_Completa', // Adicionado
+    'Descricao_TUSS': 'Descricao_TUSS', // Adicionado
     'Concentracao': 'Concentracao',
     'Fracionamento': 'Fracionamento',
     'Laboratorio': 'Laboratorio',
@@ -519,7 +538,7 @@ export const DataTable = forwardRef(({
 
   const columnOrder = [
     "ID", "Cod", "Código TUSS", "Registro Visa", " Tabela ", "Via_Administração",
-    "Classe_Farmaceutica", "Princípio Ativo", "Armazenamento", "Descricao_Apresentacao",
+    "Classe_Farmaceutica", "Princípio Ativo", "Armazenamento", "Descricao_Padronizada",
     "Descricao_Resumida", "Descricao_Comercial", "Medicamento", "Unidade Fracionamento",
     "Fator_Conversão", "Concentracao", "Fracionamento", "Laboratorio", "Taxas", "Uso", "Revisado_Farma", "Revisado_ADM"
   ];
@@ -544,6 +563,15 @@ export const DataTable = forwardRef(({
 
   // Função para criar opções de dropdown baseadas no tipo
   const getDropdownOptions = (type) => {
+    console.log(`Obtendo opções para dropdown: ${type}, dropdownOptions disponível:`, dropdownOptions);
+    
+    // Verificação de segurança
+    if (!dropdownOptions) {
+      console.error('dropdownOptions é undefined ou null!');
+      return [];
+    }
+    
+    let result = [];
     switch(type) {
       case 'PrincipioAtivo':
         if (Array.isArray(dropdownOptions?.principioAtivo)) {
@@ -589,19 +617,26 @@ export const DataTable = forwardRef(({
         }
         break;
       case 'ClasseFarmaceutica':
-        if (Array.isArray(dropdownOptions?.classeFarmaceutica)) {
-          return dropdownOptions.classeFarmaceutica.map(classe => ({
+        if (Array.isArray(dropdownOptions.classeFarmaceutica)) {
+          console.log(`Encontradas ${dropdownOptions.classeFarmaceutica.length} opções para ClasseFarmaceutica`);
+          result = dropdownOptions.classeFarmaceutica.map(classe => ({
             value: classe.id_medicamento,
             label: classe.ClasseFarmaceutica
           }));
+        } else {
+          console.error('dropdownOptions.classeFarmaceutica não é um array!', dropdownOptions.classeFarmaceutica);
         }
         break;
+        
       case 'Armazenamento':
-        if (Array.isArray(dropdownOptions?.armazenamento)) {
-          return dropdownOptions.armazenamento.map(arm => ({
+        if (Array.isArray(dropdownOptions.armazenamento)) {
+          console.log(`Encontradas ${dropdownOptions.armazenamento.length} opções para Armazenamento`);
+          result = dropdownOptions.armazenamento.map(arm => ({
             value: arm.idArmazenamento,
             label: arm.Armazenamento
           }));
+        } else {
+          console.error('dropdownOptions.armazenamento não é um array!', dropdownOptions.armazenamento);
         }
         break;
       case 'tipo_medicamento':
@@ -730,18 +765,24 @@ export const DataTable = forwardRef(({
     
     return (
       <div 
-        className="editable-cell-trigger p-1 min-h-[30px] cursor-pointer flex items-center justify-center"
+        className="editable-cell-trigger cursor-pointer"
         style={{
           backgroundColor: '#f68484',
           color: '#f1f1f1',
           border: '1px solid rgba(255, 255, 255, 0.5)',
           borderRadius: '4px',
-          position: 'relative',
-          paddingRight: isDropdownField ? '20px' : '8px'
+          padding: '8px',
+          minHeight: '30px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative'
         }}
         onClick={(e) => {
           e.stopPropagation();
-          startEditing('new-row', field, cellValue, isDropdownField, actualDropdownType);
+          e.preventDefault();
+          console.log(`Clique na célula: ${header}, campo: ${field}, tipo: ${dropdownType}`);
+          startEditing(rowId, field, value, isDropdownField, dropdownType);
         }}
       >
         {displayValue || <span style={{color: '#35524a'}}>Selecione...</span>}
@@ -754,6 +795,7 @@ export const DataTable = forwardRef(({
         )}
       </div>
     );
+    console.log(`Renderizando dropdown para ${header}, tipo: ${dropdownType}, opções:`, dropdownOpts);
   };
 
   // Função para renderizar input para célula principal em modo de adição
@@ -877,6 +919,8 @@ export const DataTable = forwardRef(({
         return renderEditableAddCell(header, 'Cod');
       case "Código TUSS":
         return renderEditableAddCell(header, 'Codigo_TUSS');
+      case "Código Celos":
+        return renderEditableAddCell(header, 'Codigo_Celos');
       case "Via_Administração":
         return (
           <div onClick={(e) => e.stopPropagation()}>
@@ -889,6 +933,7 @@ export const DataTable = forwardRef(({
           </div>
         );
       case "Classe_Farmaceutica":
+        console.log("Renderizando Classe Farmacêutica");
         return (
           <div onClick={(e) => e.stopPropagation()}>
             {renderEditableAddCell(header, 'idClasseFarmaceutica', 'ClasseFarmaceutica')}
@@ -900,6 +945,7 @@ export const DataTable = forwardRef(({
           </div>
         );
       case "Armazenamento":
+        console.log("Renderizando Armazenamento");
         return (
           <div onClick={(e) => e.stopPropagation()}>
             {renderEditableAddCell(header, 'idArmazenamento', 'Armazenamento')}
@@ -910,12 +956,16 @@ export const DataTable = forwardRef(({
             )}
           </div>
         );
-      case "Descricao_Apresentacao":
-        return renderEditableAddCell(header, 'Descricao_Apresentacao');
+      case "Descricao_Padronizada":
+        return renderEditableAddCell(header, 'Descricao_Padronizada');
       case "Descricao_Resumida":
         return renderEditableAddCell(header, 'Descricao_Resumida');
       case "Descricao_Comercial":
         return renderEditableAddCell(header, 'Descricao_Comercial');
+      case "Descricao_Comercial_Completa":
+        return renderEditableAddCell(header, 'Descricao_Comercial_Completa');
+      case "Descricao_TUSS":
+        return renderEditableAddCell(header, 'Descricao_TUSS');
       case "Medicamento":
         return (
           <div onClick={(e) => e.stopPropagation()}>
@@ -1060,6 +1110,8 @@ export const DataTable = forwardRef(({
     const isCurrentEditing = editingCell.rowId === rowId && 
                              editingCell.columnId === field;
     
+    console.log(`Renderizando célula editável: header=${header}, field=${field}, dropdownType=${dropdownType}`);
+  
     // Verifica se este campo deve ser um dropdown
     const isDropdownField = [
       "Via_Administração", "Classe_Farmaceutica", "Princípio Ativo", 
@@ -1510,7 +1562,7 @@ export const DataTable = forwardRef(({
       <style jsx>{`
         .editable-cell {
           position: relative;
-          height: 100%;
+          z-index: 1000;
         }
         .editable-cell input,
         .editable-cell select {

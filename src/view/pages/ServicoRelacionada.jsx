@@ -6,6 +6,7 @@ import { useServiceData } from '../../components/ServiceContext';
 import { DropdownOptionsProvider, useDropdownOptions } from '../../components/DropdownOptionsContext';
 import CacheControl from '../../components/CacheControl';
 import DataRefreshButton from '../../components/DataRefreshButton';
+import ScrollableTabs from '../../components/ScrollableTabs'; // Ajuste o caminho conforme sua estrutura de pastas
 
 import '../../App.css';
 import './ServicoRelacionada.css';
@@ -51,7 +52,7 @@ function ServicoRelacionadaContent() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showSearchFilters, setShowSearchFilters] = useState(false);
 
-  const API_BASE_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/ServicoRelacionada";
+  const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api/ServicoRelacionada"; //AQUI MUDAR
 
   // Referências
   const dataTableRef = useRef(null);
@@ -63,9 +64,12 @@ function ServicoRelacionadaContent() {
     return {
       Cod: '',
       Codigo_TUSS: '',
-      Descricao_Apresentacao: '',
+      Codigo_Celos: '',
+      Descricao_Padronizada: '',
       Descricao_Resumida: '',
       Descricao_Comercial: '',
+      Descricao_Comercial_Completa: '',
+      Descricao_TUSS: '',
       Concentracao: '',
       Fracionamento: '',
       Laboratorio: '',
@@ -141,7 +145,19 @@ function ServicoRelacionadaContent() {
       'Tempo infusão': '',
       tempo_infusao: '',
       fator: '',
-      Fator_Conversão: ''
+      Fator_Conversão: '',
+      
+      // NOVOS CAMPOS - Aba Entrada
+      Unidade_Entrada: '',
+      Quantidade_Entrada: '',
+      Unidade_Entrada_Convertida: '',
+      Quantidade_Convertida: '',
+      
+      // NOVOS CAMPOS - Aba Pagamento
+      Unidade_Pagamento_Nao_Fracionado: '',
+      Quantidade_Pagamento_Nao_Fracionado: '',
+      Unidade_Pagamento_Fracionado: '',
+      Quantidade_Pagamento_Fracionado: ''
     };
   };
 
@@ -790,7 +806,7 @@ function ServicoRelacionadaContent() {
       return;
     }
     
-    // Preparar dados para envio
+    // Preparar dados para envio - MANTENHA ESTA LINHA
     const dataToSend = { ...newServiceData };
     
     // Verificar e corrigir campos relacionados
@@ -836,17 +852,92 @@ function ServicoRelacionadaContent() {
       delete dataToSend.fator;
     }
     
+    // Verificar se os campos numéricos são válidos
+    if (dataToSend.Codigo_TUSS) {
+      const numValue = parseInt(dataToSend.Codigo_TUSS, 10);
+      if (isNaN(numValue) || numValue > 2147483647) {
+        showWarningAlert("Valor inválido", "O Código TUSS deve ser um número válido.");
+        return;
+      }
+      dataToSend.Codigo_TUSS = numValue; // Converter para número
+    }
+    
     try {
       setLocalLoading(true);
       
-      const serviceId = await addService(dataToSend);
+      console.log("Enviando dados para criar novo serviço:", dataToSend);
       
-      setIsAdding(false);
-      setNewServiceData(resetNewServiceData());
-      
-      showSuccessPopup({ id: serviceId, cod: dataToSend.Cod }, false, 3000);
-      
-      await refreshDataAfterModification();
+      // Usar uma abordagem mais simples para criar o serviço
+      try {
+        // Tentar o método normal primeiro
+        const serviceId = await addService(dataToSend);
+        
+        setIsAdding(false);
+        setNewServiceData(resetNewServiceData());
+        
+        if (serviceId) {
+          showSuccessPopup({ id: serviceId, cod: dataToSend.Cod }, false, 3000);
+        } else {
+          showSuccessAlert("Serviço adicionado com sucesso!");
+        }
+        
+        await refreshDataAfterModification();
+        
+      } catch (apiError) {
+        // Verificar se a resposta contém HTML
+        if (typeof apiError.message === 'string' && 
+            (apiError.message.includes('<br />') || 
+             apiError.message.includes('Fatal error'))) {
+          
+          console.error('Resposta HTML recebida do servidor:', apiError.message);
+          
+          // Se o erro for de contagem de parâmetros, tente uma abordagem alternativa com campos mínimos
+          if (apiError.message.includes('ArgumentCountError')) {
+            showErrorAlert(
+              "Erro de parâmetros", 
+              "Há um problema com os campos enviados. Tentando abordagem alternativa..."
+            );
+            
+            // Preparar apenas os campos essenciais
+            const essentialData = {
+              Cod: dataToSend.Cod || '',
+              Codigo_TUSS: dataToSend.Codigo_TUSS,
+              Codigo_Celos: dataToSend.Codigo_Celos || '',
+              Descricao_Padronizada: dataToSend.Descricao_Padronizada || '',
+              Descricao_Resumida: dataToSend.Descricao_Resumida || '',
+              Descricao_Comercial: dataToSend.Descricao_Comercial || ''
+            };
+            
+            const response = await fetch(`${API_BASE_URL}/insert_service.php`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(essentialData)
+            });
+            
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error("Erro na abordagem alternativa:", errorText);
+              throw new Error(`Não foi possível adicionar o serviço: ${response.status}`);
+            }
+            
+            showSuccessAlert("Serviço adicionado com sucesso (método alternativo)!");
+            setIsAdding(false);
+            setNewServiceData(resetNewServiceData());
+            await refreshDataAfterModification();
+          } else {
+            // Outro tipo de erro HTML
+            showErrorAlert(
+              "Erro no servidor", 
+              "Ocorreu um erro ao processar sua solicitação. Por favor, tente novamente mais tarde."
+            );
+          }
+        } else {
+          // Erro normal
+          throw apiError;
+        }
+      }
       
     } catch (error) {
       console.error("Erro ao adicionar o serviço:", error);
@@ -867,6 +958,31 @@ function ServicoRelacionadaContent() {
         ...prevData,
         [field]: value
       };
+      
+      // NOVO: Sincronizar o campo Lab com Laboratorio
+      if (field === 'Lab') {
+        updatedData.Laboratorio = value;
+      }
+      // NOVO: E vice-versa se necessário
+      else if (field === 'Laboratorio') {
+        updatedData.Lab = value;
+      }
+      
+      // NOVO: Sincronização dos campos da aba Entrada com Pagamento
+      // Quando campos da aba Entrada são alterados, atualiza automaticamente os da aba Pagamento
+      if (field === 'Unidade_Entrada') {
+        updatedData.Unidade_Pagamento_Nao_Fracionado = value;
+      }
+      else if (field === 'Quantidade_Entrada') {
+        updatedData.Quantidade_Pagamento_Nao_Fracionado = value;
+      }
+      else if (field === 'Unidade_Entrada_Convertida') {
+        updatedData.Unidade_Pagamento_Fracionado = value;
+      }
+      else if (field === 'Quantidade_Convertida') {
+        updatedData.Quantidade_Pagamento_Fracionado = value;
+      }
+      
       console.log("Novo serviço - Dados atualizados:", updatedData);
       return updatedData;
     });
@@ -883,6 +999,31 @@ function ServicoRelacionadaContent() {
         ...prevData,
         [field]: value
       };
+      
+      // NOVO: Sincronizar o campo Lab com Laboratorio
+      if (field === 'Lab') {
+        updatedData.Laboratorio = value;
+      }
+      // NOVO: E vice-versa se necessário
+      else if (field === 'Laboratorio') {
+        updatedData.Lab = value;
+      }
+      
+      // NOVO: Sincronização dos campos da aba Entrada com Pagamento
+      // Quando campos da aba Entrada são alterados, atualiza automaticamente os da aba Pagamento
+      if (field === 'Unidade_Entrada') {
+        updatedData.Unidade_Pagamento_Nao_Fracionado = value;
+      }
+      else if (field === 'Quantidade_Entrada') {
+        updatedData.Quantidade_Pagamento_Nao_Fracionado = value;
+      }
+      else if (field === 'Unidade_Entrada_Convertida') {
+        updatedData.Unidade_Pagamento_Fracionado = value;
+      }
+      else if (field === 'Quantidade_Convertida') {
+        updatedData.Quantidade_Pagamento_Fracionado = value;
+      }
+      
       console.log("Dados atualizados:", updatedData);
       return updatedData;
     });
@@ -1339,7 +1480,7 @@ function ServicoRelacionadaContent() {
     console.log('ID:', service.id);
     console.log('Código:', service.Cod);
     console.log('Código TUSS:', service.Codigo_TUSS, typeof service.Codigo_TUSS);
-    console.log('Descrição Apresentação:', service.Descricao_Apresentacao);
+    console.log('Descrição Apresentação:', service.Descricao_Padronizada);
     console.log('Descrição Resumida:', service.Descricao_Resumida);
     console.log('Descrição Comercial:', service.Descricao_Comercial);
     console.log('Concentração:', service.Concentracao);
@@ -1548,6 +1689,12 @@ function ServicoRelacionadaContent() {
     }
   };
 
+  // Adicione isso dentro do componente ServicoRelacionadaContent, antes do return
+  useEffect(() => {
+    console.log('Opções de Classe Farmacêutica:', dropdownOptions?.classeFarmaceutica);
+    console.log('Opções de Armazenamento:', dropdownOptions?.armazenamento);
+  }, [dropdownOptions]);
+
   // Adicione esta função ao seu componente para normalizar os dados recebidos da API
   const normalizeServiceData = (serviceData) => {
     if (!serviceData) return serviceData;
@@ -1580,6 +1727,14 @@ function ServicoRelacionadaContent() {
     const fieldMappings = {
       // Campo Codigo_TUSS
       'codigoTUSS': 'Codigo_TUSS',
+      'Codigo_Celos': 'Codigo_Celos', // Adicionado
+      // Campo Descricao_Padronizada (anteriormente Descricao_Apresentacao)
+      'Descricao_Abreviada': 'Descricao_Padronizada',
+      'Descricao_Apresentacao': 'Descricao_Padronizada',
+      
+      // Novos campos
+      'Descricao_Comercial_Completa': 'Descricao_Comercial_Completa',
+      'Descricao_TUSS': 'Descricao_TUSS',
       
       // Campos de Tabela
       'Tabela': 'tabela',
@@ -1685,7 +1840,7 @@ function ServicoRelacionadaContent() {
     
     // Descrições
     console.group('Descrições');
-    console.log('Descricao_Apresentacao:', service.Descricao_Apresentacao);
+    console.log('Descricao_Padronizada:', service.Descricao_Padronizada);
     console.log('Descricao_Resumida:', service.Descricao_Resumida);
     console.log('Descricao_Comercial:', service.Descricao_Comercial);
     console.groupEnd();
@@ -1784,6 +1939,7 @@ function ServicoRelacionadaContent() {
     })();
     
     switch (activeSection) {
+      // Modificação na aba 'geral' dentro da função renderSectionFields()
       case 'geral':
         return (
           <div className="sr-section-fields">
@@ -1817,31 +1973,21 @@ function ServicoRelacionadaContent() {
               </div>
               
               <div className="sr-field-container">
-                <label>Via Administração</label>
+                <label>Tabela Celos</label>
                 {isEditable ? (
-                  <select
-                    value={displayData.idViaAdministracao || ''}
-                    onChange={(e) => handleSelectChange(e, 'ViaAdministracao')}
-                    className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
-                  >
-                    {(displayData.idViaAdministracao === undefined || 
-                      displayData.idViaAdministracao === null || 
-                      displayData.idViaAdministracao === '') && 
-                      <option value="">Selecione...</option>}
-                    {dropdownOptions.viaAdministracao?.map(item => (
-                      <option key={item.idviaadministracao} value={item.idviaadministracao}>
-                        {item.Via_administracao}
-                      </option>
-                    ))}
-                  </select>
+                  <input
+                    type="text"
+                    value={displayData.Codigo_Celos || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Codigo_Celos') : handleInputChange(e, 'Codigo_Celos')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
                 ) : (
-                  <div className="sr-field-value sr-read-only">
-                    {getSafeValue(displayData, ['ViaAdministracao', 'Via_administracao', 'Via_Administração'])}
-                  </div>
+                  <div className="sr-field-value sr-read-only">{displayData.Codigo_Celos || '-'}</div>
                 )}
               </div>
             </div>
             
+            {/* O restante do código para a aba Geral permanece o mesmo */}
             <div className="sr-field-row">
               <div className="sr-field-container">
                 <label>Classe Farmacêutica</label>
@@ -1855,7 +2001,7 @@ function ServicoRelacionadaContent() {
                       displayData.idClasseFarmaceutica === null || 
                       displayData.idClasseFarmaceutica === '') && 
                       <option value="">Selecione...</option>}
-                    {dropdownOptions.classeFarmaceutica?.map(item => (
+                    {dropdownOptions?.classeFarmaceutica?.map(item => (
                       <option key={item.id_medicamento} value={item.id_medicamento}>
                         {item.ClasseFarmaceutica}
                       </option>
@@ -1892,7 +2038,7 @@ function ServicoRelacionadaContent() {
                   </div>
                 )}
               </div>
-              
+
               <div className="sr-field-container">
                 <label>Medicamento</label>
                 {isEditable ? (
@@ -1979,23 +2125,7 @@ function ServicoRelacionadaContent() {
             </div>
             
             <div className="sr-field-row">
-              <div className="sr-field-container">
-                <label>Laboratório</label>
-                {isEditable ? (
-                  <input
-                    type="text"
-                    value={displayData.Laboratório || ''}
-                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Laboratório') : handleInputChange(e, 'Laboratório')}
-                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
-                  />
-                ) : (
-                  <div className="sr-field-value sr-read-only">
-                    {displayData.Laboratório || '-'}
-                  </div>
-                )}
-              </div>
-              
-              <div className="sr-field-container">
+              <div className="sr-field-container">  {/* Removi a classe sr-full-width aqui */}
                 <label>Uso</label>
                 {isEditable ? (
                   <input
@@ -2010,39 +2140,36 @@ function ServicoRelacionadaContent() {
                   </div>
                 )}
               </div>
-            </div>
-            
-            
-            <div className="sr-field-row">
+              
               <div className="sr-field-container">
-                <label>Revisado Farma</label>
+                <label>Via Administração</label>
                 {isEditable ? (
                   <select
-                    value={displayData.Revisado_Farma === null ? '' : displayData.Revisado_Farma}
-                    onChange={(e) => {
-                      const value = e.target.value === '' ? null : parseInt(e.target.value, 10);
-                      if (isEditing) {
-                        setEditedData(prev => ({...prev, Revisado_Farma: value}));
-                      } else {
-                        setNewServiceData(prev => ({...prev, Revisado_Farma: value}));
-                      }
-                    }}
+                    value={displayData.idViaAdministracao || ''}
+                    onChange={(e) => handleSelectChange(e, 'ViaAdministracao')}
                     className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
                   >
-                    <option value="">Não definido</option>
-                    <option value="1">Ativo</option>
-                    <option value="0">Inativo</option>
+                    {(displayData.idViaAdministracao === undefined || 
+                      displayData.idViaAdministracao === null || 
+                      displayData.idViaAdministracao === '') && 
+                      <option value="">Selecione...</option>}
+                    {dropdownOptions.viaAdministracao?.map(item => (
+                      <option key={item.idviaadministracao} value={item.idviaadministracao}>
+                        {item.Via_administracao}
+                      </option>
+                    ))}
                   </select>
                 ) : (
                   <div className="sr-field-value sr-read-only">
-                    {displayData.Revisado_Farma === 1 ? 'Ativo' : 
-                    (displayData.Revisado_Farma === 0 ? 'Inativo' : 'Não definido')}
+                    {getSafeValue(displayData, ['ViaAdministracao', 'Via_administracao', 'Via_Administração'])}
                   </div>
                 )}
               </div>
-              
+            </div>
+            
+            <div className="sr-field-row">
               <div className="sr-field-container">
-                <label>Revisado ADM</label>
+                <label>Revisão Administrativa</label> {/* Renomeado de "Revisado ADM" */}
                 {isEditable ? (
                   <select
                     value={displayData.Revisado_ADM === null ? '' : displayData.Revisado_ADM}
@@ -2068,10 +2195,38 @@ function ServicoRelacionadaContent() {
                   </div>
                 )}
               </div>
+            
+              <div className="sr-field-container">
+                <label>Revisão Farmacêutico</label> {/* Renomeado de "Revisado Farma" */}
+                {isEditable ? (
+                  <select
+                    value={displayData.Revisado_Farma === null ? '' : displayData.Revisado_Farma}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? null : parseInt(e.target.value, 10);
+                      if (isEditing) {
+                        setEditedData(prev => ({...prev, Revisado_Farma: value}));
+                      } else {
+                        setNewServiceData(prev => ({...prev, Revisado_Farma: value}));
+                      }
+                    }}
+                    className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
+                  >
+                    <option value="">Não definido</option>
+                    <option value="1">Ativo</option>
+                    <option value="0">Inativo</option>
+                  </select>
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Revisado_Farma === 1 ? 'Ativo' : 
+                    (displayData.Revisado_Farma === 0 ? 'Inativo' : 'Não definido')}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         );
         
+      // Modificação na aba 'descricoes' dentro da função renderSectionFields()
       case 'descricoes':
         return (
           <div className="sr-section-fields">
@@ -2093,23 +2248,23 @@ function ServicoRelacionadaContent() {
             
             <div className="sr-field-row">
               <div className="sr-field-container sr-full-width">
-                <label>Descrição Abreviada</label>
+                <label>Descrição Padronizada</label> {/* Mantém Descricao_Padronizada no banco */}
                 {isEditable ? (
                   <input
                     type="text"
-                    value={displayData.Descricao_Apresentacao || ''}
-                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Descricao_Apresentacao') : handleInputChange(e, 'Descricao_Apresentacao')}
+                    value={displayData.Descricao_Padronizada || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Descricao_Padronizada') : handleInputChange(e, 'Descricao_Padronizada')}
                     className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
                   />
                 ) : (
-                  <div className="sr-field-value sr-read-only">{displayData.Descricao_Apresentacao || '-'}</div>
+                  <div className="sr-field-value sr-read-only">{displayData.Descricao_Padronizada || '-'}</div>
                 )}
               </div>
             </div>
             
             <div className="sr-field-row">
               <div className="sr-field-container sr-full-width">
-                <label>Descrição Comercial</label>
+                <label>Descrição Comercial Resumida</label> {/* Mantém Descricao_Comercial no banco */}
                 {isEditable ? (
                   <input
                     type="text"
@@ -2119,6 +2274,40 @@ function ServicoRelacionadaContent() {
                   />
                 ) : (
                   <div className="sr-field-value sr-read-only">{displayData.Descricao_Comercial || '-'}</div>
+                )}
+              </div>
+            </div>
+            
+            {/* Novo campo: Descrição Comercial Completa */}
+            <div className="sr-field-row">
+              <div className="sr-field-container sr-full-width">
+                <label>Descrição Comercial Completa</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Descricao_Comercial_Completa || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Descricao_Comercial_Completa') : handleInputChange(e, 'Descricao_Comercial_Completa')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.Descricao_Comercial_Completa || '-'}</div>
+                )}
+              </div>
+            </div>
+            
+            {/* Novo campo: Descrição TUSS */}
+            <div className="sr-field-row">
+              <div className="sr-field-container sr-full-width">
+                <label>Descrição TUSS</label>
+                {isEditable ? (
+                  <input
+                    type="text"
+                    value={displayData.Descricao_TUSS || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Descricao_TUSS') : handleInputChange(e, 'Descricao_TUSS')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">{displayData.Descricao_TUSS || '-'}</div>
                 )}
               </div>
             </div>
@@ -2688,6 +2877,197 @@ function ServicoRelacionadaContent() {
             </div>
           </div>
         );
+
+      case 'entrada':
+        return (
+          <div className="sr-section-fields">
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Unidade de Entrada</label>
+                {isEditable ? (
+                  <select
+                    value={displayData.Unidade_Entrada || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Unidade_Entrada') : handleInputChange(e, 'Unidade_Entrada')}
+                    className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
+                  >
+                    <option value="">Selecione...</option>
+                    {dropdownOptions.unidadeFracionamento?.map(item => (
+                      <option key={item.id_unidadefracionamento} value={item.UnidadeFracionamento}>
+                        {item.UnidadeFracionamento} - {item.Descricao || ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Unidade_Entrada || '-'}
+                  </div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Quantidade de Entrada</label>
+                {isEditable ? (
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={displayData.Quantidade_Entrada || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Quantidade_Entrada') : handleInputChange(e, 'Quantidade_Entrada')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Quantidade_Entrada || '-'}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Unidade de Entrada Convertida</label>
+                {isEditable ? (
+                  <select
+                    value={displayData.Unidade_Entrada_Convertida || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Unidade_Entrada_Convertida') : handleInputChange(e, 'Unidade_Entrada_Convertida')}
+                    className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
+                  >
+                    <option value="">Selecione...</option>
+                    {dropdownOptions.unidadeFracionamento?.map(item => (
+                      <option key={item.id_unidadefracionamento} value={item.UnidadeFracionamento}>
+                        {item.UnidadeFracionamento} - {item.Descricao || ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Unidade_Entrada_Convertida || '-'}
+                  </div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Quantidade Convertida</label>
+                {isEditable ? (
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={displayData.Quantidade_Convertida || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Quantidade_Convertida') : handleInputChange(e, 'Quantidade_Convertida')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Quantidade_Convertida || '-'}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'pagamento':
+        return (
+          <div className="sr-section-fields">
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Unidade de Pagamento Não Fracionado</label>
+                {isEditable ? (
+                  <select
+                    value={displayData.Unidade_Pagamento_Nao_Fracionado || displayData.Unidade_Entrada || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Unidade_Pagamento_Nao_Fracionado') : handleInputChange(e, 'Unidade_Pagamento_Nao_Fracionado')}
+                    className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
+                  >
+                    <option value="">Selecione...</option>
+                    {dropdownOptions.unidadeFracionamento?.map(item => (
+                      <option key={item.id_unidadefracionamento} value={item.UnidadeFracionamento}>
+                        {item.UnidadeFracionamento} - {item.Descricao || ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Unidade_Pagamento_Nao_Fracionado || displayData.Unidade_Entrada || '-'}
+                  </div>
+                )}
+                {!isEditable && (
+                  <div className="sr-field-info">(Igual à Unidade de Entrada)</div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Quantidade de Pagamento Não Fracionado</label>
+                {isEditable ? (
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={displayData.Quantidade_Pagamento_Nao_Fracionado || displayData.Quantidade_Entrada || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Quantidade_Pagamento_Nao_Fracionado') : handleInputChange(e, 'Quantidade_Pagamento_Nao_Fracionado')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Quantidade_Pagamento_Nao_Fracionado || displayData.Quantidade_Entrada || '-'}
+                  </div>
+                )}
+                {!isEditable && (
+                  <div className="sr-field-info">(Igual à Quantidade de Entrada)</div>
+                )}
+              </div>
+            </div>
+            
+            <div className="sr-field-row">
+              <div className="sr-field-container">
+                <label>Unidade de Pagamento Fracionado</label>
+                {isEditable ? (
+                  <select
+                    value={displayData.Unidade_Pagamento_Fracionado || displayData.Unidade_Entrada_Convertida || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Unidade_Pagamento_Fracionado') : handleInputChange(e, 'Unidade_Pagamento_Fracionado')}
+                    className={`sr-form-select ${isEditable ? 'sr-editing' : ''}`}
+                  >
+                    <option value="">Selecione...</option>
+                    {dropdownOptions.unidadeFracionamento?.map(item => (
+                      <option key={item.id_unidadefracionamento} value={item.UnidadeFracionamento}>
+                        {item.UnidadeFracionamento} - {item.Descricao || ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Unidade_Pagamento_Fracionado || displayData.Unidade_Entrada_Convertida || '-'}
+                  </div>
+                )}
+                {!isEditable && (
+                  <div className="sr-field-info">(Igual à Unidade de Entrada Convertida)</div>
+                )}
+              </div>
+              
+              <div className="sr-field-container">
+                <label>Quantidade de Pagamento Fracionado</label>
+                {isEditable ? (
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={displayData.Quantidade_Pagamento_Fracionado || displayData.Quantidade_Convertida || ''}
+                    onChange={(e) => isAdding ? handleNewInputChange(e, 'Quantidade_Pagamento_Fracionado') : handleInputChange(e, 'Quantidade_Pagamento_Fracionado')}
+                    className={`sr-form-input ${isEditable ? 'sr-editing' : ''}`}
+                  />
+                ) : (
+                  <div className="sr-field-value sr-read-only">
+                    {displayData.Quantidade_Pagamento_Fracionado || displayData.Quantidade_Convertida || '-'}
+                  </div>
+                )}
+                {!isEditable && (
+                  <div className="sr-field-info">(Igual à Quantidade Convertida)</div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+        
         
       default:
         return null;
@@ -2851,7 +3231,7 @@ function ServicoRelacionadaContent() {
                 
                 {/* Seletor de ordenação ao lado do campo de busca */}
                 <div className="sr-search-controls">
-                  <DataRefreshButton contextType="service" />
+                  <DataRefreshButton />
                   <div className="sr-sort-container">
                     <select 
                       className="sr-sort-select" 
@@ -2892,7 +3272,7 @@ function ServicoRelacionadaContent() {
                         )}
                       </span>
                       <div className="sr-highlight-description">
-                        {enhancedData?.Descricao_Comercial || enhancedData?.Descricao_Apresentacao || '-'}
+                        {enhancedData?.Descricao_Comercial || enhancedData?.Descricao_Padronizada || '-'}
                       </div>
                     </div>
                     <div className="sr-highlight-info">
@@ -2912,50 +3292,12 @@ function ServicoRelacionadaContent() {
                 <div className="sr-details-container">
                   {/* Botões de navegação entre seções (apenas quando há serviço selecionado) */}
                   {(selectedService || isEditing || isAdding) && (
-                    <div className={`sr-navigation-buttons ${(isEditing || isAdding) ? 'sr-centered' : ''}`}>
-                      <button 
-                        className={`sr-nav-button ${activeSection === 'geral' ? 'sr-active' : ''}`}
-                        onClick={() => setActiveSection('geral')}
-                      >
-                        Geral
-                      </button>
-                      <button 
-                        className={`sr-nav-button ${activeSection === 'descricoes' ? 'sr-active' : ''}`}
-                        onClick={() => setActiveSection('descricoes')}
-                      >
-                        Descrição
-                      </button>
-                      <button 
-                        className={`sr-nav-button ${activeSection === 'tabela' ? 'sr-active' : ''}`}
-                        onClick={() => setActiveSection('tabela')}
-                      >
-                        Tabela
-                      </button>
-                      <button 
-                        className={`sr-nav-button ${activeSection === 'principio_ativo' ? 'sr-active' : ''}`}
-                        onClick={() => setActiveSection('principio_ativo')}
-                      >
-                        Princípio Ativo
-                      </button>
-                      <button 
-                        className={`sr-nav-button ${activeSection === 'registro_visa' ? 'sr-active' : ''}`}
-                        onClick={() => setActiveSection('registro_visa')}
-                      >
-                        Registro Visa
-                      </button>
-                      <button 
-                        className={`sr-nav-button ${activeSection === 'unidade_fracionamento' ? 'sr-active' : ''}`}
-                        onClick={() => setActiveSection('unidade_fracionamento')}
-                      >
-                        Unidade Frac.
-                      </button>
-                      <button 
-                        className={`sr-nav-button ${activeSection === 'taxas' ? 'sr-active' : ''}`}
-                        onClick={() => setActiveSection('taxas')}
-                      >
-                        Taxas
-                      </button>
-                    </div>
+                    <ScrollableTabs 
+                      activeSection={activeSection}
+                      setActiveSection={setActiveSection}
+                      isEditing={isEditing}
+                      isAdding={isAdding}
+                    />
                   )}
                   
                   {/* Campos da seção ativa */}

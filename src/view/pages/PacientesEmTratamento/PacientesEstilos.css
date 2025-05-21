@@ -1864,7 +1864,7 @@ padding-left: 40px; /* Ajuste conforme necessário */
   min-width: 32px;
   height: 32px;
   padding: 0 8px;
-  
+
   border-radius: 4px;
   
   color: #333;
@@ -3288,3 +3288,52 @@ padding-left: 40px; /* Ajuste conforme necessário */
   }
 }
 
+/* Adicione estes estilos ao seu arquivo PacientesEstilos.css */
+
+/* Estilo para o novo botão de prévia */
+.action-button-pacientes.previa {
+  color: #e4a94f; /* Laranja/amarelo para se destacar dos outros botões */
+  transition: all 0.2s ease;
+}
+
+.action-button-pacientes.previa:hover {
+  background-color: rgba(228, 169, 79, 0.1);
+  color: #d4892f;
+  transform: translateY(-2px);
+}
+
+/* Ajuste para melhorar o espaçamento da linha de ações quando temos 3 botões */
+.list-item-actions, .card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px; /* Reduzido de 8px para 6px para acomodar melhor os 3 botões */
+}
+
+/* Efeito de transição suave para o botão */
+.action-button-pacientes {
+  transition: transform 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+}
+
+/* Em telas menores, ajuste o tamanho dos botões para acomodar melhor */
+@media (max-width: 768px) {
+  .action-button-pacientes {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .action-button-pacientes svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+/* Efeito de pulso sutil para destacar o novo botão quando a página carrega */
+@keyframes pulse-highlight {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.action-button-pacientes.previa {
+  animation: pulse-highlight 1s ease-in-out;
+}

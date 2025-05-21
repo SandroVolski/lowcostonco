@@ -3,7 +3,7 @@ import React, { createContext, useState, useContext, useEffect, useCallback } fr
 import axios from 'axios';
 import CacheService from '../services/CacheService'; // Add this import
 
-const API_BASE_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/PacientesEmTratamento"; // Sem barra no final
+const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api/PacientesEmTratamento"; // Sem barra no final //AQUI MUDAR
 
 // Cache keys for protocolos
 const CACHE_KEYS = {
@@ -77,9 +77,11 @@ export const ProtocoloProvider = ({ children }) => {
   // No início do ProtocoloContext.jsx, após as importações
   const UNIDADES_MEDIDA_PREDEFINIDAS = [
     { id: 'Mg', sigla: 'Mg', nome: 'Miligrama' },
-    { id: 'Mg2', sigla: 'Mg2', nome: 'Miligrama por m²' },
+    { id: 'Mgm2', sigla: 'Mgm2', nome: 'Miligrama por m2' }, 
     { id: 'MgKg', sigla: 'MgKg', nome: 'Miligrama por quilograma' },
-    { id: 'AUC', sigla: 'AUC', nome: 'Área sob a curva' }
+    { id: 'AUC', sigla: 'AUC', nome: 'Área sob a curva' },
+    { id: 'UI', sigla: 'UI', nome: 'Unidade Internacional' }, // Nova unidade
+    { id: 'mcg', sigla: 'mcg', nome: 'Micrograma' } // Nova unidade
   ];
 
 // Função para converter intervalo de dias para lista individual

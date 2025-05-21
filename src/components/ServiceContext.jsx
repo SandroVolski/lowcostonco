@@ -48,7 +48,7 @@ export const ServiceProvider = ({ children }) => {
     maxAge: CACHE_MAX_AGE_WITHOUT_VALIDATION    // Idade máxima do cache
   });
 
-  const API_BASE_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/ServicoRelacionada";
+  const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api/ServicoRelacionada"; //AQUI MUDAR
 
   // Inicializar o cache
   useEffect(() => {
@@ -382,9 +382,12 @@ export const ServiceProvider = ({ children }) => {
       id: item.id,
       Cod: item.Cod,
       codigoTUSS: item.Codigo_TUSS,
-      Descricao_Apresentacao: item.Descricao_Apresentacao,
+      Codigo_Celos: item.Codigo_Celos,
+      Descricao_Padronizada: item.Descricao_Padronizada,
       Descricao_Resumida: item.Descricao_Resumida,
       Descricao_Comercial: item.Descricao_Comercial,
+      Descricao_Comercial_Completa: item.Descricao_Comercial_Completa,
+      Descricao_TUSS: item.Descricao_TUSS,
       Concentracao: item.Concentracao,
       Unidade_Fracionamento: item.UnidadeFracionamento,
       Fracionamento: item.Fracionamento,
@@ -392,6 +395,16 @@ export const ServiceProvider = ({ children }) => {
       Uso: item.Uso,
       Revisado_Farma: item.Revisado_Farma,
       Revisado_ADM: item.Revisado_ADM,
+      
+      // Novos campos de Entrada e Pagamento
+      Unidade_Entrada: item.Unidade_Entrada,
+      Quantidade_Entrada: item.Quantidade_Entrada,
+      Unidade_Entrada_Convertida: item.Unidade_Entrada_Convertida,
+      Quantidade_Convertida: item.Quantidade_Convertida,
+      Unidade_Pagamento_Nao_Fracionado: item.Unidade_Pagamento_Nao_Fracionado,
+      Quantidade_Pagamento_Nao_Fracionado: item.Quantidade_Pagamento_Nao_Fracionado,
+      Unidade_Pagamento_Fracionado: item.Unidade_Pagamento_Fracionado,
+      Quantidade_Pagamento_Fracionado: item.Quantidade_Pagamento_Fracionado,
       
       // Campos de dRegistro_anvisa
       "RegistroVisa": item.RegistroVisa,
@@ -717,48 +730,97 @@ export const ServiceProvider = ({ children }) => {
     // Cria uma cópia para não modificar o objeto original
     const cleanedData = { ...data };
     
-    // Remove os campos que não devem ser enviados ao backend
-    // e que estão causando erro de tipo no banco de dados
-    delete cleanedData.UnidadeFracionamento;
-    delete cleanedData.Unidade_Fracionamento;
-    delete cleanedData.Descricao;
-    delete cleanedData.UnidadeFracionamentoDescricao;
-    delete cleanedData.PrincipioAtivo;
-    delete cleanedData.PrincipioAtivoClassificado;
-    delete cleanedData.TaxaFinalidade;
-    delete cleanedData.tipo_taxa;
-    delete cleanedData.tempo_infusao;
-    delete cleanedData.ViaAdministracao;
-    delete cleanedData.ClasseFarmaceutica;
-    delete cleanedData.Armazenamento;
-    delete cleanedData.tipo_medicamento;
-    delete cleanedData.Fator_Conversão;
-    delete cleanedData.tabela;
-    delete cleanedData.tabela_classe;
-    delete cleanedData.tabela_tipo;
-    delete cleanedData.finalidade;
-    delete cleanedData.objetivo;
+    // Crie um objeto com a estrutura exata que o backend espera
+    const formattedData = {
+      Cod: cleanedData.Cod || '',
+      Codigo_TUSS: cleanedData.Codigo_TUSS ? parseInt(cleanedData.Codigo_TUSS, 10) : null,
+      Codigo_Celos: cleanedData.Codigo_Celos || '',
+      Descricao_Padronizada: cleanedData.Descricao_Padronizada || '',
+      Descricao_Resumida: cleanedData.Descricao_Resumida || '',
+      Descricao_Comercial: cleanedData.Descricao_Comercial || '',
+      Descricao_Comercial_Completa: cleanedData.Descricao_Comercial_Completa || '',
+      Descricao_TUSS: cleanedData.Descricao_TUSS || '',
+      Concentracao: cleanedData.Concentracao || '',
+      Fracionamento: cleanedData.Fracionamento || '',
+      Laboratorio: cleanedData.Laboratorio || '',
+      Uso: cleanedData.Uso || '',
+      Revisado_Farma: cleanedData.Revisado_Farma !== undefined ? parseInt(cleanedData.Revisado_Farma, 10) : 0,
+      Revisado_ADM: cleanedData.Revisado_ADM !== undefined ? parseInt(cleanedData.Revisado_ADM, 10) : 0,
+      
+      // Novos campos
+      Unidade_Entrada: cleanedData.Unidade_Entrada || '',
+      Quantidade_Entrada: cleanedData.Quantidade_Entrada || null,
+      Unidade_Entrada_Convertida: cleanedData.Unidade_Entrada_Convertida || '',
+      Quantidade_Convertida: cleanedData.Quantidade_Convertida || null,
+      Unidade_Pagamento_Nao_Fracionado: cleanedData.Unidade_Pagamento_Nao_Fracionado || '',
+      Quantidade_Pagamento_Nao_Fracionado: cleanedData.Quantidade_Pagamento_Nao_Fracionado || null,
+      Unidade_Pagamento_Fracionado: cleanedData.Unidade_Pagamento_Fracionado || '',
+      Quantidade_Pagamento_Fracionado: cleanedData.Quantidade_Pagamento_Fracionado || null,
+      
+      // IDs para relacionamentos
+      idPrincipioAtivo: cleanedData.idPrincipioAtivo ? parseInt(cleanedData.idPrincipioAtivo, 10) : null,
+      idRegistroVisa: cleanedData.RegistroVisa || null,
+      idViaAdministracao: cleanedData.idViaAdministracao ? parseInt(cleanedData.idViaAdministracao, 10) : null,
+      idClasseFarmaceutica: cleanedData.idClasseFarmaceutica ? parseInt(cleanedData.idClasseFarmaceutica, 10) : null,
+      idArmazenamento: cleanedData.idArmazenamento ? parseInt(cleanedData.idArmazenamento, 10) : null,
+      idMedicamento: cleanedData.idMedicamento ? parseInt(cleanedData.idMedicamento, 10) : null,
+      idUnidadeFracionamento: cleanedData.idUnidadeFracionamento ? parseInt(cleanedData.idUnidadeFracionamento, 10) : null,
+      idFatorConversao: cleanedData.idFatorConversao ? parseInt(cleanedData.idFatorConversao, 10) : null,
+      idTaxas: cleanedData.idTaxas ? parseInt(cleanedData.idTaxas, 10) : null,
+      idTabela: cleanedData.idTabela ? parseInt(cleanedData.idTabela, 10) : null,
+      
+      // Campos de RegistroVisa
+      RegistroVisa: cleanedData.RegistroVisa || '',
+      Cod_Ggrem: cleanedData.Cod_Ggrem || '',
+      Principio_Ativo: cleanedData.Principio_Ativo || '',
+      Lab: cleanedData.Lab || '',
+      cnpj_lab: cleanedData.cnpj_lab || '',
+      Classe_Terapeutica: cleanedData.Classe_Terapeutica || '',
+      Tipo_Porduto: cleanedData.Tipo_Porduto || '',
+      Regime_Preco: cleanedData.Regime_Preco || '',
+      Restricao_Hosp: cleanedData.Restricao_Hosp || '',
+      Cap: cleanedData.Cap || '',
+      Confaz87: cleanedData.Confaz87 || '',
+      Icms0: cleanedData.Icms0 || '',
+      Lista: cleanedData.Lista || '',
+      Status: cleanedData.Status || ''
+    };
     
-    // Converte IDs para números inteiros
-    const idFields = [
-      'idPrincipioAtivo',
-      'idUnidadeFracionamento',
-      'idTaxas',
-      'idTabela',
-      'idViaAdministracao',
-      'idClasseFarmaceutica',
-      'idArmazenamento',
-      'idMedicamento',
-      'idFatorConversao'
-    ];
-    
-    idFields.forEach(field => {
-      if (cleanedData[field] && typeof cleanedData[field] === 'string') {
-        cleanedData[field] = parseInt(cleanedData[field], 10);
+    // Remover campos undefined
+    Object.keys(formattedData).forEach(key => {
+      if (formattedData[key] === undefined) {
+        formattedData[key] = null;
       }
     });
     
-    return cleanedData;
+    // ADICIONE AQUI - Sincronizar os campos de laboratório entre as tabelas
+    if (formattedData.Lab && !formattedData.Laboratorio) {
+      formattedData.Laboratorio = formattedData.Lab;
+    }
+    // Sincronizar no sentido inverso também
+    if (formattedData.Laboratorio && !formattedData.Lab) {
+      formattedData.Lab = formattedData.Laboratorio;
+    }
+    
+    // Sincronizar campos das abas Entrada e Pagamento se necessário
+    if (formattedData.Unidade_Entrada && !formattedData.Unidade_Pagamento_Nao_Fracionado) {
+      formattedData.Unidade_Pagamento_Nao_Fracionado = formattedData.Unidade_Entrada;
+    }
+    
+    if (formattedData.Quantidade_Entrada && !formattedData.Quantidade_Pagamento_Nao_Fracionado) {
+      formattedData.Quantidade_Pagamento_Nao_Fracionado = formattedData.Quantidade_Entrada;
+    }
+    
+    if (formattedData.Unidade_Entrada_Convertida && !formattedData.Unidade_Pagamento_Fracionado) {
+      formattedData.Unidade_Pagamento_Fracionado = formattedData.Unidade_Entrada_Convertida;
+    }
+    
+    if (formattedData.Quantidade_Convertida && !formattedData.Quantidade_Pagamento_Fracionado) {
+      formattedData.Quantidade_Pagamento_Fracionado = formattedData.Quantidade_Convertida;
+    }
+    
+    console.log("Dados formatados para envio:", formattedData);
+    return formattedData;
   };
 
   // Função para adicionar um serviço
@@ -773,34 +835,68 @@ export const ServiceProvider = ({ children }) => {
       // Log dos dados limpos (para debug)
       console.log("Dados limpos para envio:", cleanedData);
       
+      // Criar JSON e verificar se é válido antes de enviar
+      const jsonPayload = JSON.stringify(cleanedData);
+      
+      try {
+        // Verificar se é JSON válido (parseando e re-stringificando)
+        JSON.parse(jsonPayload);
+      } catch (jsonError) {
+        console.error("O payload não é JSON válido:", jsonError);
+        throw new Error("Dados inválidos para envio");
+      }
+      
       // Enviar dados limpos
       const response = await fetch(`${API_BASE_URL}/insert_service.php`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
-        body: JSON.stringify(cleanedData)
+        body: jsonPayload
       });
       
-      const responseData = await response.json();
+      // Verificar se a resposta é bem-sucedida
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Erro na resposta da API:", errorText);
+        throw new Error(`Erro na requisição: ${response.status} ${response.statusText}`);
+      }
+      
+      // Primeiro obter o texto da resposta
+      const responseText = await response.text();
+      
+      // Se a resposta estiver vazia, retorne um objeto padrão
+      if (!responseText.trim()) {
+        console.warn("A API retornou uma resposta vazia");
+        return null;
+      }
+      
+      let responseData;
+      try {
+        // Tentar converter para JSON
+        responseData = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("Erro ao fazer parse da resposta como JSON:", parseError);
+        console.error("Resposta original:", responseText);
+        throw new Error(`Resposta não é um JSON válido: ${responseText.substring(0, 150)}...`);
+      }
       
       if (responseData && responseData.id) {
         console.log("Serviço criado com sucesso, ID:", responseData.id);
         
         // IMPORTANTE: Marcar cache para revalidação após adição
-        // Em vez de invalidar completamente, marcamos para atualização
-        CacheService.updateWriteTimestamp(); // Atualiza o timestamp de escrita
-        setNeedsRevalidation(true);  // Marca para revalidação
+        CacheService.updateWriteTimestamp();
+        setNeedsRevalidation(true);
         
         return responseData.id;
       } else {
         console.log("Resposta completa do servidor:", responseData);
-        console.log("Resposta não contém um ID válido:", responseData);
-        return null;
+        throw new Error("Resposta não contém um ID válido");
       }
     } catch (error) {
       console.error("Erro ao adicionar serviço:", error);
-      return null;
+      throw error;
     }
   };
 
@@ -899,7 +995,7 @@ export const ServiceProvider = ({ children }) => {
     // Garantir que campos obrigatórios existam
     formatted.Cod = formatted.Cod || '';
     formatted.Codigo_TUSS = formatted.Codigo_TUSS || '';
-    formatted.Descricao_Apresentacao = formatted.Descricao_Apresentacao || '';
+    formatted.Descricao_Padronizada = formatted.Descricao_Padronizada || '';
     formatted.Revisado_Farma = formatted.Revisado_Farma || 0; 
     
     // Limpar campos desnecessários ou temporários

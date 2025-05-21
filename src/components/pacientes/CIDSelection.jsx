@@ -213,7 +213,7 @@ const CIDSelection = ({
       }
       
       // If not in cache or cache expired, fetch from server
-      const baseUrl = "https://apiteste.lowcostonco.com.br/backend-php/api/PacientesEmTratamento/get_cids.php";
+      const baseUrl = "https://api.lowcostonco.com.br/backend-php/api/PacientesEmTratamento/get_cids.php"; //AQUI MUDAR
       const url = search ? `${baseUrl}?search=${encodeURIComponent(search)}` : baseUrl;
       
       const response = await fetch(url);
@@ -253,7 +253,7 @@ const CIDSelection = ({
 
   const refreshCacheInBackground = async () => {
     try {
-      const baseUrl = "https://apiteste.lowcostonco.com.br/backend-php/api/PacientesEmTratamento/get_cids.php";
+      const baseUrl = "https://api.lowcostonco.com.br/backend-php/api/PacientesEmTratamento/get_cids.php"; //AQUI MUDAR
       
       const response = await fetch(baseUrl);
       if (!response.ok) return;

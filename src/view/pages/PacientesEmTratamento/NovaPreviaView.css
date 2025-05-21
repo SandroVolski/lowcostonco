@@ -441,15 +441,15 @@
   display: flex;
   gap: 8px;
   justify-content: center;
-  margin-top: 24px;
+  margin-top: -4rem;
 }
 
 .pagination-button {
   background-color: #f3f4f6;
   border: 1px solid #d1d5db;
   border-radius: 6px;
-  padding: 8px 16px;
-  font-size: 14px;
+  padding: 15px 20px;
+  font-size: 17px;
   font-weight: 500;
   color: #374151;
   cursor: pointer;
@@ -636,9 +636,9 @@
   color: white;
   border: none;
   border-radius: 4px; /* Reduzi o border-radius para um visual mais plano */
-  padding: 6px 24px; /* Reduzi a altura (6px em vez de 10px) e aumentei a largura (24px em vez de 16px) */
+  padding: 10px 24px; /* Reduzi a altura (6px em vez de 10px) e aumentei a largura (24px em vez de 16px) */
   min-width: 120px; /* Define uma largura mínima para garantir que seja mais largo */
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -647,7 +647,7 @@
   justify-content: center; /* Centraliza o conteúdo horizontalmente */
   gap: 8px;
   height: 40px; /* Define uma altura fixa para garantir a consistência */
-  margin-top: 1.4rem;
+  margin-top: -2rem;
 }
 
 .btn-primary-previa:hover {

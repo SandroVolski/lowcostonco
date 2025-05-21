@@ -4,7 +4,7 @@ import { useToast } from '../components/ui/Toast';
 import CacheService from '../services/CacheService';
 
 // API base URL
-const API_URL = "https://apiteste.lowcostonco.com.br/backend-php/api/Previas";
+const API_URL = "https://api.lowcostonco.com.br/backend-php/api/Previas"; //AQUI MUDAR
 
 // Cache keys for previas
 const CACHE_KEYS = {
