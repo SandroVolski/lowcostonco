@@ -32,7 +32,8 @@ function Login() {
     { code: 'jessica@lowcostonco.com.br', password: '@JessicaLCO_2025', displayName: 'Jéssica' },
     { code: 'ana@lowcostonco.com.br', password: '@AnaLCO_2025', displayName: 'Ana' },
     { code: 'carla@lowcostonco.com.br', password: '@CarlaLCO_2025', displayName: 'Carla' },
-    { code: 'patricia@lowcostonco.com.br', password: '@PatriciaLCO_2025', displayName: 'Patrícia' }
+    { code: 'patricia@lowcostonco.com.br', password: '@PatriciaLCO_2025', displayName: 'Patrícia' },
+    { code: 'guilherme@lowcostonco.com.br', password: '@GuilhermeLCO_2025', displayName: 'Guilherme' }
   ];
 
   const handleSubmit = async (e) => {

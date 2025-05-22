@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { usePatient } from '../../../context/PatientContext';
 import { usePrevias } from '../../../context/PreviasContext'; // New import for cache context
 import { useToast } from '../../../components/ui/Toast';
@@ -22,7 +22,13 @@ import { previasService } from '../../../services/previasService';
 const NovaPreviaView = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const fileInputRef = useRef(null);
+  
+  // Efeito para rolar a página para o topo quando o componente for montado
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
   
   // Using the cache context instead of direct service calls
   const { 
@@ -42,7 +48,11 @@ const NovaPreviaView = () => {
   } = usePrevias();
   
   // Estados para controle dos modais
-  const [showSearchModal, setShowSearchModal] = useState(true);
+  const [showSearchModal, setShowSearchModal] = useState(() => {
+    // Verificar se há um patientId na URL
+    const searchParams = new URLSearchParams(location.search);
+    return !searchParams.has('patientId');
+  });
   const [showWeightDetailPopout, setShowWeightDetailPopout] = useState(false);
   
   // Estado local para o termo de pesquisa
@@ -59,25 +69,68 @@ const NovaPreviaView = () => {
   // Estados para navegação dos botões de atendimento
   const [visibleButtonsStart, setVisibleButtonsStart] = useState(0);
   
-  // Novos estados para cache
-  //const [showCacheControl, setShowCacheControl] = useState(false);
-  //const [cacheRefreshed, setCacheRefreshed] = useState(false);
-
-  const handlePreviewAttachment = (file) => {
-    setPreviewImage(file);
-  };
-  
   // Estados para dados do paciente
   const { 
     patients, 
-    searchPatients,  // Certifique-se de que isso esteja aqui
+    searchPatients,
     selectedPatient,
     selectPatient,
-    loading: patientContextLoading, // Adicione isto
-    pageSize: contextPageSize,     // Adicione isto
-    changePage                     // Adicione isto
+    loading: patientContextLoading,
+    pageSize: contextPageSize,
+    changePage
   } = usePatient();
+
+  // Efeito para verificar se há um patientId na URL
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const patientId = searchParams.get('patientId');
+    
+    if (patientId) {
+      // Se tiver um patientId na URL, buscar o paciente e selecioná-lo
+      const fetchAndSelectPatient = async () => {
+        try {
+          setIsLoadingPatient(true);
+          
+          // Tentar carregar o paciente diretamente do servidor
+          const loadedPatient = await loadPatientData(parseInt(patientId));
+          
+          if (loadedPatient) {
+            handleSelectPatient(loadedPatient);
+          } else {
+            // Se não encontrou no servidor, tentar na lista local
+            const patient = patients.find(p => p.id === parseInt(patientId));
+            
+            if (patient) {
+              handleSelectPatient(patient);
+            } else {
+              toast({
+                title: "Erro",
+                description: "Paciente não encontrado.",
+                status: "error",
+                duration: 3000,
+                isClosable: true,
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Erro ao carregar paciente:", error);
+          toast({
+            title: "Erro",
+            description: "Não foi possível carregar os dados do paciente.",
+            status: "error",
+            duration: 3000,
+            isClosable: true,
+          });
+        } finally {
+          setIsLoadingPatient(false);
+        }
+      };
+      
+      fetchAndSelectPatient();
+    }
+  }, [location.search, patients]);
   
+  // Adicionar estados para controlar carregamento
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [searchPage, setSearchPage] = useState(1);

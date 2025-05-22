@@ -4,7 +4,7 @@ import {
   Plus, Edit, Trash2, Search, X, Save, 
   ArrowUpWideNarrow, ArrowDownWideNarrow, Database, 
   ChevronDown, Calendar, Grid, List, Filter, User,
-  Activity, Bookmark, Clock, Users, Info, SlidersHorizontal
+  Activity, Bookmark, Clock, Users, Info, SlidersHorizontal, FilePlus
 } from 'lucide-react';
 import { showConfirmAlert, showSuccessAlert, showErrorAlert, showWarningAlert } from '../../../utils/CustomAlerts';
 import DataRefreshButton from '../../../components/DataRefreshButton';
@@ -13,6 +13,7 @@ import PatientProtocoloCacheControl from '../../../components/PatientProtocoloCa
 import CIDSelection from '../../../components/pacientes/CIDSelection';
 import './PacientesEstilos.css';
 import Pagination from '../../../components/Pagination';
+import { useNavigate } from 'react-router-dom';
 
 const CadastroPaciente = () => {
   const { 
@@ -48,6 +49,8 @@ const CadastroPaciente = () => {
     changePage,
     changePageSize
   } = usePatient();
+  
+  const navigate = useNavigate();
   
   // Estados para controle da UI
   const [isAdding, setIsAdding] = useState(false);
@@ -654,6 +657,10 @@ const CadastroPaciente = () => {
     setIsDetailsOpen(false);
   };
 
+  const handleNovaPrevia = (patientId) => {
+    navigate(`/PacientesEmTratamento?tab=nova-previa&patientId=${patientId}`);
+  };
+
   // Componente de Card para cada paciente
   const PatientCard = ({ patient }) => {
     const isSelected = selectedPatient && selectedPatient.id === patient.id;
@@ -712,6 +719,16 @@ const CadastroPaciente = () => {
             title="Editar paciente"
           >
             <Edit size={16} />
+          </button>
+          <button 
+            className="action-button-pacientes previa"
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              handleNovaPrevia(patient.id);
+            }}
+            title="Nova Prévia"
+          >
+            <FilePlus size={16} />
           </button>
         </div>
       </div>
