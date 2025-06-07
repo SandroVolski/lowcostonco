@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X, Check, Plus } from 'lucide-react';
 
 // Cache keys
@@ -24,21 +24,38 @@ const CIDSelection = ({
 
   // Inicializar com o CID do paciente se disponível
   useEffect(() => {
-    if (patientCID && !value) {
-      // Garantir que o patientCID esteja no formato de objeto
+    console.log("CIDSelection: Inicializando - value:", value, "patientCID:", patientCID);
+    
+    // Se temos um patientCID e não temos value definido, usar o CID do paciente
+    if (patientCID && (!value || value === '')) {
+      console.log("CIDSelection: Auto-preenchendo com CID do paciente:", patientCID);
+      
+      // Criar objeto CID do paciente
       const cidObj = typeof patientCID === 'string' 
         ? { codigo: patientCID, descricao: '', isFromPatient: true } 
         : { ...patientCID, isFromPatient: true };
       
       // Armazenar o código do CID do paciente para referência
       setPatientCIDCode(cidObj.codigo);
-      
       setSelectedCIDs([cidObj]);
+      
+      // Notificar o componente pai sobre a seleção automática
       if (onChange) {
         onChange([cidObj]);
       }
-    } else if (value) {
-      // Se já houver um valor definido, converta para o formato adequado
+      return;
+    }
+    
+    // Se value está vazio/null e não há patientCID, limpar completamente
+    if ((!value || value === '' || (Array.isArray(value) && value.length === 0)) && !patientCID) {
+      console.log("CIDSelection: Value vazio e sem CID do paciente, limpando seleção");
+      setSelectedCIDs([]);
+      setPatientCIDCode(null);
+      return;
+    }
+    
+    // Se há um value definido, processar normalmente
+    if (value && value !== '') {
       let formattedCids = [];
       
       if (typeof value === 'string') {
@@ -79,11 +96,19 @@ const CIDSelection = ({
       const patientCid = formattedCids.find(cid => cid.isFromPatient);
       if (patientCid) {
         setPatientCIDCode(patientCid.codigo);
+      } else if (patientCID) {
+        setPatientCIDCode(typeof patientCID === 'string' ? patientCID : patientCID.codigo);
       }
       
+      console.log("CIDSelection: Aplicando CIDs formatados:", formattedCids);
       setSelectedCIDs(formattedCids);
     }
-  }, [patientCID, value, onChange]);
+  }, [patientCID, value]);
+
+  useEffect(() => {
+    // Se o patientCID mudou (novo paciente), limpar seleções anteriores
+    setPatientCIDCode(patientCID?.codigo || patientCID || null);
+  }, [patientCID]);
 
   // Carregar opções de CID
   useEffect(() => {
@@ -105,6 +130,54 @@ const CIDSelection = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    console.log("CIDSelection: PatientCID mudou para:", patientCID);
+    
+    // Atualizar o código do paciente
+    if (patientCID) {
+      const newPatientCode = typeof patientCID === 'string' ? patientCID : patientCID.codigo;
+      setPatientCIDCode(newPatientCode);
+      
+      // Se não há CIDs selecionados, auto-selecionar o CID do paciente
+      if (!selectedCIDs || selectedCIDs.length === 0) {
+        console.log("CIDSelection: Auto-selecionando CID do novo paciente:", newPatientCode);
+        
+        const cidObj = {
+          codigo: newPatientCode,
+          descricao: '',
+          isFromPatient: true
+        };
+        
+        setSelectedCIDs([cidObj]);
+        
+        if (onChange) {
+          onChange([cidObj]);
+        }
+      } else {
+        // Atualizar flags de isFromPatient nos CIDs existentes
+        const updatedCIDs = selectedCIDs.map(cid => ({
+          ...cid,
+          isFromPatient: cid.codigo === newPatientCode
+        }));
+        
+        setSelectedCIDs(updatedCIDs);
+      }
+    } else {
+      setPatientCIDCode(null);
+    }
+  }, [patientCID]);
+
+  const resetSelection = useCallback(() => {
+    console.log("CIDSelection: Reset completo executado");
+    setSelectedCIDs([]);
+    setPatientCIDCode(null);
+    setSearchTerm('');
+    setIsOpen(false);
+    if (onChange) {
+      onChange([]);
+    }
+  }, [onChange]);
 
   // Função para criar novo CID
   const handleCreateNewCID = () => {
@@ -280,9 +353,11 @@ const CIDSelection = ({
 
   // Função para selecionar ou desselecionar um CID
   const handleSelectCID = (cid) => {
+    console.log("CIDSelection: Selecionando CID:", cid);
+    
     // Verificar formato do CID
     if (!cid || !cid.codigo) {
-      console.error('Formato de CID inválido:', cid);
+      console.error('CIDSelection: Formato de CID inválido:', cid);
       return;
     }
     
@@ -292,6 +367,7 @@ const CIDSelection = ({
     if (selectedCIDs.some(item => item.codigo === cid.codigo)) {
       // Se estiver, remova-o
       updatedCIDs = selectedCIDs.filter(item => item.codigo !== cid.codigo);
+      console.log("CIDSelection: CID removido, lista atualizada:", updatedCIDs);
     } else {
       // Se não estiver, adicione-o
       const cidWithFlag = {
@@ -299,17 +375,15 @@ const CIDSelection = ({
         isFromPatient: cid.codigo === patientCIDCode
       };
       updatedCIDs = [...selectedCIDs, cidWithFlag];
+      console.log("CIDSelection: CID adicionado, lista atualizada:", updatedCIDs);
     }
     
     setSelectedCIDs(updatedCIDs);
     
     // Atualizar valor de forma apropriada para o formulário
     if (onChange) {
-      // IMPORTANTE: Retornamos o array completo para permitir múltipla seleção
       onChange(updatedCIDs);
     }
-    
-    // NÃO fechar o dropdown para permitir seleção múltipla
   };
 
   // Função para remover um CID selecionado

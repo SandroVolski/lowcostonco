@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X, Check, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -24,15 +24,30 @@ const ProtocoloSelection = ({
 
   // Inicializar com o valor atual se disponível
   useEffect(() => {
+    console.log("ProtocoloSelection: Inicializando com value:", value);
+    
+    // IMPORTANTE: Se value está vazio/null, limpar completamente
+    if (!value || value === '') {
+      console.log("ProtocoloSelection: Value vazio, limpando seleção");
+      setSelectedProtocolo(null);
+      return;
+    }
+    
     if (value && typeof value === 'object') {
+      console.log("ProtocoloSelection: Definindo protocolo object:", value);
       setSelectedProtocolo(value);
     } else if (value && typeof value === 'string') {
       // Se for apenas o nome do protocolo, criar um objeto simples
+      console.log("ProtocoloSelection: Definindo protocolo string:", value);
       setSelectedProtocolo({ 
         id: null,
         nome: value,
         sigla: value
       });
+    } else {
+      // Se value for null/undefined, limpar seleção
+      console.log("ProtocoloSelection: Limpando seleção (value null/undefined)");
+      setSelectedProtocolo(null);
     }
   }, [value]);
 
@@ -88,6 +103,16 @@ const ProtocoloSelection = ({
       return null;
     }
   };
+
+  const resetSelection = useCallback(() => {
+    console.log("ProtocoloSelection: Reset completo executado");
+    setSelectedProtocolo(null);
+    setSearchTerm('');
+    setIsOpen(false);
+    if (onChange) {
+      onChange(null);
+    }
+  }, [onChange]);
   
   const cacheProtocolos = (data) => {
     try {
@@ -183,24 +208,24 @@ const ProtocoloSelection = ({
 
   // Função para selecionar um protocolo
   const handleSelectProtocolo = (protocolo) => {
+    console.log("ProtocoloSelection: Selecionando protocolo:", protocolo);
     setSelectedProtocolo(protocolo);
     setIsOpen(false);
     
     if (onChange) {
-      // Você pode retornar o objeto inteiro ou apenas o nome, dependendo da necessidade
+      console.log("ProtocoloSelection: Chamando onChange com:", protocolo);
       onChange(protocolo);
-      
-      // Se precisar apenas do nome:
-      // onChange(protocolo.nome);
     }
   };
 
   // Função para limpar o protocolo selecionado
   const handleClearProtocolo = (e) => {
     e.stopPropagation();
+    console.log("ProtocoloSelection: Limpando protocolo selecionado");
     setSelectedProtocolo(null);
     
     if (onChange) {
+      console.log("ProtocoloSelection: Chamando onChange com null");
       onChange(null);
     }
   };
@@ -234,9 +259,20 @@ const ProtocoloSelection = ({
     navigate('/PacientesEmTratamento?tab=protocolo');
   };
 
+  useEffect(() => {
+    // Se value for explicitamente null ou empty string, garantir que o estado interno seja limpo
+    if (value === null || value === '' || value === undefined) {
+      console.log("ProtocoloSelection: Value resetado externamente, limpando estado interno");
+      setSelectedProtocolo(null);
+    }
+  }, [value]);
+
   // Exibição do protocolo selecionado
   const getDisplayValue = () => {
-    if (!selectedProtocolo) return placeholder;
+    if (!selectedProtocolo) {
+      console.log("ProtocoloSelection: Nenhum protocolo selecionado, mostrando placeholder");
+      return placeholder;
+    }
     
     // Se tiver sigla, mostrar "Sigla - Nome"
     if (selectedProtocolo.sigla && selectedProtocolo.sigla !== selectedProtocolo.nome) {
@@ -244,7 +280,7 @@ const ProtocoloSelection = ({
     }
     
     // Caso contrário, mostrar apenas o nome
-    return selectedProtocolo.nome;
+    return selectedProtocolo.nome || placeholder;
   };
 
   return (

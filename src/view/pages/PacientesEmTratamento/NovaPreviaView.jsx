@@ -64,6 +64,8 @@ const NovaPreviaView = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [loadingSection, setLoadingSection] = useState(false); // Para animação de carregamento nas seções
 
+  const [diferencaDias, setDiferencaDias] = useState(null);
+
   const [previewImage, setPreviewImage] = useState(null);
 
   // Estados para navegação dos botões de atendimento
@@ -146,7 +148,9 @@ const NovaPreviaView = () => {
     cid: '',
     ciclo: '',
     dia: '',
-    dataSolicitacao: '',
+    dataEmissaoGuia: '', // NOVO CAMPO
+    dataEncaminhamentoAF: '', // NOVO CAMPO
+    dataSolicitacao: '', // MANTER POR COMPATIBILIDADE
     parecer: '',
     peso: '',
     altura: '',
@@ -183,27 +187,11 @@ const NovaPreviaView = () => {
       // Set to the "Novo" button value
       setCurrentPage(previousConsultations.length + 1);
       
-      // Reset the form to a clean state
-      setFormData({
-        guia: '',
-        protocolo: '',
-        cid: '',
-        ciclo: '',
-        dia: '',
-        dataSolicitacao: formatDate(new Date()),
-        parecer: '',
-        peso: '',
-        altura: '',
-        parecerGuia: '',
-        inconsistencia: '',
-        cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
-      });
-      
-      setAttachments([]);
-      setDataParecerRegistrado(null);
-      setTempoParaAnalise(null);
+      // IMPORTANTE: NÃO resetar o form aqui se acabamos de trocar de paciente
+      // O form já foi limpo no useEffect de mudança de paciente
+      console.log("Configurando página 'Novo' para paciente carregado");
     }
-  }, [previousConsultations, currentPage]);
+  }, [previousConsultations.length]);
   
   // Estado para controlar data de parecer e calcular tempo
   const [dataParecerRegistrado, setDataParecerRegistrado] = useState(null);
@@ -494,9 +482,63 @@ const NovaPreviaView = () => {
 
   // Função para lidar com a seleção de um paciente
   const handleSelectPatient = (patient) => {
+    console.log("Selecionando novo paciente:", patient.Nome);
+    
+    // Determinar CID do paciente
+    const patientCID = patient?.CID || patient?.cid || null;
+    
+    // Preparar dados iniciais limpos para o novo paciente - ATUALIZADO
+    const initialFormData = {
+      guia: '',
+      protocolo: '',
+      cid: patientCID && patientCID.trim() !== '' ? patientCID : '',
+      ciclo: '',
+      dia: '',
+      dataEmissaoGuia: '', // NOVO
+      dataEncaminhamentoAF: '', // NOVO
+      dataSolicitacao: formatDate(new Date()), // MANTER
+      parecer: '',
+      peso: '',
+      altura: '',
+      parecerGuia: '',
+      inconsistencia: '',
+      cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
+    };
+    
+    // Limpar dados do paciente anterior ANTES de selecionar o novo
+    setFormData(initialFormData);
+    
+    setAttachments([]);
+    setDataParecerRegistrado(null);
+    setTempoParaAnalise(null);
+    setPreviousConsultations([]);
+    setCurrentPage(0);
+    
+    // Limpar diferença de dias
+    setDiferencaDias(null);
+    
+    // Agora selecionar o novo paciente
     selectPatient(patient.id);
-    setLocalPatientId(patient.id); // Guarda o ID localmente também
+    setLocalPatientId(patient.id);
     setShowSearchModal(false);
+    
+    console.log("Paciente selecionado e dados configurados com CID:", patientCID);
+  };
+
+  const clearPatientSpecificCache = (patientId) => {
+    // Limpar caches específicos do paciente anterior
+    const keys = Object.keys(localStorage);
+    
+    keys.forEach(key => {
+      // Limpar caches de CID e protocolo que podem estar "grudados"
+      if (key.includes('cached_cids') || 
+          key.includes('cached_protocolos') ||
+          key.includes(`cached_previas_by_patient_${patientId}`)) {
+        localStorage.removeItem(key);
+      }
+    });
+    
+    console.log(`Cache específico limpo para paciente ${patientId}`);
   };
   
   // Função para redirecionar para cadastro de novo paciente
@@ -542,6 +584,42 @@ const NovaPreviaView = () => {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
     return `${age} anos, ${diffDays} dias`;
+  };
+
+  // Componente para exibir diferença entre datas
+  const DateDifferenceIndicator = () => {
+    if (diferencaDias === null) return (
+      <div className="form-field">
+        <label className="form-label-datas">Diferença entre datas</label>
+        <div className="p-3 rounded-md bg-gray-100 text-gray-500 flex items-center justify-center date-difference-indicator">
+          <span className="text-sm">Preencha ambas as datas</span>
+        </div>
+      </div>
+    );
+    
+    // Definir cor com base na quantidade de dias
+    const getColorClass = (dias) => {
+      if (dias <= 1) return 'text-green-600 bg-green-100 border-green-200';
+      if (dias <= 3) return 'text-yellow-600 bg-yellow-100 border-yellow-200';
+      return 'text-red-600 bg-red-100 border-red-200';
+    };
+    
+    return (
+      <div className="form-field">
+        <label className="form-label-datas">Diferença entre datas</label>
+        <div className={`p-3 rounded-md border flex items-center justify-between date-difference-indicator ${getColorClass(diferencaDias)}`}>
+          <div className="flex items-center">
+            <Clock size={16} className="mr-2" />
+            <span className="font-medium">
+              {diferencaDias} {diferencaDias === 1 ? 'dia' : 'dias'}
+            </span>
+          </div>
+          <span className="text-xs">
+            Entre emissão e encaminhamento
+          </span>
+        </div>
+      </div>
+    );
   };
   
   // Função para calcular o tempo entre solicitação e parecer
@@ -716,27 +794,32 @@ const NovaPreviaView = () => {
     try {
       // Preparar dados para envio
       const dadosPrevia = {
-        // Incluir id apenas se estiver editando
-        ...(formData.id ? { id: formData.id } : {}),
-        paciente_id: (selectedPatient && selectedPatient.id) || localPatientId,
-        guia: formData.guia,
-        protocolo: formData.protocolo,
-        cid: formData.cid,
-        data_solicitacao: formData.dataSolicitacao,
-        parecer: formData.parecer || '',
-        peso: formData.peso ? parseFloat(formData.peso) : null,
-        altura: formData.altura ? parseFloat(formData.altura) : null,
-        parecer_guia: formData.parecerGuia || '',
-        inconsistencia: formData.inconsistencia || '',
-        data_parecer_registrado: dataParecerRegistrado || null,
-        tempo_analise: tempoParaAnalise || 0,
-        ciclos_dias: formData.cicloDiaEntries.map(entry => ({
-          ciclo: entry.ciclo || '',
-          dia: entry.dia || '',
-          protocolo: entry.protocolo || '',
-          is_full_cycle: entry.fullCycle ? 1 : 0
-        }))
-      };
+      // Incluir id apenas se estiver editando
+      ...(formData.id ? { id: formData.id } : {}),
+      paciente_id: (selectedPatient && selectedPatient.id) || localPatientId,
+      guia: formData.guia,
+      protocolo: formData.protocolo,
+      cid: formData.cid,
+      
+      // NOVOS CAMPOS DE DATA
+      data_emissao_guia: formData.dataEmissaoGuia,
+      data_encaminhamento_af: formData.dataEncaminhamentoAF,
+      data_solicitacao: formData.dataSolicitacao, // MANTER POR COMPATIBILIDADE
+      
+      parecer: formData.parecer || '',
+      peso: formData.peso ? parseFloat(formData.peso) : null,
+      altura: formData.altura ? parseFloat(formData.altura) : null,
+      parecer_guia: formData.parecerGuia || '',
+      inconsistencia: formData.inconsistencia || '',
+      data_parecer_registrado: dataParecerRegistrado || null,
+      tempo_analise: tempoParaAnalise || 0,
+      ciclos_dias: formData.cicloDiaEntries.map(entry => ({
+        ciclo: entry.ciclo || '',
+        dia: entry.dia || '',
+        protocolo: entry.protocolo || '',
+        is_full_cycle: entry.fullCycle ? 1 : 0
+      }))
+    };
 
       console.log("Dados enviados:", dadosPrevia);
       
@@ -924,7 +1007,12 @@ const NovaPreviaView = () => {
         cid: previaDetails.cid,
         ciclo: ciclosDias.length > 0 ? ciclosDias[0].ciclo : '',
         dia: ciclosDias.length > 0 ? ciclosDias[0].dia : '',
-        dataSolicitacao: formatDateFromDB(previaDetails.data_solicitacao),
+        
+        // NOVOS CAMPOS
+        dataEmissaoGuia: formatDateFromDB(previaDetails.data_emissao_guia),
+        dataEncaminhamentoAF: formatDateFromDB(previaDetails.data_encaminhamento_af),
+        dataSolicitacao: formatDateFromDB(previaDetails.data_solicitacao), // MANTER
+        
         parecer: previaDetails.parecer,
         peso: previaDetails.peso,
         altura: previaDetails.altura,
@@ -1406,6 +1494,40 @@ const NovaPreviaView = () => {
       </div>
     );
   };
+
+  const calculateDateDifference = useCallback((dataEmissao, dataEncaminhamento) => {
+    if (!dataEmissao || !dataEncaminhamento) {
+      setDiferencaDias(null);
+      return;
+    }
+    
+    // Converter strings DD/MM/YYYY para objetos Date
+    const parseDate = (dateString) => {
+      if (!dateString) return null;
+      const parts = dateString.split('/');
+      if (parts.length !== 3) return null;
+      return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+    };
+    
+    const dataEmissaoDate = parseDate(dataEmissao);
+    const dataEncaminhamentoDate = parseDate(dataEncaminhamento);
+    
+    if (dataEmissaoDate && dataEncaminhamentoDate) {
+      // Calcular diferença em dias
+      const diffTime = Math.abs(dataEncaminhamentoDate - dataEmissaoDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      setDiferencaDias(diffDays);
+      
+      console.log(`Diferença calculada: ${diffDays} dias entre ${dataEmissao} e ${dataEncaminhamento}`);
+    } else {
+      setDiferencaDias(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    calculateDateDifference(formData.dataEmissaoGuia, formData.dataEncaminhamentoAF);
+  }, [formData.dataEmissaoGuia, formData.dataEncaminhamentoAF, calculateDateDifference]);
   
   // Componente para inputs dinâmicos de Ciclo/Dia
   const CicloDiaInputs = ({ value, onChange }) => {
@@ -1700,6 +1822,107 @@ const NovaPreviaView = () => {
       </div>
     );
   };
+
+  // Função para máscara de data automática
+  const applyDateMask = (value) => {
+    // Remove tudo que não é número
+    const numbers = value.replace(/\D/g, '');
+    
+    // Limita a 8 dígitos (DDMMAAAA)
+    const limitedNumbers = numbers.substring(0, 8);
+    
+    // Aplica a máscara baseada na quantidade de dígitos
+    if (limitedNumbers.length <= 2) {
+      return limitedNumbers;
+    } else if (limitedNumbers.length <= 4) {
+      return `${limitedNumbers.substring(0, 2)}/${limitedNumbers.substring(2)}`;
+    } else {
+      return `${limitedNumbers.substring(0, 2)}/${limitedNumbers.substring(2, 4)}/${limitedNumbers.substring(4)}`;
+    }
+  };
+
+  // Função para validar data enquanto digita
+  const validateDateOnType = (value) => {
+    const numbers = value.replace(/\D/g, '');
+    
+    // Validações básicas durante a digitação
+    if (numbers.length >= 2) {
+      const day = parseInt(numbers.substring(0, 2));
+      if (day > 31 || day === 0) {
+        return false; // Dia inválido
+      }
+    }
+    
+    if (numbers.length >= 4) {
+      const month = parseInt(numbers.substring(2, 4));
+      if (month > 12 || month === 0) {
+        return false; // Mês inválido
+      }
+    }
+    
+    return true; // Válido até agora
+  };
+
+  // Handler personalizado para campos de data
+  const handleDateInputChange = (fieldName, inputValue) => {
+    // Validar se a entrada é permitida
+    if (!validateDateOnType(inputValue)) {
+      return; // Não atualiza se for inválido
+    }
+    
+    // Aplicar máscara
+    const maskedValue = applyDateMask(inputValue);
+    
+    // Atualizar o campo
+    setFormData(prev => ({
+      ...prev,
+      [fieldName]: maskedValue
+    }));
+  };
+
+  // Função para validação completa da data (opcional - para uso futuro)
+  const isValidDate = (dateString) => {
+    if (dateString.length !== 10) return false;
+    
+    const parts = dateString.split('/');
+    if (parts.length !== 3) return false;
+    
+    const day = parseInt(parts[0]);
+    const month = parseInt(parts[1]);
+    const year = parseInt(parts[2]);
+    
+    // Verificações básicas
+    if (day < 1 || day > 31) return false;
+    if (month < 1 || month > 12) return false;
+    if (year < 1900 || year > 2100) return false;
+    
+    // Criar objeto Date para validação mais rigorosa
+    const date = new Date(year, month - 1, day);
+    
+    return date.getFullYear() === year && 
+          date.getMonth() === month - 1 && 
+          date.getDate() === day;
+  };
+
+  // Handler para teclas especiais (permitir backspace, delete, etc.)
+  const handleDateKeyDown = (e) => {
+    // Permitir: backspace, delete, tab, escape, enter
+    if ([8, 9, 27, 13, 46].indexOf(e.keyCode) !== -1 ||
+      // Permitir: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+      (e.keyCode === 65 && e.ctrlKey === true) ||
+      (e.keyCode === 67 && e.ctrlKey === true) ||
+      (e.keyCode === 86 && e.ctrlKey === true) ||
+      (e.keyCode === 88 && e.ctrlKey === true) ||
+      // Permitir: home, end, left, right
+      (e.keyCode >= 35 && e.keyCode <= 39)) {
+      return; // Deixa passar
+    }
+    
+    // Garantir que é um número
+    if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+      e.preventDefault();
+    }
+  };
   
   // Componente melhorado para registro de status
   const StatusRegistrationSection = () => {
@@ -1833,6 +2056,60 @@ const NovaPreviaView = () => {
       }
     }
   }, [selectedPatient]);
+  
+  useEffect(() => {
+    if (selectedPatient) {
+      console.log("Paciente mudou, limpando formulário e configurando CID...");
+      
+      // Determinar CID do paciente (pode estar em diferentes campos)
+      const patientCID = selectedPatient?.CID || selectedPatient?.cid || null;
+      
+      // Preparar dados iniciais do formulário - ATUALIZADO
+      const initialFormData = {
+        guia: '',
+        protocolo: '',
+        cid: patientCID && patientCID.trim() !== '' ? patientCID : '',
+        ciclo: '',
+        dia: '',
+        dataEmissaoGuia: '', // NOVO
+        dataEncaminhamentoAF: '', // NOVO
+        dataSolicitacao: formatDate(new Date()), // MANTER
+        parecer: '',
+        peso: '',
+        altura: '',
+        parecerGuia: '',
+        inconsistencia: '',
+        cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
+      };
+      
+      // Aplicar dados iniciais ao formulário
+      setFormData(initialFormData);
+      
+      // Limpar diferença de dias
+      setDiferencaDias(null);
+      
+      // Limpar anexos
+      setAttachments([]);
+      
+      // Limpar dados de parecer
+      setDataParecerRegistrado(null);
+      setTempoParaAnalise(null);
+      
+      // Resetar para página "Novo" 
+      setCurrentPage(0);
+      
+      console.log("Formulário configurado para novo paciente:", selectedPatient.Nome, "CID:", patientCID);
+    }
+  }, [selectedPatient?.id]);
+
+  useEffect(() => {
+    if (selectedPatient) {
+      const patientCID = selectedPatient?.CID || selectedPatient?.cid || null;
+      console.log("Debug - Paciente atual:", selectedPatient.Nome);
+      console.log("Debug - CID do paciente:", patientCID);
+      console.log("Debug - CID no formData:", formData.cid);
+    }
+  }, [selectedPatient, formData.cid]);
 
   /**
    * Calcula a pontuação de relevância para um paciente com base no termo de busca
@@ -2154,19 +2431,10 @@ const NovaPreviaView = () => {
             
             <div className="card-header">
               <h3>Registro</h3>
-              
-              {/* Controle de cache adicionado ao cabeçalho */}
-              {/*<button
-                onClick={() => setShowCacheControl(true)}
-                className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center"
-                title="Gerenciar Cache"
-              >
-                <Database size={16} className="text-gray-600 mr-1" />
-                <span className="text-xs text-gray-600">Cache</span>
-              </button>*/}
             </div>
             
-            <div className="form-grid">
+            {/* PRIMEIRA LINHA: Guia e CID (2 colunas) */}
+            <div className="form-grid-2-cols">
               <div className="form-field">
                 <label htmlFor="guia" className="form-label">Guia</label>
                 <input 
@@ -2177,22 +2445,43 @@ const NovaPreviaView = () => {
                   onChange={handleInputChange}
                   className="form-input"
                   placeholder="Número da guia"
+                  key={`guia-${selectedPatient?.id}-${currentPage}`}
                 />
               </div>
               
               <div className="form-field">
+                <label htmlFor="cid" className="form-label">CID</label>
+                <CIDSelection 
+                  key={`cid-${selectedPatient?.id}-${currentPage}`}
+                  value={formData.cid}
+                  onChange={(selectedCids) => {
+                    if (Array.isArray(selectedCids)) {
+                      const cidString = selectedCids.map(cid => cid.codigo).join(', ');
+                      setFormData(prev => ({ ...prev, cid: cidString }));
+                    } else {
+                      setFormData(prev => ({ ...prev, cid: selectedCids }));
+                    }
+                  }}
+                  patientCID={selectedPatient?.CID || null}
+                  placeholder="Selecione o CID..."
+                />
+              </div>
+            </div>
+
+            {/* SEGUNDA LINHA: Protocolo (largura completa) */}
+            <div className="form-grid-1-col">
+              <div className="form-field">
                 <label htmlFor="protocolo" className="form-label">Protocolo</label>
                 <ProtocoloSelection 
+                  key={`protocolo-${selectedPatient?.id}-${currentPage}`}
                   value={formData.protocolo}
                   onChange={(selectedProtocolo) => {
-                    // Se receber um objeto protocolo, extrair o nome
                     if (selectedProtocolo && typeof selectedProtocolo === 'object') {
                       setFormData(prev => ({ 
                         ...prev, 
                         protocolo: selectedProtocolo.nome 
                       }));
                     } else {
-                      // Se receber outro formato (string ou null), usar como está
                       setFormData(prev => ({ 
                         ...prev, 
                         protocolo: selectedProtocolo 
@@ -2202,44 +2491,65 @@ const NovaPreviaView = () => {
                   placeholder="Selecione o Protocolo..."
                 />
               </div>
-              
+            </div>
+
+            {/* TERCEIRA LINHA: Datas (3 colunas - perfeitamente preenchidas) */}
+            <div className="form-grid">
               <div className="form-field">
-                <label htmlFor="cid" className="form-label">CID</label>
-                <CIDSelection 
-                  value={formData.cid}
-                  onChange={(selectedCids) => {
-                    if (Array.isArray(selectedCids)) {
-                      // Cria uma string com códigos separados por vírgula para o formData
-                      const cidString = selectedCids.map(cid => cid.codigo).join(', ');
-                      setFormData(prev => ({ ...prev, cid: cidString }));
-                      
-                      // Ou se preferir armazenar como array de objetos:
-                      // setFormData(prev => ({ ...prev, cid: selectedCids }));
-                    } else {
-                      // Fallback para outros formatos
-                      setFormData(prev => ({ ...prev, cid: selectedCids }));
-                    }
-                  }}
-                  patientCID={selectedPatient?.CID || null}
-                  placeholder="Selecione o CID..."
-                />
-              </div>
-              
-              <div className="form-field">
-                <label htmlFor="dataSolicitacao" className="form-label">Data Solicitação</label>
+                <label htmlFor="dataEmissaoGuia" className="form-label">Data de Emissão da Guia</label>
                 <input 
                   type="text"
-                  id="dataSolicitacao"
-                  name="dataSolicitacao"
-                  value={formData.dataSolicitacao}
-                  onChange={handleInputChange}
+                  id="dataEmissaoGuia"
+                  name="dataEmissaoGuia"
+                  value={formData.dataEmissaoGuia}
+                  onChange={(e) => handleDateInputChange('dataEmissaoGuia', e.target.value)}
+                  onKeyDown={handleDateKeyDown}
                   className="form-input"
                   placeholder="DD/MM/AAAA"
+                  maxLength="10"
+                  autoComplete="off"
+                  key={`dataEmissaoGuia-${selectedPatient?.id}-${currentPage}`}
                 />
+                {/* Indicador visual opcional */}
+                {formData.dataEmissaoGuia && formData.dataEmissaoGuia.length === 10 && (
+                  <div className="text-xs text-green-600 mt-1 flex items-center">
+                    <Check size={12} className="mr-1" />
+                    Data válida
+                  </div>
+                )}
               </div>
+              
+              <div className="form-field">
+                <label htmlFor="dataEncaminhamentoAF" className="form-label">Data de Encaminhamento AF</label>
+                <input 
+                  type="text"
+                  id="dataEncaminhamentoAF"
+                  name="dataEncaminhamentoAF"
+                  value={formData.dataEncaminhamentoAF}
+                  onChange={(e) => handleDateInputChange('dataEncaminhamentoAF', e.target.value)}
+                  onKeyDown={handleDateKeyDown}
+                  className="form-input"
+                  placeholder="DD/MM/AAAA"
+                  maxLength="10"
+                  autoComplete="off"
+                  key={`dataEncaminhamentoAF-${selectedPatient?.id}-${currentPage}`}
+                />
+                {/* Indicador visual opcional */}
+                {formData.dataEncaminhamentoAF && formData.dataEncaminhamentoAF.length === 10 && (
+                  <div className="text-xs text-green-600 mt-1 flex items-center">
+                    <Check size={12} className="mr-1" />
+                    Data válida
+                  </div>
+                )}
+              </div>
+              
+              {/* COMPONENTE PARA MOSTRAR A DIFERENÇA */}
+              <DateDifferenceIndicator />
             </div>
+
             
-            <div className="form-grid">
+            {/* QUARTA LINHA: Peso e Altura (2 colunas) */}
+            <div className="form-grid-2-cols">
               <div className="form-field">
                 <label htmlFor="peso" className="form-label">Peso (kg)</label>
                 <input 
@@ -2250,6 +2560,7 @@ const NovaPreviaView = () => {
                   onChange={handleInputChange}
                   className="form-input"
                   placeholder="Peso em kg"
+                  key={`peso-${selectedPatient?.id}-${currentPage}`}
                 />
               </div>
               
@@ -2263,20 +2574,21 @@ const NovaPreviaView = () => {
                   onChange={handleAlturaChange}
                   className="form-input"
                   placeholder="Altura em metros (ex: 1.70)"
+                  key={`altura-${selectedPatient?.id}-${currentPage}`}
                 />
               </div>
             </div>
 
-            {/* Nova implementação de Ciclo/Dia */}
+            {/* QUINTA LINHA: Ciclo/Dia (largura completa) */}
             <div className="form-field mt-4">
-              <label className="form-label">Ciclo / Dia</label>
+              <label className="form-label-datas">Ciclo / Dia</label>
               <CicloDiaInputs
+                key={`ciclodia-${selectedPatient?.id}-${currentPage}`}
                 value={formData.cicloDiaEntries}
                 onChange={(entries) => {
                   setFormData(prev => ({
                     ...prev,
                     cicloDiaEntries: entries,
-                    // Opcionalmente, manter os campos simples para compatibilidade com código existente
                     ciclo: entries[0]?.ciclo || '',
                     dia: entries[0]?.dia || ''
                   }));
@@ -2284,8 +2596,9 @@ const NovaPreviaView = () => {
               />
             </div>
             
+            {/* SEXTA LINHA: Parecer (largura completa) */}
             <div className="form-field">
-              <label htmlFor="parecer" className="form-label">Parecer</label>
+              <label htmlFor="parecer" className="form-label-datas">Parecer</label>
               <textarea 
                 id="parecer"
                 name="parecer"
@@ -2293,12 +2606,13 @@ const NovaPreviaView = () => {
                 onChange={handleInputChange}
                 className="form-textarea"
                 placeholder="Adicione observações sobre o atendimento..."
+                key={`parecer-${selectedPatient?.id}-${currentPage}`}
               />
             </div>
             
             {/* Seção para anexos */}
             <div className="form-field mt-4">
-              <label className="form-label">Anexos</label>
+              <label className="form-label-datas">Anexos</label>
               <div 
                 className="attachment-area"
                 onClick={() => fileInputRef.current?.click()}
@@ -2549,6 +2863,66 @@ const NovaPreviaView = () => {
         
         .animate-fade-in {
           animation: fadeIn 0.3s ease-out;
+        }
+
+        .form-grid-1-col {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 16px;
+          margin-bottom: 16px;
+        }
+        
+        .form-grid-2-cols {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+          margin-bottom: 16px;
+        }
+        
+        /* Grid original de 3 colunas (para as datas) */
+        .form-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+          margin-bottom: 16px;
+        }
+        
+        /* Responsividade melhorada */
+        @media (max-width: 1024px) {
+          .form-grid {
+            grid-template-columns: 1fr 1fr;
+          }
+          
+          .form-grid .form-field:nth-child(3) {
+            grid-column: 1 / -1; /* Diferença de datas ocupa linha inteira em tablets */
+          }
+        }
+        
+        @media (max-width: 768px) {
+          .form-grid,
+          .form-grid-2-cols {
+            grid-template-columns: 1fr;
+          }
+        }
+        
+        /* Melhorar aparência do indicador de diferença */
+        .date-difference-indicator {
+          display: flex;
+          align-items: center;
+          min-height: 38px; /* Mesma altura dos inputs */
+        }
+        
+        /* Garantir que todos os form-fields tenham a mesma altura base */
+        .form-field {
+          display: flex;
+          flex-direction: column;
+          min-height: 70px; /* Altura mínima para consistência */
+        }
+        
+        .form-input,
+        .form-select,
+        .form-textarea {
+          flex: 1;
         }
       `}</style>
     </motion.div>
