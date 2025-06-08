@@ -148,13 +148,14 @@ const NovaPreviaView = () => {
     cid: '',
     ciclo: '',
     dia: '',
-    dataEmissaoGuia: '', // NOVO CAMPO
-    dataEncaminhamentoAF: '', // NOVO CAMPO
-    dataSolicitacao: '', // MANTER POR COMPATIBILIDADE
+    dataEmissaoGuia: '',
+    dataEncaminhamentoAF: '',
+    dataSolicitacao: '',
     parecer: '',
     peso: '',
     altura: '',
     parecerGuia: '',
+    finalizacao: '', // NOVO CAMPO
     inconsistencia: '',
     cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
   });
@@ -487,20 +488,21 @@ const NovaPreviaView = () => {
     // Determinar CID do paciente
     const patientCID = patient?.CID || patient?.cid || null;
     
-    // Preparar dados iniciais limpos para o novo paciente - ATUALIZADO
+    // Preparar dados iniciais limpos para o novo paciente - INCLUINDO FINALIZACAO
     const initialFormData = {
       guia: '',
       protocolo: '',
       cid: patientCID && patientCID.trim() !== '' ? patientCID : '',
       ciclo: '',
       dia: '',
-      dataEmissaoGuia: '', // NOVO
-      dataEncaminhamentoAF: '', // NOVO
-      dataSolicitacao: formatDate(new Date()), // MANTER
+      dataEmissaoGuia: '',
+      dataEncaminhamentoAF: '',
+      dataSolicitacao: formatDate(new Date()),
       parecer: '',
       peso: '',
       altura: '',
       parecerGuia: '',
+      finalizacao: '', // NOVO CAMPO
       inconsistencia: '',
       cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
     };
@@ -794,31 +796,32 @@ const NovaPreviaView = () => {
     try {
       // Preparar dados para envio
       const dadosPrevia = {
-      // Incluir id apenas se estiver editando
-      ...(formData.id ? { id: formData.id } : {}),
-      paciente_id: (selectedPatient && selectedPatient.id) || localPatientId,
-      guia: formData.guia,
-      protocolo: formData.protocolo,
-      cid: formData.cid,
-      
-      // NOVOS CAMPOS DE DATA
-      data_emissao_guia: formData.dataEmissaoGuia,
-      data_encaminhamento_af: formData.dataEncaminhamentoAF,
-      data_solicitacao: formData.dataSolicitacao, // MANTER POR COMPATIBILIDADE
-      
-      parecer: formData.parecer || '',
-      peso: formData.peso ? parseFloat(formData.peso) : null,
-      altura: formData.altura ? parseFloat(formData.altura) : null,
-      parecer_guia: formData.parecerGuia || '',
-      inconsistencia: formData.inconsistencia || '',
-      data_parecer_registrado: dataParecerRegistrado || null,
-      tempo_analise: tempoParaAnalise || 0,
-      ciclos_dias: formData.cicloDiaEntries.map(entry => ({
-        ciclo: entry.ciclo || '',
-        dia: entry.dia || '',
-        protocolo: entry.protocolo || '',
-        is_full_cycle: entry.fullCycle ? 1 : 0
-      }))
+        // Incluir id apenas se estiver editando
+        ...(formData.id ? { id: formData.id } : {}),
+        paciente_id: (selectedPatient && selectedPatient.id) || localPatientId,
+        guia: formData.guia,
+        protocolo: formData.protocolo,
+        cid: formData.cid,
+        
+        // CAMPOS DE DATA
+        data_emissao_guia: formData.dataEmissaoGuia,
+        data_encaminhamento_af: formData.dataEncaminhamentoAF,
+        data_solicitacao: formData.dataSolicitacao,
+        
+        parecer: formData.parecer || '',
+        peso: formData.peso ? parseFloat(formData.peso) : null,
+        altura: formData.altura ? parseFloat(formData.altura) : null,
+        parecer_guia: formData.parecerGuia || '',
+        finalizacao: formData.finalizacao || '', // NOVO CAMPO
+        inconsistencia: formData.inconsistencia || '',
+        data_parecer_registrado: dataParecerRegistrado || null,
+        tempo_analise: tempoParaAnalise || 0,
+        ciclos_dias: formData.cicloDiaEntries.map(entry => ({
+          ciclo: entry.ciclo || '',
+          dia: entry.dia || '',
+          protocolo: entry.protocolo || '',
+          is_full_cycle: entry.fullCycle ? 1 : 0
+        }))
     };
 
       console.log("Dados enviados:", dadosPrevia);
@@ -1017,6 +1020,7 @@ const NovaPreviaView = () => {
         peso: previaDetails.peso,
         altura: previaDetails.altura,
         parecerGuia: previaDetails.parecer_guia,
+        finalizacao: previaDetails.finalizacao, // NOVO CAMPO
         inconsistencia: previaDetails.inconsistencia,
         cicloDiaEntries: ciclosDias.length > 0 ? ciclosDias : [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
       });
@@ -1926,10 +1930,10 @@ const NovaPreviaView = () => {
   
   // Componente melhorado para registro de status
   const StatusRegistrationSection = () => {
-    // Opções para os campos de status
-    const parecerGuiaOptions = [
+    // Opções para os campos de status (mesmas para ambos os campos)
+    const statusOptions = [
       { value: "Favorável", icon: <Check size={18} className="text-green-600" />, color: "bg-green-100 border-green-200" },
-      { value: "Favorável com inconsistência", icon: <AlertCircle size={18} className="text-orange-600" />, color: "bg-orange-100 border-orange-200" },
+      { value: "Favorável com Inconsistência", icon: <AlertCircle size={18} className="text-orange-600" />, color: "bg-orange-100 border-orange-200" },
       { value: "Inconclusivo", icon: <HelpCircle size={18} className="text-yellow-600" />, color: "bg-yellow-100 border-yellow-200" },
       { value: "Desfavorável", icon: <X size={18} className="text-red-600" />, color: "bg-red-100 border-red-200" }
     ];
@@ -2006,9 +2010,9 @@ const NovaPreviaView = () => {
             <h4 className="status-section-subtitle">Parecer da Guia</h4>
             
             <div className="status-cards-container">
-              {parecerGuiaOptions.map(option => (
+              {statusOptions.map(option => (
                 <div 
-                  key={option.value}
+                  key={`parecer-${option.value}`}
                   className={`status-card ${option.color} ${formData.parecerGuia === option.value ? 'status-card-selected' : ''}`}
                   onClick={() => handleStatusCardSelect('parecerGuia', option.value)}
                 >
@@ -2023,7 +2027,27 @@ const NovaPreviaView = () => {
             </div>
           </div>
           
-          {/* Seção de Status de Consistência removida */}
+          {/* NOVA SEÇÃO: Finalização */}
+          <div className="status-section-group">
+            <h4 className="status-section-subtitle">Finalização</h4>
+            
+            <div className="status-cards-container">
+              {statusOptions.map(option => (
+                <div 
+                  key={`finalizacao-${option.value}`}
+                  className={`status-card ${option.color} ${formData.finalizacao === option.value ? 'status-card-selected' : ''}`}
+                  onClick={() => handleStatusCardSelect('finalizacao', option.value)}
+                >
+                  <div className="status-card-icon">
+                    {option.icon}
+                  </div>
+                  <div className="status-card-label">
+                    {option.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
           
           {/* Métricas de tempo de análise */}
           <TempoAnaliseMetrics />
@@ -2064,20 +2088,21 @@ const NovaPreviaView = () => {
       // Determinar CID do paciente (pode estar em diferentes campos)
       const patientCID = selectedPatient?.CID || selectedPatient?.cid || null;
       
-      // Preparar dados iniciais do formulário - ATUALIZADO
+      // Preparar dados iniciais do formulário - INCLUINDO FINALIZACAO
       const initialFormData = {
         guia: '',
         protocolo: '',
         cid: patientCID && patientCID.trim() !== '' ? patientCID : '',
         ciclo: '',
         dia: '',
-        dataEmissaoGuia: '', // NOVO
-        dataEncaminhamentoAF: '', // NOVO
-        dataSolicitacao: formatDate(new Date()), // MANTER
+        dataEmissaoGuia: '',
+        dataEncaminhamentoAF: '',
+        dataSolicitacao: formatDate(new Date()),
         parecer: '',
         peso: '',
         altura: '',
         parecerGuia: '',
+        finalizacao: '', // NOVO CAMPO
         inconsistencia: '',
         cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
       };
