@@ -3345,3 +3345,39 @@ padding-left: 40px; /* Ajuste conforme necessário */
 .action-button-pacientes.previa {
   animation: pulse-highlight 1s ease-in-out;
 }
+
+/* Estilos para os botões de navegação */
+.pagination-nav-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background-color: #fff;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+  margin: 0 4px;
+  align-self: flex-start;
+  margin-top: -0.1rem; /* Ajustado para mover mais para cima */
+}
+
+.pagination-nav-button:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.pagination-nav-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Container dos botões de navegação */
+.pagination-buttons-container {
+  display: flex;
+  align-items: flex-start; /* Alinha os itens ao topo */
+  gap: 8px;
+}

@@ -82,6 +82,40 @@ const NovaPreviaView = () => {
     changePage
   } = usePatient();
 
+  // Função para mapear status para cores
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'Favorável':
+        return '#DCFCE7'; // Verde
+      case 'Favorável com Inconsistência':
+        return '#FFEDD5'; // Laranja
+      case 'Inconclusivo':
+        return '#FEF9C3'; // Amarelo
+      case 'Desfavorável':
+        return '#FECACA'; // Vermelho
+      default:
+        return '#F1F1F1'; // Cinza padrão
+    }
+  };
+
+  // Função para obter cor mais clara para o fundo
+  const getStatusLightColor = (status) => {
+    switch (status) {
+      case 'Favorável':
+        return '#d1fae5'; // Verde claro
+      case 'Favorável com Inconsistência':
+        return '#fed7aa'; // Laranja claro
+      case 'Inconclusivo':
+        return '#fef3c7'; // Amarelo claro
+      case 'Desfavorável':
+        return '#fee2e2'; // Vermelho claro
+      default:
+        return '#f3f4f6'; // Cinza claro padrão
+    }
+  };
+
+
+
   // Efeito para verificar se há um patientId na URL
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -331,23 +365,44 @@ const NovaPreviaView = () => {
       // Buscar as prévias do paciente usando o contexto com cache
       const previas = await getPreviasDoPatient(patientId);
       
-      // Atualizar o estado de consultas anteriores
+      // Atualizar o estado de consultas anteriores COM OS STATUS
       if (previas && previas.length > 0) {
-        setPreviousConsultations(previas);
+        // Enriquecer as consultas com dados detalhados se necessário
+        const consultasComStatus = await Promise.all(
+          previas.map(async (previa) => {
+            // Se já temos os dados de status, usar; senão buscar detalhes
+            if (previa.parecer_guia !== undefined && previa.finalizacao !== undefined) {
+              return previa;
+            } else {
+              // Buscar detalhes da prévia se não temos os status
+              try {
+                const detalhes = await getPrevia(previa.id);
+                return {
+                  ...previa,
+                  parecer_guia: detalhes.parecer_guia,
+                  finalizacao: detalhes.finalizacao
+                };
+              } catch (error) {
+                console.warn(`Erro ao buscar detalhes da prévia ${previa.id}:`, error);
+                return previa; // Retorna a prévia original se houver erro
+              }
+            }
+          })
+        );
         
-        // Extrair dados para o histórico
+        setPreviousConsultations(consultasComStatus);
+        
+        // Resto da lógica permanece igual...
         setPatientHistory({
           ultimaAnalise: previas[0]?.data_criacao ? formatDate(new Date(previas[0].data_criacao)) : '',
           quantidadeGuias: previas.length,
           protocolosDiferentes: [...new Set(previas.map(p => p.protocolo))].length,
-          pesos: [], // Será populado em loadWeightHistory
-          allPesos: [] // Também será populado em loadWeightHistory
+          pesos: [],
+          allPesos: []
         });
         
-        // Carregar histórico de pesos
         loadWeightHistory(previas);
       } else {
-        // Se não houver prévias, limpar o histórico
         setPatientHistory({
           ultimaAnalise: '',
           quantidadeGuias: 0,
@@ -357,11 +412,6 @@ const NovaPreviaView = () => {
         });
         setPreviousConsultations([]);
       }
-      
-      // Exibir indicador de cache se os dados vieram do cache
-      //if (dataSource === 'cache') {
-      //  showCacheRefreshIndicator();
-      //}
     } catch (error) {
       console.error("Erro ao carregar dados do paciente:", error);
       toast({
@@ -372,6 +422,56 @@ const NovaPreviaView = () => {
     } finally {
       setIsLoadingPatient(false);
     }
+  };
+
+
+  // Componente para renderizar botão com status dividido
+  const StatusSplitButton = ({ consultation, atendimentoNumero, numeroExibido, currentPage, onClick }) => {
+    const parecerGuiaColor = getStatusColor(consultation.parecer_guia);
+    const finalizacaoColor = getStatusColor(consultation.finalizacao);
+    
+    const isActive = currentPage === atendimentoNumero;
+    
+    // Verificar se os status são "não definidos" (vazios ou nulos)
+    const isParecerGuiaUndefined = !consultation.parecer_guia || consultation.parecer_guia === '';
+    const isFinalizacaoUndefined = !consultation.finalizacao || consultation.finalizacao === '';
+    
+    return (
+      <button 
+        key={consultation.id}
+        className={`pagination-button status-split-button ${isActive ? 'active' : ''}`}
+        onClick={onClick}
+      >
+        {/* Fundo dividido */}
+        <div 
+          className={`status-background-left ${isParecerGuiaUndefined ? 'status-undefined' : ''}`}
+          style={{
+            backgroundColor: parecerGuiaColor,
+          }}
+        />
+        <div 
+          className={`status-background-right ${isFinalizacaoUndefined ? 'status-undefined' : ''}`}
+          style={{
+            backgroundColor: finalizacaoColor,
+          }}
+        />
+        
+        {/* Linha divisória */}
+        <div className="status-divider" />
+        
+        {/* Texto */}
+        <span className="status-button-text">
+          Atend. {numeroExibido}
+        </span>
+        
+        {/* Tooltip com informações dos status */}
+        <div className="status-tooltip">
+          <div>Parecer: {consultation.parecer_guia || 'Não definido'}</div>
+          <div>Finalização: {consultation.finalizacao || 'Não definido'}</div>
+          <div className="status-tooltip-arrow" />
+        </div>
+      </button>
+    );
   };
 
   const loadWeightHistory = async (previas) => {
@@ -2714,19 +2814,20 @@ const NovaPreviaView = () => {
           
           {/* Footer com paginação e botões de ação */}
           <div className="form-footer">
-            <div className="pagination-container flex items-center">
+            {/* Container dos botões de navegação */}
+            <div className="pagination-buttons-container">
               {/* Seta para esquerda (anterior) */}
               {visibleButtonsStart > 0 && (
                 <button 
-                  className="pagination-nav-button mr-2"
+                  className="pagination-nav-button"
                   onClick={navigateButtonsPrev}
                 >
                   <ChevronLeft size={20} />
                 </button>
               )}
               
-              <div className="pagination flex overflow-hidden relative">
-                <AnimatePresence initial={false} mode="wait">
+              <div className="flex">
+                <AnimatePresence mode="wait">
                   <motion.div 
                     key={visibleButtonsStart}
                     className="flex"
@@ -2735,48 +2836,35 @@ const NovaPreviaView = () => {
                     exit={{ x: -100, opacity: 0 }}
                     transition={{ duration: 0.3 }}
                   >
-                    {/* Botões para atendimentos visíveis em ordem decrescente */}
+                    {/* Botão "Novo" sempre primeiro */}
+                    {visibleButtonsStart === 0 && (
+                      <button 
+                        className={`pagination-button bg-green-100 hover:bg-green-200 border-green-300 text-green-800 flex items-center justify-center ${
+                          currentPage === previousConsultations.length + 1 ? 'active' : ''
+                        }`}
+                        onClick={() => handleLoadPreviousPage(previousConsultations.length + 1)}
+                      >
+                        <PlusCircle size={14} className="mr-1" />
+                        Novo
+                      </button>
+                    )}
+                    
+                    {/* Botões de atendimento com status colorido */}
                     {[...previousConsultations]
                       .slice(visibleButtonsStart, visibleButtonsStart + Math.min(3, previousConsultations.length))
                       .map((consultation, index) => {
-                        // Obter o índice real do atendimento (em ordem crescente, onde 1 é o primeiro)
                         const atendimentoNumero = index + visibleButtonsStart + 1;
-                        
-                        // Calcular o número invertido para exibição
                         const numeroExibido = previousConsultations.length - atendimentoNumero + 1;
                         
-                        // Adicionar botão "+ Novo" ao lado do primeiro botão
-                        if (index === 0 && visibleButtonsStart === 0) {
-                          return (
-                            <React.Fragment key={`fragment-${consultation.id}`}>
-                              <button 
-                                className={`pagination-button bg-green-100 hover:bg-green-200 border-green-300 text-green-800 flex items-center justify-center ${
-                                  currentPage === previousConsultations.length + 1 ? 'active' : ''
-                                }`}
-                                onClick={() => handleLoadPreviousPage(previousConsultations.length + 1)}
-                              >
-                                <PlusCircle size={14} className="mr-1" />
-                                Novo
-                              </button>
-                              <button 
-                                key={consultation.id}
-                                className={`pagination-button ${currentPage === atendimentoNumero ? 'active' : ''}`}
-                                onClick={() => handleLoadPreviousPage(atendimentoNumero)}
-                              >
-                                Atend. {numeroExibido}
-                              </button>
-                            </React.Fragment>
-                          );
-                        }
-                        
                         return (
-                          <button 
+                          <StatusSplitButton
                             key={consultation.id}
-                            className={`pagination-button ${currentPage === atendimentoNumero ? 'active' : ''}`}
+                            consultation={consultation}
+                            atendimentoNumero={atendimentoNumero}
+                            numeroExibido={numeroExibido}
+                            currentPage={currentPage}
                             onClick={() => handleLoadPreviousPage(atendimentoNumero)}
-                          >
-                            Atend. {numeroExibido}
-                          </button>
+                          />
                         );
                       })
                     }
@@ -2787,7 +2875,7 @@ const NovaPreviaView = () => {
               {/* Seta para direita (próximo) */}
               {visibleButtonsStart < Math.max(0, previousConsultations.length - 3) && (
                 <button 
-                  className="pagination-nav-button ml-2"
+                  className="pagination-nav-button"
                   onClick={navigateButtonsNext}
                 >
                   <ChevronRight size={20} />
@@ -2948,6 +3036,22 @@ const NovaPreviaView = () => {
         .form-select,
         .form-textarea {
           flex: 1;
+        }
+          
+        .pagination-button-custom:hover .status-tooltip {
+          opacity: 1;
+          visibility: visible;
+        }
+        
+        .pagination-button-custom:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .pagination-button-custom.active {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+          border-color: #6b7280;
         }
       `}</style>
     </motion.div>

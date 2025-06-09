@@ -471,6 +471,7 @@
   background-color: #8cb369;
   border-color: #8cb369;
   color: white;
+  border: 2px solid #a0a0a0;
 }
 
 /* Estilização para o popout de detalhes do gráfico */
@@ -1327,4 +1328,190 @@
 
 .file-action-button:hover:nth-child(3) {
   color: #ef4444; /* Vermelho para excluir */
+}
+
+/* Estilos para os botões de status dividido - mantendo o tamanho original */
+.status-split-button {
+  position: relative;
+  overflow: hidden;
+  /* Mantém todos os estilos originais do pagination-button */
+  background-color: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 15px 20px;
+  font-size: 17px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin: 0 4px;
+  margin-bottom: 25px;
+  min-width: 72px; /* Mantém o tamanho original */
+}
+
+/* Fundo dividido - lado esquerdo (Parecer da Guia) */
+.status-background-left {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  opacity: 0.6; /* Cor mais viva que antes */
+  z-index: 1;
+  transition: opacity 0.2s ease;
+}
+
+/* Fundo dividido - lado direito (Finalização) */
+.status-background-right {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 50%;
+  height: 100%;
+  opacity: 0.6; /* Cor mais viva que antes */
+  z-index: 1;
+  transition: opacity 0.2s ease;
+}
+
+/* Estado normal para status não definido */
+.status-background-left.status-undefined,
+.status-background-right.status-undefined {
+  background-color: #F1F1F1 !important;
+  opacity: 0.8; /* Ligeiramente mais visível no estado normal */
+}
+
+/* Linha divisória no meio */
+.status-divider {
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  width: 1px;
+  height: 80%;
+  background-color: transparent;
+  z-index: 2;
+  transform: translateX(-50%);
+}
+
+/* Texto do botão */
+.status-button-text {
+  position: relative;
+  z-index: 3;
+  color: #374151;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+/* Efeito hover - cores mais vivas */
+.status-split-button:hover .status-background-left,
+.status-split-button:hover .status-background-right {
+  opacity: 0.85; /* Cores bem mais vivas no hover */
+}
+
+/* Efeito hover especial para status não definido */
+.status-split-button:hover .status-background-left.status-undefined,
+.status-split-button:hover .status-background-right.status-undefined {
+  background-color: #F1F1F1 !important;
+  opacity: 1; /* Opacidade total para a cor cinza */
+}
+
+.status-split-button:hover {
+  background-color: #e5e7eb; /* Mantém o hover original */
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.status-split-button:hover .status-button-text {
+  color: #111827; /* Texto mais escuro no hover para melhor contraste */
+  font-weight: 600;
+}
+
+.status-split-button:hover .status-divider {
+  background-color: rgba(255, 255, 255, 1); /* Linha mais visível no hover */
+}
+
+/* Estado ativo - mantém o estilo original */
+.status-split-button.active {
+  color: white;
+}
+
+.status-split-button.active .status-background-left,
+.status-split-button.active .status-background-right {
+  opacity: 0.9; /* Cores bem intensas quando ativo */
+}
+
+/* Estado ativo especial para status não definido */
+.status-split-button.active .status-background-left.status-undefined,
+.status-split-button.active .status-background-right.status-undefined {
+  background-color: #F1F1F1 !important;
+  opacity: 1; /* Opacidade total para a cor cinza quando ativo */
+}
+
+.status-split-button.active .status-button-text {
+  color: rgb(0, 0, 0);
+  font-weight: 600;
+  
+}
+
+.status-split-button.active .status-divider {
+  background-color: transparent;
+}
+
+/* Tooltip para mostrar informações dos status */
+.status-tooltip {
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #1f2937;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s;
+  z-index: 10;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.status-split-button:hover .status-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.status-tooltip-arrow {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #1f2937;
+}
+
+/* Responsividade mantendo compatibilidade */
+@media (max-width: 768px) {
+  .status-split-button {
+    min-width: 60px;
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+  
+  .status-tooltip {
+    font-size: 11px;
+    padding: 6px 8px;
+  }
+}
+
+/* Estados de foco para acessibilidade */
+.status-split-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(140, 179, 105, 0.5);
+}
+
+.status-split-button:focus:not(:focus-visible) {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
