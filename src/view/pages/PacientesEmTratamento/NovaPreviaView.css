@@ -1,5 +1,15 @@
 /* src/view/pages/PacientesEmTratamento/NovaPreviaView.css */
 
+:root {
+  --background-secondary: #f8f9fa;
+  --background-hover: #e9ecef;
+  --background-tooltip: #2c3e50;
+  --text-secondary: #495057;
+  --text-tooltip: #ffffff;
+  --border-color: #dee2e6;
+  --border-hover: #ced4da;
+}
+
 .nova-previa-container {
   max-width: 1200px;
   margin: 0 auto;
@@ -1514,4 +1524,313 @@
 
 .status-split-button:focus:not(:focus-visible) {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.user-info-display {
+  background-color: #f8fafc;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+/* Variante para novo registro */
+.user-info-display.new-record {
+  background-color: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.user-info-display.new-record .user-info-text {
+  color: #1e40af;
+}
+
+/* Variante para registro existente */
+.user-info-display.existing-record {
+  background-color: #f9fafb;
+  border-color: #e5e7eb;
+}
+
+.user-info-display.existing-record .user-info-text {
+  color: #374151;
+}
+
+/* Texto das informações do usuário */
+.user-info-text {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* Indicadores coloridos */
+.user-info-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.user-info-indicator.created {
+  background-color: #10b981; /* Verde para criação */
+}
+
+.user-info-indicator.modified {
+  background-color: #f59e0b; /* Laranja para modificação */
+}
+
+.user-info-indicator.current {
+  background-color: #3b82f6; /* Azul para usuário atual */
+}
+
+/* Layout flexível para as informações */
+.user-info-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.user-info-row:last-child {
+  margin-bottom: 0;
+}
+
+/* Labels destacados */
+.user-info-label {
+  font-weight: 600;
+  color: inherit;
+}
+
+/* Timestamps */
+.user-info-timestamp {
+  color: #6b7280;
+  font-weight: 400;
+  margin-left: 8px;
+}
+
+/* Hover effect */
+.user-info-display:hover {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+/* Estado de carregamento */
+.user-info-loading {
+  display: flex;
+  align-items: center;
+  color: #6b7280;
+}
+
+.user-info-loading .loading-dot {
+  width: 4px;
+  height: 4px;
+  background-color: #9ca3af;
+  border-radius: 50%;
+  margin: 0 2px;
+  animation: pulse 1.5s infinite;
+}
+
+.user-info-loading .loading-dot:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.user-info-loading .loading-dot:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+/* Animação para os indicadores de carregamento */
+@keyframes pulse {
+  0%, 80%, 100% {
+    opacity: 0.3;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .user-info-display {
+    padding: 10px 12px;
+    margin-bottom: 12px;
+  }
+  
+  .user-info-text {
+    font-size: 13px;
+  }
+  
+  .user-info-timestamp {
+    display: block;
+    margin-left: 16px;
+    margin-top: 2px;
+  }
+}
+
+/* Integração com o tema existente */
+.card .user-info-display {
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+/* Estilo especial quando há erro ou aviso */
+.user-info-display.warning {
+  background-color: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.user-info-display.error {
+  background-color: #fee2e2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+.card-header-with-user {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  min-height: 40px; /* Garante altura mínima consistente */
+}
+
+/* Título do card (lado esquerdo) */
+.card-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Container das informações do usuário inline (lado direito) */
+.user-info-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  max-width: 400px;
+  position: relative;
+  cursor: help;
+  transition: all 0.2s ease;
+}
+
+.user-info-inline:hover {
+  background-color: var(--background-hover);
+  border-color: var(--border-hover);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.user-info-inline::after {
+  content: "Este usuário criou ou alterou esta prévia.";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  background-color: var(--background-tooltip);
+  color: var(--text-tooltip);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.user-info-inline:hover::after {
+  opacity: 1;
+  visibility: visible;
+  bottom: calc(100% + 8px);
+}
+
+.user-info-inline::before {
+  content: "";
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: var(--background-tooltip) transparent transparent transparent;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+}
+
+.user-info-inline:hover::before {
+  opacity: 1;
+  visibility: visible;
+  bottom: calc(100% + 8px);
+}
+
+.user-info-inline.existing-record {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.user-text {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.user-timestamp {
+  margin-left: 8px;
+  white-space: nowrap;
+  color: var(--text-tertiary);
+}
+
+/* Estilos adicionais para melhor integração */
+.user-info-inline strong {
+  font-weight: 600;
+  color: inherit;
+}
+
+/* Tooltip opcional para informações completas */
+.user-info-inline[title] {
+  cursor: help;
+}
+
+/* Estado de foco para acessibilidade */
+.user-info-inline:focus-within {
+  outline: 2px solid #8cb369;
+  outline-offset: 2px;
+}
+
+/* Variação para temas escuros (se necessário no futuro) */
+@media (prefers-color-scheme: dark) {
+  .user-info-inline.new-record {
+    background-color: #1e3a8a;
+    border-color: #3b82f6;
+    color: #93c5fd;
+  }
+  
+  .user-info-inline.existing-record {
+    background-color: #374151;
+    border-color: #4b5563;
+    color: #d1d5db;
+  }
+}
+
+/* Garantir que não interfira com outros elementos */
+.card-header-with-user + * {
+  margin-top: 16px;
 }

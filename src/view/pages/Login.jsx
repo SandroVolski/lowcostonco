@@ -26,14 +26,14 @@ function Login() {
     }
   }, [authenticated, navigate]);
 
-  // Lista de credenciais válidas com nome de exibição
+  // Lista de credenciais válidas com nome de exibição e ID
   const VALID_CREDENTIALS = [
-    { code: 'LCOGlobal', password: 'Douglas193', displayName: 'Douglas' },
-    { code: 'jessica@lowcostonco.com.br', password: '@JessicaLCO_2025', displayName: 'Jéssica' },
-    { code: 'ana@lowcostonco.com.br', password: '@AnaLCO_2025', displayName: 'Ana' },
-    { code: 'carla@lowcostonco.com.br', password: '@CarlaLCO_2025', displayName: 'Carla' },
-    { code: 'patricia@lowcostonco.com.br', password: '@PatriciaLCO_2025', displayName: 'Patrícia' },
-    { code: 'guilherme@lowcostonco.com.br', password: '@GuilhermeLCO_2025', displayName: 'Guilherme' }
+    { code: 'LCOGlobal', password: 'Douglas193', displayName: 'Douglas', id: 1 },
+    { code: 'jessica@lowcostonco.com.br', password: '@JessicaLCO_2025', displayName: 'Jéssica', id: 2 },
+    { code: 'ana@lowcostonco.com.br', password: '@AnaLCO_2025', displayName: 'Ana', id: 3 },
+    { code: 'carla@lowcostonco.com.br', password: '@CarlaLCO_2025', displayName: 'Carla', id: 4 },
+    { code: 'patricia@lowcostonco.com.br', password: '@PatriciaLCO_2025', displayName: 'Patrícia', id: 5 },
+    { code: 'guilherme@lowcostonco.com.br', password: '@GuilhermeLCO_2025', displayName: 'Guilherme', id: 6 }
   ];
 
   const handleSubmit = async (e) => {
@@ -52,8 +52,8 @@ function Login() {
     if (foundUser) {
       setSuccess(true);
 
-      // Faz login passando o nome de exibição do usuário
-      login(foundUser.displayName);
+      // Faz login passando o nome de exibição e ID do usuário
+      login(foundUser.displayName, foundUser.id);
       
       // Inicia o carregamento dos dados se ainda não estiverem carregados
       if (!initialized) {
