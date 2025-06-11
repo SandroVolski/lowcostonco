@@ -123,6 +123,23 @@ const NovaPreviaView = () => {
     data_atualizacao: null
   });
 
+  const PatientSearchLoading = ({ isVisible }) => {
+    if (!isVisible) return null;
+
+    return (
+      <div className="patient-search-loading-overlay">
+        <div className="loading-content">
+          <img 
+            src="/images/loadingcorreto-semfundo.gif" 
+            alt="Carregando..." 
+            className="loading-gif"
+          />
+          <p className="loading-text">Procurando pacientes...</p>
+        </div>
+      </div>
+    );
+  };
+
   // NOVO: Componente UserInfoDisplay inline (mais compacto)
   const UserInfoInline = () => {
     // Se estivermos criando uma nova prévia
@@ -371,6 +388,60 @@ const NovaPreviaView = () => {
     } finally {
       setIsSearching(false);
     }
+  };
+
+  
+  // Componente de Loading simples apenas para área de resultados
+  const ResultsAreaLoading = () => {
+    return (
+      <div className="results-loading-container">
+        <img 
+          src="/images/loadingcorreto-semfundo.gif" 
+          alt="Carregando..." 
+          className="results-loading-gif"
+        />
+      </div>
+    );
+  };
+
+  const SearchIndicator = ({ isSearching }) => {
+    if (!isSearching) return null;
+    
+    return (
+      <div className="search-indicator">
+        <div className="search-indicator-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+    );
+  };
+
+  const LoadingOverlayWithGif = ({ isVisible, message, size = "large" }) => {
+    if (!isVisible) return null;
+
+    const getSizeClass = () => {
+      switch(size) {
+        case "small": return "loading-small";
+        case "medium": return "loading-medium"; 
+        case "large": return "loading-large";
+        default: return "loading-large";
+      }
+    };
+
+    return (
+      <div className="custom-loading-overlay">
+        <div className="custom-loading-content">
+          <img 
+            src="/images/loadingcorreto-semfundo.gif" 
+            alt="Carregando..." 
+            className={`loading-gif ${getSizeClass()}`}
+          />
+          <p className="custom-loading-text">{message}</p>
+        </div>
+      </div>
+    );
   };
 
   const removeDuplicates = (array, key) => {
@@ -641,49 +712,65 @@ const NovaPreviaView = () => {
   const [localPatientId, setLocalPatientId] = useState(null);
 
   // Função para lidar com a seleção de um paciente
-  const handleSelectPatient = (patient) => {
+  const handleSelectPatient = async (patient) => {
     console.log("Selecionando novo paciente:", patient.Nome);
     
-    // Determinar CID do paciente
-    const patientCID = patient?.CID || patient?.cid || null;
+    // Ativar loading
+    setIsLoadingPatient(true);
     
-    // Preparar dados iniciais limpos para o novo paciente - INCLUINDO FINALIZACAO
-    const initialFormData = {
-      guia: '',
-      protocolo: '',
-      cid: patientCID && patientCID.trim() !== '' ? patientCID : '',
-      ciclo: '',
-      dia: '',
-      dataEmissaoGuia: '',
-      dataEncaminhamentoAF: '',
-      dataSolicitacao: formatDate(new Date()),
-      parecer: '',
-      peso: '',
-      altura: '',
-      parecerGuia: '',
-      finalizacao: '', // NOVO CAMPO
-      inconsistencia: '',
-      cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
-    };
-    
-    // Limpar dados do paciente anterior ANTES de selecionar o novo
-    setFormData(initialFormData);
-    
-    setAttachments([]);
-    setDataParecerRegistrado(null);
-    setTempoParaAnalise(null);
-    setPreviousConsultations([]);
-    setCurrentPage(0);
-    
-    // Limpar diferença de dias
-    setDiferencaDias(null);
-    
-    // Agora selecionar o novo paciente
-    selectPatient(patient.id);
-    setLocalPatientId(patient.id);
-    setShowSearchModal(false);
-    
-    console.log("Paciente selecionado e dados configurados com CID:", patientCID);
+    try {
+      // Determinar CID do paciente
+      const patientCID = patient?.CID || patient?.cid || null;
+      
+      // Preparar dados iniciais limpos para o novo paciente
+      const initialFormData = {
+        guia: '',
+        protocolo: '',
+        cid: patientCID && patientCID.trim() !== '' ? patientCID : '',
+        ciclo: '',
+        dia: '',
+        dataEmissaoGuia: '',
+        dataEncaminhamentoAF: '',
+        dataSolicitacao: formatDate(new Date()),
+        parecer: '',
+        peso: '',
+        altura: '',
+        parecerGuia: '',
+        finalizacao: '',
+        inconsistencia: '',
+        cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
+      };
+      
+      // Limpar dados do paciente anterior ANTES de selecionar o novo
+      setFormData(initialFormData);
+      setAttachments([]);
+      setDataParecerRegistrado(null);
+      setTempoParaAnalise(null);
+      setPreviousConsultations([]);
+      setCurrentPage(0);
+      setDiferencaDias(null);
+      
+      // Selecionar o novo paciente
+      selectPatient(patient.id);
+      setLocalPatientId(patient.id);
+      
+      // Pequeno delay para dar tempo da animação de loading aparecer
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setShowSearchModal(false);
+      
+      console.log("Paciente selecionado e dados configurados com CID:", patientCID);
+      
+    } catch (error) {
+      console.error("Erro ao selecionar paciente:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível selecionar o paciente",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingPatient(false);
+    }
   };
 
   const clearPatientSpecificCache = (patientId) => {
@@ -950,7 +1037,7 @@ const NovaPreviaView = () => {
       return;
     }
 
-    // NOVO: Verificar se temos o ID do usuário
+    // Verificar se temos o ID do usuário
     if (!userId) {
       toast({
         title: "Erro de autenticação",
@@ -985,7 +1072,7 @@ const NovaPreviaView = () => {
         data_parecer_registrado: dataParecerRegistrado || null,
         tempo_analise: tempoParaAnalise || 0,
         
-        // NOVO: Adicionar IDs dos usuários
+        // Adicionar IDs dos usuários
         ...(formData.id 
           ? { usuario_alteracao_id: userId } // Se está editando, usar usuario_alteracao_id
           : { usuario_criacao_id: userId }   // Se está criando, usar usuario_criacao_id
@@ -1002,11 +1089,18 @@ const NovaPreviaView = () => {
       console.log("Dados enviados:", dadosPrevia);
       
       let response;
+      const isCreating = !formData.id; // Flag para saber se está criando
       
       // Determinar se é uma criação ou atualização
       if (formData.id) {
         // Atualizar prévia existente
         response = await updatePrevia(dadosPrevia);
+        
+        toast({
+          title: "Sucesso",
+          description: "Prévia atualizada com sucesso!",
+          variant: "success"
+        });
       } else {
         // Criar nova prévia
         response = await createPrevia(dadosPrevia);
@@ -1015,13 +1109,54 @@ const NovaPreviaView = () => {
         if (response.id && attachments.length > 0) {
           for (const attachment of attachments) {
             if (attachment.file) {
-              await uploadAnexo(response.id, attachment.file);
+              try {
+                await uploadAnexo(response.id, attachment.file);
+              } catch (uploadError) {
+                console.error("Erro ao fazer upload de anexo:", uploadError);
+                toast({
+                  title: "Aviso",
+                  description: `Prévia salva, mas houve erro no upload de ${attachment.name}`,
+                  variant: "warning"
+                });
+              }
             }
           }
         }
+        
+        toast({
+          title: "Sucesso",
+          description: "Prévia criada com sucesso!",
+          variant: "success"
+        });
       }
       
-      // ... resto da função permanece igual
+      // ========== CORREÇÃO PRINCIPAL ==========
+      // Recarregar dados do paciente para atualizar a lista de consultas
+      console.log("Recarregando dados do paciente após salvar...");
+      
+      // Aguardar um momento para garantir que o banco foi atualizado
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Recarregar dados do paciente
+      await loadPatientData(selectedPatient.id);
+      
+      // Se foi uma criação, ir para página "Novo" (formulário limpo)
+      if (isCreating && response.id) {
+        console.log("Nova prévia criada, indo para página 'Novo'...");
+        
+        // Aguardar um momento para os dados serem carregados
+        setTimeout(() => {
+          // Calcular a posição da página "Novo" (sempre última + 1)
+          const newPage = previousConsultations.length + 1;
+          console.log(`Indo para página 'Novo' (posição ${newPage})`);
+          
+          // Ir para página "Novo"
+          setCurrentPage(newPage);
+          handleLoadPreviousPage(newPage);
+        }, 800);
+      }
+      // ========================================
+      
     } catch (error) {
       console.error("Erro ao salvar prévia:", error);
       toast({
@@ -2401,48 +2536,60 @@ const NovaPreviaView = () => {
                   onChange={(e) => setLocalSearchTerm(e.target.value)}
                   className="search-input"
                   autoFocus
+                  // REMOVIDO: disabled={isSearching} - agora pode sempre digitar
                 />
+                {/* Indicador sutil de que está buscando */}
+                <SearchIndicator isSearching={isSearching} />
               </div>
               
-              {filteredPatients.length > 0 ? (
-                <div className="patient-list">
-                  {filteredPatients.map(patient => (
-                    <div 
-                      key={patient.id} 
-                      className="patient-item"
-                      onClick={() => handleSelectPatient(patient)}
-                    >
-                      <div className="patient-item-name">{patient.Nome}</div>
-                      <div className="patient-item-info">
-                        Código: {patient.Paciente_Codigo} | 
-                        Operadora: {patient.Operadora || 'N/A'}
+              {/* Área de resultados com loading condicional */}
+              <div className="results-area">
+                {isSearching ? (
+                  <ResultsAreaLoading />
+                ) : filteredPatients.length > 0 ? (
+                  <div className="patient-list">
+                    {filteredPatients.map(patient => (
+                      <div 
+                        key={patient.id} 
+                        className="patient-item"
+                        onClick={() => handleSelectPatient(patient)}
+                      >
+                        <div className="patient-item-name">{patient.Nome}</div>
+                        <div className="patient-item-info">
+                          Código: {patient.Paciente_Codigo} | 
+                          Operadora: {patient.Operadora || 'N/A'}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ) : localSearchTerm ? (
-                <p className="text-center text-gray-500 mt-4">
-                  Nenhum paciente encontrado com este termo.
-                </p>
-              ) : null}
-              {isSearching && (
-                <div className="flex justify-center my-4">
-                  <div className="loading-spinner w-8 h-8 border-2 border-t-blue-500"></div>
-                </div>
-              )}
+                    ))}
+                  </div>
+                ) : localSearchTerm && !isSearching ? (
+                  // Só mostra "não encontrado" se não estiver buscando
+                  <p className="text-center text-gray-500 mt-4">
+                    Nenhum paciente encontrado com este termo.
+                  </p>
+                ) : !localSearchTerm ? (
+                  // Mensagem inicial quando não há termo de busca
+                  <p className="text-center text-gray-400 mt-4">
+                    Digite para começar a buscar...
+                  </p>
+                ) : null}
 
-              {/* Botão para carregar mais resultados */}
-              {!isSearching && searchResults.length > 0 && searchPage < searchTotalPages && (
-                <button 
-                  className="w-full py-2 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 mt-4"
-                  onClick={loadMoreResults}
-                >
-                  Carregar mais resultados
-                </button>
-              )}
+                {/* Botão para carregar mais resultados */}
+                {!isSearching && searchResults.length > 0 && searchPage < searchTotalPages && (
+                  <button 
+                    className="w-full py-2 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 mt-4"
+                    onClick={loadMoreResults}
+                  >
+                    Carregar mais resultados
+                  </button>
+                )}
+              </div>
+              
               <button 
                 className="new-patient-button"
                 onClick={handleNewPatient}
+                // Só desabilita se estiver carregando dados do paciente, não durante busca
+                disabled={isLoadingPatient}
               >
                 <UserPlus size={18} />
                 Cadastrar Novo Paciente
