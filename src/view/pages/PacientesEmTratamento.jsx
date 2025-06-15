@@ -7,10 +7,11 @@ import PageTransition from '../../components/PageTransition';
 import CadastroPaciente from './PacientesEmTratamento/CadastroPaciente';
 import CadastroProtocolo from './PacientesEmTratamento/CadastroProtocolo';
 import NovaPreviaView from './PacientesEmTratamento/NovaPreviaView';
+import AtendPreviaView from './PacientesEmTratamento/AtendPreviaView';
 import ConsultaPaciente from '../../components/pacientes/ConsultaPaciente';
 import CalculadoraPaciente from './PacientesEmTratamento/CalculadoraPaciente';
 import { PatientProvider } from '../../context/PatientContext';
-import { Database, UserPlus, FileText, FilePlus, Users, Calculator } from 'lucide-react';
+import { Database, UserPlus, FileText, FilePlus, Users, Calculator, Eye } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import AnimatedTabContent from '../../components/AnimatedTabContent';
 
@@ -32,6 +33,7 @@ export default function PacientesEmTratamento() {
     'protocolo': 'PTTO: Cadastro de Protocolo',
     'previa': 'PTTO: Prévia de Pacientes',
     'nova-previa': 'PTTO: Nova Prévia',
+    'atend-previa': 'PTTO: Atendimentos de Prévias',
     'consultar': 'PTTO: Consulta de Pacientes',
     'calculadora': 'PTTO: Calculadora'
   };
@@ -104,6 +106,15 @@ export default function PacientesEmTratamento() {
                     <Header pageTitle={currentTitle} />
                     <AnimatedTabContent>
                       <NovaPreviaView mode="nova" />
+                    </AnimatedTabContent>
+                  </PageTransition>
+                )}
+
+                {activeTab === 'atend-previa' && (
+                  <PageTransition key="atend-previa-tab">
+                    <Header pageTitle={currentTitle} />
+                    <AnimatedTabContent>
+                      <AtendPreviaView />
                     </AnimatedTabContent>
                   </PageTransition>
                 )}

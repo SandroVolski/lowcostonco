@@ -23,6 +23,8 @@ export function Header() {
       ? "PTTO: Calculadora de Dosagem"
       : location.pathname === "/PacientesEmTratamento" && location.search === "?tab=nova-previa"
       ? "PTTO: Prévias"
+      : location.pathname === "/PacientesEmTratamento" && location.search === "?tab=atend-previa"
+      ? "PTTO: Atendimentos de Prévias"
       : location.pathname === "/PacientesEmTratamento"
       ? "Pacientes em Tratamento"
       : "Página Desconhecida";

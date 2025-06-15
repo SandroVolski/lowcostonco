@@ -2285,7 +2285,7 @@ const NovaPreviaView = () => {
         </AnimatePresence>
         
         <div className="card-header">
-          <h3>Registro de Status</h3>
+          <h3>Parecer/Registro de Status</h3>
         </div>
         
         <div className="status-section-content">

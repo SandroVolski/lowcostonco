@@ -47,6 +47,10 @@ function App() {
                         element={<Navigate to="/PacientesEmTratamento?tab=protocolo" replace />} 
                       />
                       <Route 
+                        path="/AtendPrevia"
+                        element={<Navigate to="/PacientesEmTratamento?tab=atend-previa" replace />} 
+                      />
+                      <Route 
                         path="/Calculadora"
                         element={<Navigate to="/PacientesEmTratamento?tab=calculadora" replace />} 
                       />

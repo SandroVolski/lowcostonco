@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Database, LayoutGrid, LogOut, User, ChevronDown, ChevronRight, Users, FilePlus, Calculator, Folder, Search, UserPlus, FileText } from "lucide-react";
+import { Database, LayoutGrid, LogOut, User, ChevronDown, ChevronRight, Users, FilePlus, Calculator, Folder, Search, UserPlus, FileText, Eye } from "lucide-react";
 import { useLocation, Link } from "react-router-dom";
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
@@ -64,7 +64,7 @@ export function Sidebar() {
         { icon: UserPlus, label: "Cad. Paciente", path: "/PacientesEmTratamento?tab=cadastro" },
         { icon: FileText, label: "Cad. Protocolo", path: "/PacientesEmTratamento?tab=protocolo" },
         { icon: FilePlus, label: "Prévias", path: "/PacientesEmTratamento?tab=nova-previa" },
-        /*{ icon: Search, label: "Consultar Prévia", path: "/PacientesEmTratamento?tab=previa" },*/
+        { icon: Eye, label: "Atend. Prévia", path: "/PacientesEmTratamento?tab=atend-previa" }, // NOVA OPÇÃO
         { icon: Calculator, label: "Calculadora", path: "/PacientesEmTratamento?tab=calculadora" }
       ]
     },

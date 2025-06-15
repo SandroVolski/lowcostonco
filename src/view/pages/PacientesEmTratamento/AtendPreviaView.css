@@ -1,0 +1,259 @@
+/* Estilos específicos para AtendPreviaView.jsx */
+/* A maioria dos estilos vem de PacientesEstilos.css, estes são apenas complementos */
+
+/* Estilos para status badges na visualização de grade */
+.status-indicators {
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.status-label {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.status-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.status-badge-small {
+  display: inline-block;
+  border-radius: 8px;
+  font-weight: 500;
+  text-align: center;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.status-badge-small:hover {
+  transform: scale(1.05);
+}
+
+/* Animação de loading personalizada */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Melhorias na responsividade para status badges */
+@media (max-width: 768px) {
+  .status-indicators {
+    padding: 6px 12px;
+    gap: 6px;
+  }
+  
+  .status-badge {
+    padding: 3px 6px;
+    font-size: 10px;
+  }
+  
+  .status-badge-small {
+    font-size: 9px;
+    padding: 2px 4px;
+  }
+  
+  .status-label {
+    font-size: 10px;
+  }
+}
+
+/* Melhorias visuais para os cards de prévia */
+.protocol-card:hover .status-indicators {
+  background-color: rgba(198, 214, 81, 0.05);
+}
+
+.protocol-card.selected .status-indicators {
+  background-color: rgba(198, 214, 81, 0.1);
+}
+
+/* Indicador visual para prévias com anexos */
+.previa-with-attachments::after {
+  content: "📎";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* Estilos para tooltips de status */
+.status-badge[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background-color: #1f2937;
+  color: white;
+  border-radius: 4px;
+  font-size: 10px;
+  white-space: nowrap;
+  z-index: 1000;
+  margin-bottom: 4px;
+}
+
+/* Melhor visual para cards vazios ou com erro */
+.empty-state, .error-state {
+  padding: 60px 20px;
+}
+
+.empty-state svg, .error-state svg {
+  opacity: 0.3;
+  margin-bottom: 16px;
+}
+
+/* Estilos para indicadores de contagem */
+.record-count-badge {
+  background-color: var(--color-primary);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+/* Melhorias na paginação */
+.pagination-container {
+  background-color: white;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+/* Estilos para filtros ativos */
+.search-types label.active {
+  background-color: var(--color-primary);
+  color: white;
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+.search-types label.active input {
+  accent-color: white;
+}
+
+/* Melhorias no loading state */
+.loading-state {
+  background-color: white;
+  border-radius: 8px;
+  margin: 20px;
+  border: 1px solid #e5e7eb;
+}
+
+/* Transições suaves para mudanças de view mode */
+.patients-grid, .patients-list {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Estilos para destacar resultados de busca */
+.search-highlight {
+  background-color: #fef3c7;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* Indicador de status para células da lista */
+.list-status-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+/* Melhorias na acessibilidade */
+.action-button-pacientes:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.view-button:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Estados de hover melhorados */
+.protocol-card:hover {
+  transform: translateY(-4px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.patient-list-item:hover {
+  background-color: rgba(198, 214, 81, 0.1);
+  transition: all 0.2s ease;
+}
+
+/* Melhorias para telas muito pequenas */
+@media (max-width: 480px) {
+  .dashboard-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .search-container-pacientes {
+    width: 100%;
+  }
+  
+  .patients-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .pagination-controls {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  
+  .pagination-button {
+    min-width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+}
