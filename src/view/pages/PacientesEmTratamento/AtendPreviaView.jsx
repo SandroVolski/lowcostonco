@@ -53,6 +53,13 @@ const AtendPreviaView = () => {
         search_type: searchType
       });
       
+      // Se for uma busca por status, adicionar o parâmetro de status
+      if (searchType.startsWith('status_parecer_')) {
+        const status = searchType.replace('status_parecer_', '');
+        // Adicionar o status para parecer e finalização
+        params.append('status', status);
+      }
+      
       const response = await fetch(`${API_BASE_URL}/${API_ENDPOINT}?${params}`);
       
       if (!response.ok) {
@@ -65,11 +72,27 @@ const AtendPreviaView = () => {
         throw new Error(data.error);
       }
       
-      setPrevias(data.data || []);
-      setFilteredPrevias(data.data || []);
+      // Filtrar os resultados para mostrar apenas os que têm o status selecionado
+      let filteredData = data.data || [];
+      if (searchType.startsWith('status_parecer_')) {
+        const status = searchType.replace('status_parecer_', '');
+        // Converter o status para o formato correto
+        let statusFormatted = status;
+        if (status === 'favoravel') statusFormatted = 'Favorável';
+        if (status === 'favoravel_inconsistencia') statusFormatted = 'Favorável com Inconsistência';
+        if (status === 'inconclusivo') statusFormatted = 'Inconclusivo';
+        if (status === 'desfavoravel') statusFormatted = 'Desfavorável';
+        
+        filteredData = filteredData.filter(previa => 
+          previa.parecer_guia === statusFormatted || previa.finalizacao === statusFormatted
+        );
+      }
+      
+      setPrevias(filteredData);
+      setFilteredPrevias(filteredData);
       setCurrentPage(data.pagination?.current_page || 1);
       setTotalPages(data.pagination?.total_pages || 0);
-      setTotalRecords(data.pagination?.total_records || 0);
+      setTotalRecords(filteredData.length);
       
     } catch (error) {
       console.error("Erro ao carregar prévias:", error);
@@ -106,6 +129,12 @@ const AtendPreviaView = () => {
     const value = e.target.value;
     setSearchTerm(value);
     setCurrentPage(1);
+    
+    // Verifica se o valor contém números
+    const hasNumbers = /\d/.test(value);
+    const searchType = hasNumbers ? 'guia' : 'patient_name';
+    setSearchType(searchType);
+    
     debouncedSearch(value, searchType);
   };
   
@@ -147,7 +176,7 @@ const AtendPreviaView = () => {
   
   // Função para navegar para uma prévia específica
   const handleViewPrevia = (previa) => {
-    const url = `/PacientesEmTratamento?tab=nova-previa&patientId=${previa.paciente_id}`;
+    const url = `/PacientesEmTratamento?tab=nova-previa&patientId=${previa.paciente_id}&previaId=${previa.id}`;
     navigate(url);
   };
   
@@ -484,14 +513,7 @@ const AtendPreviaView = () => {
             <input 
               ref={searchInputRef}
               type="text" 
-              placeholder={`Pesquisar por ${
-                searchType === 'patient_name' ? 'nome do paciente' : 
-                searchType === 'protocol' ? 'protocolo' : 
-                searchType === 'cid' ? 'CID' :
-                searchType.startsWith('status_parecer') ? 'filtro aplicado automaticamente' :
-                searchType.startsWith('status_finalizacao') ? 'filtro aplicado automaticamente' : 
-                'filtro específico'
-              }...`}
+              placeholder="Digite o nome do paciente ou número da guia..."
               value={searchTerm}
               onChange={handleSearchChange}
               disabled={searchType.startsWith('status_')}
@@ -520,39 +542,6 @@ const AtendPreviaView = () => {
           
           <div className="search-options">
             <div className="search-types">
-              <label className={searchType === 'patient_name' ? 'active' : ''}>
-                <input 
-                  type="radio" 
-                  name="searchType" 
-                  checked={searchType === 'patient_name'} 
-                  onChange={() => handleSearchTypeChange('patient_name')} 
-                />
-                <span>Paciente</span>
-              </label>
-              <label className={searchType === 'protocol' ? 'active' : ''}>
-                <input 
-                  type="radio" 
-                  name="searchType" 
-                  checked={searchType === 'protocol'} 
-                  onChange={() => handleSearchTypeChange('protocol')} 
-                />
-                <span>Protocolo</span>
-              </label>
-              <label className={searchType === 'cid' ? 'active' : ''}>
-                <input 
-                  type="radio" 
-                  name="searchType" 
-                  checked={searchType === 'cid'} 
-                  onChange={() => handleSearchTypeChange('cid')} 
-                />
-                <span>CID</span>
-              </label>
-            </div>
-            
-            <div className="search-types" style={{marginTop: '8px', borderTop: '1px solid #e5e7eb', paddingTop: '8px'}}>
-              <div style={{fontSize: '11px', color: '#6b7280', marginBottom: '4px', fontWeight: '500'}}>
-                Status do Parecer:
-              </div>
               <label className={searchType === 'status_parecer_favoravel' ? 'active' : ''}>
                 <input 
                   type="radio" 
@@ -590,48 +579,6 @@ const AtendPreviaView = () => {
                 <span>Desfavorável</span>
               </label>
             </div>
-            
-            <div className="search-types" style={{marginTop: '8px', borderTop: '1px solid #e5e7eb', paddingTop: '8px'}}>
-              <div style={{fontSize: '11px', color: '#6b7280', marginBottom: '4px', fontWeight: '500'}}>
-                Status da Finalização:
-              </div>
-              <label className={searchType === 'status_finalizacao_favoravel' ? 'active' : ''}>
-                <input 
-                  type="radio" 
-                  name="searchType" 
-                  checked={searchType === 'status_finalizacao_favoravel'} 
-                  onChange={() => handleSearchTypeChange('status_finalizacao_favoravel')} 
-                />
-                <span>Favorável</span>
-              </label>
-              <label className={searchType === 'status_finalizacao_favoravel_inconsistencia' ? 'active' : ''}>
-                <input 
-                  type="radio" 
-                  name="searchType" 
-                  checked={searchType === 'status_finalizacao_favoravel_inconsistencia'} 
-                  onChange={() => handleSearchTypeChange('status_finalizacao_favoravel_inconsistencia')} 
-                />
-                <span>Fav. c/ Inconsistência</span>
-              </label>
-              <label className={searchType === 'status_finalizacao_inconclusivo' ? 'active' : ''}>
-                <input 
-                  type="radio" 
-                  name="searchType" 
-                  checked={searchType === 'status_finalizacao_inconclusivo'} 
-                  onChange={() => handleSearchTypeChange('status_finalizacao_inconclusivo')} 
-                />
-                <span>Inconclusivo</span>
-              </label>
-              <label className={searchType === 'status_finalizacao_desfavoravel' ? 'active' : ''}>
-                <input 
-                  type="radio" 
-                  name="searchType" 
-                  checked={searchType === 'status_finalizacao_desfavoravel'} 
-                  onChange={() => handleSearchTypeChange('status_finalizacao_desfavoravel')} 
-                />
-                <span>Desfavorável</span>
-              </label>
-            </div>
           </div>
         </div>
         
@@ -654,8 +601,13 @@ const AtendPreviaView = () => {
           <Activity size={16} />
           <span>
             {totalRecords} {totalRecords === 1 ? 'atendimento' : 'atendimentos'}
-            {searchTerm && ` encontrado${totalRecords === 1 ? '' : 's'} para "${searchTerm}"`}
-            {searchType.startsWith('status_') && !searchTerm && ` filtrado${totalRecords === 1 ? '' : 's'} por status`}
+            {searchTerm && (
+              <>
+                {` encontrado${totalRecords === 1 ? '' : 's'} para "${searchTerm}"`}
+                {searchType === 'guia' ? ' (busca por número da guia)' : ' (busca por nome do paciente)'}
+              </>
+            )}
+            {searchType.startsWith('status_parecer_') && !searchTerm && ` com status ${searchType.replace('status_parecer_', '')} no Parecer ou Finalização`}
           </span>
         </div>
       </div>

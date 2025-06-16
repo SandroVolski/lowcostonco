@@ -2537,3 +2537,261 @@
 .search-input:focus::placeholder {
   color: #d1d5db;
 }
+
+/* Estilos para o indicador de navegação */
+.navigation-indicator {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 8px 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border: 1px solid #e5e7eb;
+  z-index: 1000;
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  animation: slideInFromRight 0.3s ease-out;
+}
+
+.navigation-indicator:hover {
+  background: rgba(255, 255, 255, 1);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Melhorar o botão que veio da URL */
+.status-split-button.from-url {
+  position: relative;
+  animation: pulseHighlight 2s ease-in-out;
+}
+
+.status-split-button.from-url::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  background: linear-gradient(45deg, #3b82f6, #06b6d4, #3b82f6);
+  border-radius: 9px;
+  z-index: -1;
+  opacity: 0.3;
+  animation: gradientShift 3s ease-in-out infinite;
+}
+
+@keyframes pulseHighlight {
+  0%, 100% { 
+    box-shadow: 0 0 0 2px #3b82f6; 
+  }
+  50% { 
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.4); 
+  }
+}
+
+@keyframes gradientShift {
+  0%, 100% { 
+    background: linear-gradient(45deg, #3b82f6, #06b6d4, #3b82f6); 
+  }
+  50% { 
+    background: linear-gradient(45deg, #06b6d4, #3b82f6, #06b6d4); 
+  }
+}
+
+/* Melhorar tooltips */
+.status-tooltip {
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #1f2937;
+  color: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s;
+  z-index: 10;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  min-width: 180px;
+  text-align: left;
+}
+
+.status-tooltip div {
+  margin: 2px 0;
+  line-height: 1.4;
+}
+
+.status-split-button:hover .status-tooltip {
+  opacity: 1;
+  visibility: visible;
+  bottom: calc(100% + 8px);
+}
+
+.status-tooltip-arrow {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #1f2937;
+}
+
+/* Feedback visual melhor para navegação */
+.pagination-button.active {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  border-color: #8cb369;
+}
+
+.pagination-button:hover {
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+/* Responsividade para o indicador */
+@media (max-width: 768px) {
+  .navigation-indicator {
+    top: 10px;
+    right: 10px;
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+  
+  .status-split-button.from-url::before {
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+  }
+}
+
+/* Melhorar acessibilidade */
+.status-split-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}
+
+.status-split-button:focus:not(:focus-visible) {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Animação de entrada para botões */
+.pagination-button {
+  animation: buttonSlideIn 0.3s ease-out;
+}
+
+@keyframes buttonSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+  
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 8px;
+}
+
+.pagination-nav-button:hover {
+  background-color: #e5e7eb;
+}
+
+.form-grid-1-col {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-grid-2-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.date-difference-indicator {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  min-height: 70px;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  flex: 1;
+}
+
+/* Responsividade */
+@media (max-width: 1024px) {
+  .form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .form-grid .form-field:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .form-grid,
+  .form-grid-2-cols {
+    grid-template-columns: 1fr;
+  }
+}

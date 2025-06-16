@@ -214,7 +214,7 @@ const NovaPreviaView = () => {
             
             if (patient) {
               handleSelectPatient(patient);
-            } else {
+            } /*else {
               toast({
                 title: "Erro",
                 description: "Paciente não encontrado.",
@@ -222,7 +222,7 @@ const NovaPreviaView = () => {
                 duration: 3000,
                 isClosable: true,
               });
-            }
+            }*/
           }
         } catch (error) {
           console.error("Erro ao carregar paciente:", error);
@@ -2486,6 +2486,139 @@ const NovaPreviaView = () => {
     
     return score;
   };
+
+  // Efeito para carregar a prévia específica quando previaId estiver presente
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const previaId = searchParams.get('previaId');
+    const patientId = searchParams.get('patientId');
+    
+    if (previaId && patientId) {
+      const loadSpecificPrevia = async () => {
+        try {
+          setLoadingSection(true);
+          
+          // Primeiro, garantir que o paciente está carregado
+          if (!selectedPatient || selectedPatient.id !== parseInt(patientId)) {
+            await handleSelectPatient({ id: parseInt(patientId) });
+          }
+          
+          // Depois carregar os dados da prévia
+          const previaData = await getPrevia(previaId);
+          const ciclosDiasData = await getCiclosDias(previaId);
+          const anexosData = await getAnexos(previaId);
+          
+          // Atualizar informações do usuário
+          setPreviaUserInfo({
+            usuario_criacao: previaData.nome_usuario_criacao,
+            usuario_alteracao: previaData.nome_usuario_alteracao,
+            data_criacao: previaData.data_criacao,
+            data_atualizacao: previaData.data_atualizacao
+          });
+          
+          // Atualizar o formulário com os dados carregados
+          setFormData(prevData => ({
+            ...prevData,
+            id: previaData.id,
+            paciente_id: previaData.paciente_id,
+            guia: previaData.guia,
+            protocolo: previaData.protocolo,
+            cid: previaData.cid,
+            ciclo: ciclosDiasData.length > 0 ? ciclosDiasData[0].ciclo : '',
+            dia: ciclosDiasData.length > 0 ? ciclosDiasData[0].dia : '',
+            dataEmissaoGuia: formatDateFromDB(previaData.data_emissao_guia),
+            dataEncaminhamentoAF: formatDateFromDB(previaData.data_encaminhamento_af),
+            dataSolicitacao: formatDateFromDB(previaData.data_solicitacao),
+            parecer: previaData.parecer,
+            peso: previaData.peso,
+            altura: previaData.altura,
+            parecerGuia: previaData.parecer_guia,
+            finalizacao: previaData.finalizacao,
+            inconsistencia: previaData.inconsistencia,
+            cicloDiaEntries: ciclosDiasData.length > 0 ? ciclosDiasData : [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
+          }));
+          
+          // Atualizar anexos
+          const formattedAnexos = anexosData.map(anexo => ({
+            id: anexo.id,
+            name: anexo.nome_arquivo,
+            size: anexo.tamanho,
+            type: anexo.tipo,
+            download_url: anexo.download_url
+          }));
+          
+          setAttachments(formattedAnexos);
+          
+          // Configurar data de parecer registrado
+          if (previaData.data_parecer_registrado) {
+            setDataParecerRegistrado(formatDateFromDB(previaData.data_parecer_registrado));
+            setTempoParaAnalise(previaData.tempo_analise);
+          } else {
+            setDataParecerRegistrado(null);
+            setTempoParaAnalise(null);
+          }
+
+          // Encontrar o índice da prévia na lista de consultas anteriores
+          const previaIndex = previousConsultations.findIndex(cons => cons.id === parseInt(previaId));
+          if (previaIndex !== -1) {
+            setCurrentPage(previaIndex + 1);
+          }
+        } catch (error) {
+          console.error("Erro ao carregar prévia específica:", error);
+          toast({
+            title: "Erro",
+            description: "Não foi possível carregar os detalhes da prévia",
+            variant: "destructive"
+          });
+        } finally {
+          setLoadingSection(false);
+        }
+      };
+
+      // Usar um flag para evitar múltiplas execuções
+      let isMounted = true;
+      if (isMounted) {
+        loadSpecificPrevia();
+      }
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [location.search, selectedPatient?.id]); // Adicionar selectedPatient.id como dependência
+
+  // Efeito para evitar que o formulário seja limpo quando o paciente é carregado
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const previaId = searchParams.get('previaId');
+    
+    // Se tiver previaId na URL, não limpar o formulário
+    if (previaId) {
+      return;
+    }
+    
+    // Se não tiver previaId, seguir o comportamento normal de limpar o formulário
+    if (selectedPatient) {
+      setFormData(prevData => ({
+        ...prevData,
+        paciente_id: selectedPatient.id,
+        cid: selectedPatient.cid || '',
+        protocolo: '',
+        guia: '',
+        ciclo: '',
+        dia: '',
+        dataEmissaoGuia: '',
+        dataEncaminhamentoAF: '',
+        dataSolicitacao: formatDate(new Date()),
+        parecer: '',
+        peso: '',
+        altura: '',
+        parecerGuia: '',
+        finalizacao: '',
+        inconsistencia: '',
+        cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
+      }));
+    }
+  }, [selectedPatient, location.search]);
   
   return (
     <motion.div 
