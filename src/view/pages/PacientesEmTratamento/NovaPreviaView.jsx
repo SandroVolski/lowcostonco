@@ -20,6 +20,176 @@ import './NovaPreviaView.css';
 // Import previasService as a fallback
 import { previasService } from '../../../services/previasService';
 
+const StatusRegistrationSection = ({ 
+  formData, 
+  handleInputChange, 
+  selectedPatient, 
+  currentPage, 
+  loadingSection, 
+  dataParecerRegistrado, 
+  tempoParaAnalise 
+}) => {
+  // Opções para os campos de status (mesmas para ambos os campos)
+  const statusOptions = [
+    { value: "Favorável", icon: <Check size={18} className="text-green-600" />, color: "bg-green-100 border-green-200" },
+    { value: "Favorável com Inconsistência", icon: <AlertCircle size={18} className="text-orange-600" />, color: "bg-orange-100 border-orange-200" },
+    { value: "Inconclusivo", icon: <HelpCircle size={18} className="text-yellow-600" />, color: "bg-yellow-100 border-yellow-200" },
+    { value: "Desfavorável", icon: <X size={18} className="text-red-600" />, color: "bg-red-100 border-red-200" }
+  ];
+  
+  // Função para lidar com a seleção do status por cartão
+  const handleStatusCardSelect = (name, value) => {
+    // Simulamos um evento para usar a mesma função de manipulação
+    const syntheticEvent = {
+      target: {
+        name,
+        value
+      }
+    };
+    
+    handleInputChange(syntheticEvent);
+  };
+  
+  // Componente para exibir métricas de tempo
+  const TempoAnaliseMetrics = () => {
+    // Definir cores com base no tempo de análise
+    const getStatusColor = (dias) => {
+      if (dias <= 2) return 'text-green-600 bg-green-100'; // Rápido
+      if (dias <= 5) return 'text-yellow-600 bg-yellow-100'; // Médio
+      return 'text-red-600 bg-red-100'; // Demorado
+    };
+    
+    if (!dataParecerRegistrado) return null;
+    
+    return (
+      <div className="tempo-analise-metrics">
+        <h4 className="status-section-subtitle">Métricas de Tempo</h4>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div className="metric-item">
+            <span className="text-xs text-gray-500">Data Solicitação:</span>
+            <span className="block text-sm font-medium">{formData.dataSolicitacao}</span>
+          </div>
+          
+          <div className="metric-item">
+            <span className="text-xs text-gray-500">Data Parecer:</span>
+            <span className="block text-sm font-medium">{dataParecerRegistrado}</span>
+          </div>
+        </div>
+        
+        {tempoParaAnalise !== null && (
+          <div className="mt-3 flex items-center justify-between tempo-indicator">
+            <div className="flex items-center">
+              <Clock8 size={16} className="text-gray-500 mr-2" />
+              <span className="text-sm font-medium">Tempo para análise:</span>
+            </div>
+            
+            <div className={`tempo-badge ${getStatusColor(tempoParaAnalise)}`}>
+              {tempoParaAnalise} {tempoParaAnalise === 1 ? 'dia' : 'dias'}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+  
+  return (
+    <div className="registro-status-section card relative">
+      <AnimatePresence>
+        {loadingSection && (
+          <motion.div 
+            className="absolute inset-0 bg-white bg-opacity-70 z-10 flex items-center justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="flex flex-col items-center">
+              <div className="loading-spinner w-12 h-12 border-4 border-t-blue-500 mb-4"></div>
+              <p className="text-gray-700 font-medium">Carregando dados...</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      <div className="card-header">
+        <h3>Parecer/Registro de Status</h3>
+      </div>
+      
+      <div className="status-section-content">
+        {/* SEÇÃO: Parecer Técnico (movido da seção principal) */}
+        <div className="status-section-group">
+          <h4 className="status-section-subtitle">Parecer Técnico</h4>
+          <div className="form-field">
+            <textarea 
+              id="parecer"
+              name="parecer"
+              value={formData.parecer || ''} // GARANTIR QUE NUNCA SEJA UNDEFINED
+              onChange={handleInputChange}
+              className="form-textarea"
+              placeholder="Digite o parecer técnico detalhado sobre a análise da solicitação..."
+              rows="4"
+              style={{
+                minHeight: '100px',
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '6px'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Seleção de Parecer da Guia */}
+        <div className="status-section-group">
+          <h4 className="status-section-subtitle">Parecer da Guia</h4>
+          
+          <div className="status-cards-container">
+            {statusOptions.map(option => (
+              <div 
+                key={`parecer-${option.value}`}
+                className={`status-card ${option.color} ${formData.parecerGuia === option.value ? 'status-card-selected' : ''}`}
+                onClick={() => handleStatusCardSelect('parecerGuia', option.value)}
+              >
+                <div className="status-card-icon">
+                  {option.icon}
+                </div>
+                <div className="status-card-label">
+                  {option.value}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* SEÇÃO: Finalização */}
+        <div className="status-section-group">
+          <h4 className="status-section-subtitle">Finalização</h4>
+          
+          <div className="status-cards-container">
+            {statusOptions.map(option => (
+              <div 
+                key={`finalizacao-${option.value}`}
+                className={`status-card ${option.color} ${formData.finalizacao === option.value ? 'status-card-selected' : ''}`}
+                onClick={() => handleStatusCardSelect('finalizacao', option.value)}
+              >
+                <div className="status-card-icon">
+                  {option.icon}
+                </div>
+                <div className="status-card-label">
+                  {option.value}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Métricas de tempo de análise */}
+        <TempoAnaliseMetrics />
+      </div>
+    </div>
+  );
+};
+
 const NovaPreviaView = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -262,10 +432,11 @@ const NovaPreviaView = () => {
     dataEncaminhamentoAF: '',
     dataSolicitacao: '',
     parecer: '',
+    comentario: '', // NOVO CAMPO ADICIONADO
     peso: '',
     altura: '',
     parecerGuia: '',
-    finalizacao: '', // NOVO CAMPO
+    finalizacao: '',
     inconsistencia: '',
     cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
   });
@@ -733,6 +904,7 @@ const NovaPreviaView = () => {
         dataEncaminhamentoAF: '',
         dataSolicitacao: formatDate(new Date()),
         parecer: '',
+        comentario: '', // ADICIONAR AQUI
         peso: '',
         altura: '',
         parecerGuia: '',
@@ -1064,6 +1236,7 @@ const NovaPreviaView = () => {
         data_solicitacao: formData.dataSolicitacao,
         
         parecer: formData.parecer || '',
+        comentario: formData.comentario || '', // ADICIONAR ESTA LINHA
         peso: formData.peso ? parseFloat(formData.peso) : null,
         altura: formData.altura ? parseFloat(formData.altura) : null,
         parecer_guia: formData.parecerGuia || '',
@@ -1232,6 +1405,7 @@ const NovaPreviaView = () => {
         dia: '',
         dataSolicitacao: formatDate(new Date()),
         parecer: '',
+        comentario: '',
         peso: '',
         altura: '',
         parecerGuia: '',
@@ -1293,12 +1467,11 @@ const NovaPreviaView = () => {
         cid: previaDetails.cid,
         ciclo: ciclosDias.length > 0 ? ciclosDias[0].ciclo : '',
         dia: ciclosDias.length > 0 ? ciclosDias[0].dia : '',
-        
         dataEmissaoGuia: formatDateFromDB(previaDetails.data_emissao_guia),
         dataEncaminhamentoAF: formatDateFromDB(previaDetails.data_encaminhamento_af),
         dataSolicitacao: formatDateFromDB(previaDetails.data_solicitacao),
-        
         parecer: previaDetails.parecer,
+        comentario: previaDetails.comentario || '', // ADICIONAR ESTA LINHA
         peso: previaDetails.peso,
         altura: previaDetails.altura,
         parecerGuia: previaDetails.parecer_guia,
@@ -2211,134 +2384,6 @@ const NovaPreviaView = () => {
       e.preventDefault();
     }
   };
-  
-  // Componente melhorado para registro de status
-  const StatusRegistrationSection = () => {
-    // Opções para os campos de status (mesmas para ambos os campos)
-    const statusOptions = [
-      { value: "Favorável", icon: <Check size={18} className="text-green-600" />, color: "bg-green-100 border-green-200" },
-      { value: "Favorável com Inconsistência", icon: <AlertCircle size={18} className="text-orange-600" />, color: "bg-orange-100 border-orange-200" },
-      { value: "Inconclusivo", icon: <HelpCircle size={18} className="text-yellow-600" />, color: "bg-yellow-100 border-yellow-200" },
-      { value: "Desfavorável", icon: <X size={18} className="text-red-600" />, color: "bg-red-100 border-red-200" }
-    ];
-    
-    // Função para lidar com a seleção do status por cartão
-    const handleStatusCardSelect = (name, value) => {
-      // Simulamos um evento para usar a mesma função de manipulação
-      const syntheticEvent = {
-        target: {
-          name,
-          value
-        }
-      };
-      
-      handleInputChange(syntheticEvent);
-    };
-    
-    // Componente para exibir métricas de tempo
-    const TempoAnaliseMetrics = () => {
-      // Definir cores com base no tempo de análise
-      const getStatusColor = (dias) => {
-        if (dias <= 2) return 'text-green-600 bg-green-100'; // Rápido
-        if (dias <= 5) return 'text-yellow-600 bg-yellow-100'; // Médio
-        return 'text-red-600 bg-red-100'; // Demorado
-      };
-      
-      if (!dataParecerRegistrado) return null;
-      
-      return (
-        <div className="tempo-analise-metrics">
-          <h4 className="status-section-subtitle">Métricas de Tempo</h4>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="metric-item">
-              <span className="text-xs text-gray-500">Data Solicitação:</span>
-              <span className="block text-sm font-medium">{formData.dataSolicitacao}</span>
-            </div>
-            
-            <div className="metric-item">
-              <span className="text-xs text-gray-500">Data Parecer:</span>
-              <span className="block text-sm font-medium">{dataParecerRegistrado}</span>
-            </div>
-          </div>
-          
-          {tempoParaAnalise !== null && (
-            <div className="mt-3 flex items-center justify-between tempo-indicator">
-              <div className="flex items-center">
-                <Clock8 size={16} className="text-gray-500 mr-2" />
-                <span className="text-sm font-medium">Tempo para análise:</span>
-              </div>
-              
-              <div className={`tempo-badge ${getStatusColor(tempoParaAnalise)}`}>
-                {tempoParaAnalise} {tempoParaAnalise === 1 ? 'dia' : 'dias'}
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    };
-    
-    return (
-      <div className="registro-status-section card relative">
-        <AnimatePresence>
-          {loadingSection && <LoadingOverlay isLoading={true} />}
-        </AnimatePresence>
-        
-        <div className="card-header">
-          <h3>Parecer/Registro de Status</h3>
-        </div>
-        
-        <div className="status-section-content">
-          {/* Seleção de Parecer da Guia */}
-          <div className="status-section-group">
-            <h4 className="status-section-subtitle">Parecer da Guia</h4>
-            
-            <div className="status-cards-container">
-              {statusOptions.map(option => (
-                <div 
-                  key={`parecer-${option.value}`}
-                  className={`status-card ${option.color} ${formData.parecerGuia === option.value ? 'status-card-selected' : ''}`}
-                  onClick={() => handleStatusCardSelect('parecerGuia', option.value)}
-                >
-                  <div className="status-card-icon">
-                    {option.icon}
-                  </div>
-                  <div className="status-card-label">
-                    {option.value}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          
-          {/* NOVA SEÇÃO: Finalização */}
-          <div className="status-section-group">
-            <h4 className="status-section-subtitle">Finalização</h4>
-            
-            <div className="status-cards-container">
-              {statusOptions.map(option => (
-                <div 
-                  key={`finalizacao-${option.value}`}
-                  className={`status-card ${option.color} ${formData.finalizacao === option.value ? 'status-card-selected' : ''}`}
-                  onClick={() => handleStatusCardSelect('finalizacao', option.value)}
-                >
-                  <div className="status-card-icon">
-                    {option.icon}
-                  </div>
-                  <div className="status-card-label">
-                    {option.value}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          
-          {/* Métricas de tempo de análise */}
-          <TempoAnaliseMetrics />
-        </div>
-      </div>
-    );
-  };
 
   useEffect(() => {
     // Check if there's cached form data from protocol registration navigation
@@ -2383,10 +2428,11 @@ const NovaPreviaView = () => {
         dataEncaminhamentoAF: '',
         dataSolicitacao: formatDate(new Date()),
         parecer: '',
+        comentario: '', // ADICIONAR AQUI
         peso: '',
         altura: '',
         parecerGuia: '',
-        finalizacao: '', // NOVO CAMPO
+        finalizacao: '',
         inconsistencia: '',
         cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
       };
@@ -2530,6 +2576,7 @@ const NovaPreviaView = () => {
             dataEncaminhamentoAF: formatDateFromDB(previaData.data_encaminhamento_af),
             dataSolicitacao: formatDateFromDB(previaData.data_solicitacao),
             parecer: previaData.parecer,
+            comentario: previaData.comentario || '', // ADICIONAR ESTA LINHA
             peso: previaData.peso,
             altura: previaData.altura,
             parecerGuia: previaData.parecer_guia,
@@ -2610,6 +2657,7 @@ const NovaPreviaView = () => {
         dataEncaminhamentoAF: '',
         dataSolicitacao: formatDate(new Date()),
         parecer: '',
+        comentario: '', // ADICIONAR AQUI
         peso: '',
         altura: '',
         parecerGuia: '',
@@ -3078,17 +3126,22 @@ const NovaPreviaView = () => {
               />
             </div>
             
-            {/* SEXTA LINHA: Parecer (largura completa) */}
+            {/* SEXTA LINHA: Comentário (largura completa) - CAMPO ALTERADO */}
             <div className="form-field">
-              <label htmlFor="parecer" className="form-label-datas">Parecer</label>
+              <label htmlFor="comentario" className="form-label-datas">Comentário</label>
               <textarea 
-                id="parecer"
-                name="parecer"
-                value={formData.parecer}
+                id="comentario"
+                name="comentario"
+                value={formData.comentario || ''} // GARANTIR QUE NUNCA SEJA UNDEFINED
                 onChange={handleInputChange}
                 className="form-textarea"
-                placeholder="Adicione observações sobre o atendimento..."
-                key={`parecer-${selectedPatient?.id}-${currentPage}`}
+                placeholder="Adicione comentários ou observações gerais sobre este atendimento..."
+                rows="3"
+                style={{
+                  backgroundColor: '#fff',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px'
+                }}
               />
             </div>
             
@@ -3167,7 +3220,15 @@ const NovaPreviaView = () => {
           </div>
           
           {/* Nova seção de Registro de Status */}
-          <StatusRegistrationSection />
+          <StatusRegistrationSection 
+            formData={formData}
+            handleInputChange={handleInputChange}
+            selectedPatient={selectedPatient}
+            currentPage={currentPage}
+            loadingSection={loadingSection}
+            dataParecerRegistrado={dataParecerRegistrado}
+            tempoParaAnalise={tempoParaAnalise}
+          />
           
           {/* Footer com paginação e botões de ação */}
           <div className="form-footer">
