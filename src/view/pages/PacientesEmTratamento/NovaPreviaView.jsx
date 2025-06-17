@@ -426,13 +426,14 @@ const NovaPreviaView = () => {
     guia: '',
     protocolo: '',
     cid: '',
+    ciclos_previstos: '', // NOVO CAMPO ADICIONADO
     ciclo: '',
     dia: '',
     dataEmissaoGuia: '',
     dataEncaminhamentoAF: '',
     dataSolicitacao: '',
     parecer: '',
-    comentario: '', // NOVO CAMPO ADICIONADO
+    comentario: '',
     peso: '',
     altura: '',
     parecerGuia: '',
@@ -898,13 +899,14 @@ const NovaPreviaView = () => {
         guia: '',
         protocolo: '',
         cid: patientCID && patientCID.trim() !== '' ? patientCID : '',
+        ciclos_previstos: '', // NOVO CAMPO ADICIONADO
         ciclo: '',
         dia: '',
         dataEmissaoGuia: '',
         dataEncaminhamentoAF: '',
         dataSolicitacao: formatDate(new Date()),
         parecer: '',
-        comentario: '', // ADICIONAR AQUI
+        comentario: '',
         peso: '',
         altura: '',
         parecerGuia: '',
@@ -1465,13 +1467,14 @@ const NovaPreviaView = () => {
         guia: previaDetails.guia,
         protocolo: previaDetails.protocolo,
         cid: previaDetails.cid,
+        ciclos_previstos: previaDetails.ciclos_previstos || '', // NOVO CAMPO ADICIONADO
         ciclo: ciclosDias.length > 0 ? ciclosDias[0].ciclo : '',
         dia: ciclosDias.length > 0 ? ciclosDias[0].dia : '',
         dataEmissaoGuia: formatDateFromDB(previaDetails.data_emissao_guia),
         dataEncaminhamentoAF: formatDateFromDB(previaDetails.data_encaminhamento_af),
         dataSolicitacao: formatDateFromDB(previaDetails.data_solicitacao),
         parecer: previaDetails.parecer,
-        comentario: previaDetails.comentario || '', // ADICIONAR ESTA LINHA
+        comentario: previaDetails.comentario || '',
         peso: previaDetails.peso,
         altura: previaDetails.altura,
         parecerGuia: previaDetails.parecer_guia,
@@ -2422,13 +2425,14 @@ const NovaPreviaView = () => {
         guia: '',
         protocolo: '',
         cid: patientCID && patientCID.trim() !== '' ? patientCID : '',
+        ciclos_previstos: '', // NOVO CAMPO ADICIONADO
         ciclo: '',
         dia: '',
         dataEmissaoGuia: '',
         dataEncaminhamentoAF: '',
         dataSolicitacao: formatDate(new Date()),
         parecer: '',
-        comentario: '', // ADICIONAR AQUI
+        comentario: '',
         peso: '',
         altura: '',
         parecerGuia: '',
