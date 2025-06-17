@@ -426,7 +426,7 @@ const NovaPreviaView = () => {
     guia: '',
     protocolo: '',
     cid: '',
-    ciclos_previstos: '', // NOVO CAMPO ADICIONADO
+    ciclos_previstos: '', // ✓ Já existe
     ciclo: '',
     dia: '',
     dataEmissaoGuia: '',
@@ -899,7 +899,7 @@ const NovaPreviaView = () => {
         guia: '',
         protocolo: '',
         cid: patientCID && patientCID.trim() !== '' ? patientCID : '',
-        ciclos_previstos: '', // NOVO CAMPO ADICIONADO
+        ciclos_previstos: '', // ✓ Adicionar se não existir
         ciclo: '',
         dia: '',
         dataEmissaoGuia: '',
@@ -1068,6 +1068,15 @@ const NovaPreviaView = () => {
   // Função para lidar com mudanças nos campos do formulário
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    
+    // Validação específica para ciclos_previstos
+    if (name === 'ciclos_previstos') {
+      // Permitir apenas números inteiros positivos ou campo vazio
+      if (value !== '' && (isNaN(value) || parseInt(value) < 1 || parseInt(value) > 100)) {
+        return; // Não atualiza se for inválido
+      }
+    }
+    
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -1403,6 +1412,7 @@ const NovaPreviaView = () => {
         guia: '',
         protocolo: '',
         cid: '',
+        ciclos_previstos: '', // ✓ Adicionar se não existir
         ciclo: '',
         dia: '',
         dataSolicitacao: formatDate(new Date()),
@@ -1467,9 +1477,9 @@ const NovaPreviaView = () => {
         guia: previaDetails.guia,
         protocolo: previaDetails.protocolo,
         cid: previaDetails.cid,
-        ciclos_previstos: previaDetails.ciclos_previstos || '', // NOVO CAMPO ADICIONADO
-        ciclo: ciclosDias.length > 0 ? ciclosDias[0].ciclo : '',
-        dia: ciclosDias.length > 0 ? ciclosDias[0].dia : '',
+        ciclos_previstos: previaDetails.ciclos_previstos || '', // ✓ Adicionar esta linha
+        ciclo: ciclosDiasData.length > 0 ? ciclosDiasData[0].ciclo : '',
+        dia: ciclosDiasData.length > 0 ? ciclosDiasData[0].dia : '',
         dataEmissaoGuia: formatDateFromDB(previaDetails.data_emissao_guia),
         dataEncaminhamentoAF: formatDateFromDB(previaDetails.data_encaminhamento_af),
         dataSolicitacao: formatDateFromDB(previaDetails.data_solicitacao),
@@ -1480,7 +1490,7 @@ const NovaPreviaView = () => {
         parecerGuia: previaDetails.parecer_guia,
         finalizacao: previaDetails.finalizacao,
         inconsistencia: previaDetails.inconsistencia,
-        cicloDiaEntries: ciclosDias.length > 0 ? ciclosDias : [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
+        cicloDiaEntries: ciclosDiasData.length > 0 ? ciclosDiasData : [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
       });
       
       // Atualizar anexos
@@ -2425,7 +2435,7 @@ const NovaPreviaView = () => {
         guia: '',
         protocolo: '',
         cid: patientCID && patientCID.trim() !== '' ? patientCID : '',
-        ciclos_previstos: '', // NOVO CAMPO ADICIONADO
+        ciclos_previstos: '', // ✓ Adicionar se não existir
         ciclo: '',
         dia: '',
         dataEmissaoGuia: '',
@@ -2574,13 +2584,14 @@ const NovaPreviaView = () => {
             guia: previaData.guia,
             protocolo: previaData.protocolo,
             cid: previaData.cid,
+            ciclos_previstos: previaData.ciclos_previstos || '', // ✓ Adicionar esta linha
             ciclo: ciclosDiasData.length > 0 ? ciclosDiasData[0].ciclo : '',
             dia: ciclosDiasData.length > 0 ? ciclosDiasData[0].dia : '',
             dataEmissaoGuia: formatDateFromDB(previaData.data_emissao_guia),
             dataEncaminhamentoAF: formatDateFromDB(previaData.data_encaminhamento_af),
             dataSolicitacao: formatDateFromDB(previaData.data_solicitacao),
             parecer: previaData.parecer,
-            comentario: previaData.comentario || '', // ADICIONAR ESTA LINHA
+            comentario: previaData.comentario || '',
             peso: previaData.peso,
             altura: previaData.altura,
             parecerGuia: previaData.parecer_guia,
@@ -2655,13 +2666,14 @@ const NovaPreviaView = () => {
         cid: selectedPatient.cid || '',
         protocolo: '',
         guia: '',
+        ciclos_previstos: '', // ✓ Adicionar esta linha
         ciclo: '',
         dia: '',
         dataEmissaoGuia: '',
         dataEncaminhamentoAF: '',
         dataSolicitacao: formatDate(new Date()),
         parecer: '',
-        comentario: '', // ADICIONAR AQUI
+        comentario: '',
         peso: '',
         altura: '',
         parecerGuia: '',
@@ -3115,6 +3127,36 @@ const NovaPreviaView = () => {
 
             {/* QUINTA LINHA: Ciclo/Dia (largura completa) */}
             <div className="form-field mt-4">
+              <label className="form-label-datas">Ciclos Previstos (Opcional)</label>
+              <input 
+                type="number"
+                id="ciclos_previstos"
+                name="ciclos_previstos"
+                value={formData.ciclos_previstos || ''}
+                onChange={handleInputChange}
+                className="form-input"
+                placeholder="Número de ciclos previstos para o tratamento"
+                min="1"
+                max="100"
+                style={{
+                  marginBottom: '16px',
+                  backgroundColor: '#fff',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px'
+                }}
+                key={`ciclos-previstos-${selectedPatient?.id}-${currentPage}`}
+              />
+              
+              {/* Indicador visual quando preenchido */}
+              {formData.ciclos_previstos && (
+                <div className="text-xs text-green-600 mt-1 flex items-center">
+                  <Check size={12} className="mr-1" />
+                  {formData.ciclos_previstos} {formData.ciclos_previstos === '1' ? 'ciclo previsto' : 'ciclos previstos'}
+                </div>
+              )}
+            </div>
+
+            <div className="form-field">
               <label className="form-label-datas">Ciclo / Dia</label>
               <CicloDiaInputs
                 key={`ciclodia-${selectedPatient?.id}-${currentPage}`}

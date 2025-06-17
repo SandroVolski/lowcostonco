@@ -315,6 +315,13 @@ const AtendPreviaView = () => {
                 <Activity size={14} />
                 <span>Guia: {previa.guia || 'N/D'}</span>
               </div>
+              {/* ✓ NOVO: Exibir ciclos previstos se preenchido */}
+              {previa.ciclos_previstos && (
+                <div className="info-row">
+                  <Clock size={14} />
+                  <span>Ciclos Previstos: {previa.ciclos_previstos}</span>
+                </div>
+              )}
             </div>
             
             {/* Status cards */}
