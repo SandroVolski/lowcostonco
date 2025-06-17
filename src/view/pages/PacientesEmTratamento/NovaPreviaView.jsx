@@ -426,7 +426,7 @@ const NovaPreviaView = () => {
     guia: '',
     protocolo: '',
     cid: '',
-    ciclos_previstos: '', // ✓ Já existe
+    ciclos_previstos: '',
     ciclo: '',
     dia: '',
     dataEmissaoGuia: '',
@@ -1079,7 +1079,7 @@ const NovaPreviaView = () => {
     
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: value === undefined ? '' : value // CORREÇÃO: garantir que nunca seja undefined
     }));
     
     // Se está alterando o campo de parecer da guia, registrar a data atual
@@ -1232,6 +1232,15 @@ const NovaPreviaView = () => {
 
     setIsLoading(true);
     try {
+      // CORREÇÃO: Processar ciclos_previstos de forma mais robusta
+      let ciclosPrevistos = null;
+      if (formData.ciclos_previstos !== undefined && formData.ciclos_previstos !== null && formData.ciclos_previstos !== '') {
+        const ciclosNum = parseInt(formData.ciclos_previstos);
+        if (!isNaN(ciclosNum) && ciclosNum > 0) {
+          ciclosPrevistos = ciclosNum;
+        }
+      }
+
       // Preparar dados para envio
       const dadosPrevia = {
         // Incluir id apenas se estiver editando
@@ -1241,13 +1250,16 @@ const NovaPreviaView = () => {
         protocolo: formData.protocolo,
         cid: formData.cid,
         
+        // CORREÇÃO: Garantir que ciclos_previstos seja enviado corretamente
+        ciclos_previstos: ciclosPrevistos, // Enviar como número ou null
+        
         // CAMPOS DE DATA
         data_emissao_guia: formData.dataEmissaoGuia,
         data_encaminhamento_af: formData.dataEncaminhamentoAF,
         data_solicitacao: formData.dataSolicitacao,
         
         parecer: formData.parecer || '',
-        comentario: formData.comentario || '', // ADICIONAR ESTA LINHA
+        comentario: formData.comentario || '',
         peso: formData.peso ? parseFloat(formData.peso) : null,
         altura: formData.altura ? parseFloat(formData.altura) : null,
         parecer_guia: formData.parecerGuia || '',
@@ -1270,7 +1282,12 @@ const NovaPreviaView = () => {
         }))
       };
 
-      console.log("Dados enviados:", dadosPrevia);
+      // CORREÇÃO: Log detalhado para debug
+      console.log("Dados enviados (incluindo ciclos_previstos):", {
+        ...dadosPrevia,
+        ciclos_previstos_original: formData.ciclos_previstos,
+        ciclos_previstos_processado: ciclosPrevistos
+      });
       
       let response;
       const isCreating = !formData.id; // Flag para saber se está criando
@@ -1314,7 +1331,6 @@ const NovaPreviaView = () => {
         });
       }
       
-      // ========== CORREÇÃO PRINCIPAL ==========
       // Recarregar dados do paciente para atualizar a lista de consultas
       console.log("Recarregando dados do paciente após salvar...");
       
@@ -1339,7 +1355,6 @@ const NovaPreviaView = () => {
           handleLoadPreviousPage(newPage);
         }, 800);
       }
-      // ========================================
       
     } catch (error) {
       console.error("Erro ao salvar prévia:", error);
@@ -1477,9 +1492,9 @@ const NovaPreviaView = () => {
         guia: previaDetails.guia,
         protocolo: previaDetails.protocolo,
         cid: previaDetails.cid,
-        ciclos_previstos: previaDetails.ciclos_previstos || '', // ✓ Adicionar esta linha
-        ciclo: ciclosDiasData.length > 0 ? ciclosDiasData[0].ciclo : '',
-        dia: ciclosDiasData.length > 0 ? ciclosDiasData[0].dia : '',
+        ciclos_previstos: previaDetails.ciclos_previstos || '',
+        ciclo: ciclosDias.length > 0 ? ciclosDias[0].ciclo : '', // CORRIGIDO
+        dia: ciclosDias.length > 0 ? ciclosDias[0].dia : '', // CORRIGIDO
         dataEmissaoGuia: formatDateFromDB(previaDetails.data_emissao_guia),
         dataEncaminhamentoAF: formatDateFromDB(previaDetails.data_encaminhamento_af),
         dataSolicitacao: formatDateFromDB(previaDetails.data_solicitacao),
@@ -1490,7 +1505,7 @@ const NovaPreviaView = () => {
         parecerGuia: previaDetails.parecer_guia,
         finalizacao: previaDetails.finalizacao,
         inconsistencia: previaDetails.inconsistencia,
-        cicloDiaEntries: ciclosDiasData.length > 0 ? ciclosDiasData : [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
+        cicloDiaEntries: ciclosDias.length > 0 ? ciclosDias : [{ id: 1, ciclo: '', dia: '', protocolo: '' }] // CORRIGIDO
       });
       
       // Atualizar anexos
@@ -2579,12 +2594,12 @@ const NovaPreviaView = () => {
           // Atualizar o formulário com os dados carregados
           setFormData(prevData => ({
             ...prevData,
-            id: previaData.id,
-            paciente_id: previaData.paciente_id,
-            guia: previaData.guia,
-            protocolo: previaData.protocolo,
-            cid: previaData.cid,
-            ciclos_previstos: previaData.ciclos_previstos || '', // ✓ Adicionar esta linha
+            id: previaDetails.id,
+            paciente_id: previaDetails.paciente_id,
+            guia: previaDetails.guia || '',
+            protocolo: previaDetails.protocolo || '',
+            cid: previaDetails.cid || '',
+            ciclos_previstos: previaDetails.ciclos_previstos || '', // ✓ Adicionar esta linha
             ciclo: ciclosDiasData.length > 0 ? ciclosDiasData[0].ciclo : '',
             dia: ciclosDiasData.length > 0 ? ciclosDiasData[0].dia : '',
             dataEmissaoGuia: formatDateFromDB(previaData.data_emissao_guia),
@@ -3132,7 +3147,7 @@ const NovaPreviaView = () => {
                 type="number"
                 id="ciclos_previstos"
                 name="ciclos_previstos"
-                value={formData.ciclos_previstos || ''}
+                value={formData.ciclos_previstos || ''} // CORREÇÃO: garantir string vazia se undefined
                 onChange={handleInputChange}
                 className="form-input"
                 placeholder="Número de ciclos previstos para o tratamento"
