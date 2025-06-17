@@ -24,7 +24,7 @@ export function Header() {
       : location.pathname === "/PacientesEmTratamento" && location.search === "?tab=nova-previa"
       ? "PTTO: Prévias"
       : location.pathname === "/PacientesEmTratamento" && location.search === "?tab=atend-previa"
-      ? "PTTO: Atendimentos de Prévias"
+      ? "PTTO: Atendimentos das Prévias"
       : location.pathname === "/PacientesEmTratamento"
       ? "Pacientes em Tratamento"
       : "Página Desconhecida";

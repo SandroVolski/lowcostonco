@@ -33,7 +33,7 @@ export default function PacientesEmTratamento() {
     'protocolo': 'PTTO: Cadastro de Protocolo',
     'previa': 'PTTO: Prévia de Pacientes',
     'nova-previa': 'PTTO: Nova Prévia',
-    'atend-previa': 'PTTO: Atendimentos de Prévias',
+    'atend-previa': 'PTTO: Atendimentos das Prévias',
     'consultar': 'PTTO: Consulta de Pacientes',
     'calculadora': 'PTTO: Calculadora'
   };
