@@ -373,35 +373,48 @@ const NovaPreviaView = () => {
         try {
           setIsLoadingPatient(true);
           
-          // Tentar carregar o paciente diretamente do servidor
-          const loadedPatient = await loadPatientData(parseInt(patientId));
+          console.log("Carregando paciente da URL:", patientId);
           
-          if (loadedPatient) {
-            handleSelectPatient(loadedPatient);
+          // MÉTODO 1: Tentar buscar na lista local primeiro (mais rápido)
+          const localPatient = patients.find(p => p.id === parseInt(patientId));
+          
+          if (localPatient) {
+            console.log("Paciente encontrado na lista local:", localPatient.Nome);
+            await handleSelectPatient(localPatient);
           } else {
-            // Se não encontrou no servidor, tentar na lista local
-            const patient = patients.find(p => p.id === parseInt(patientId));
+            // MÉTODO 2: Buscar diretamente da API
+            console.log("Paciente não encontrado localmente, buscando na API...");
+            const apiPatient = await fetchPatientFromAPI(parseInt(patientId));
             
-            if (patient) {
-              handleSelectPatient(patient);
-            } /*else {
+            if (apiPatient) {
+              console.log("Paciente encontrado na API:", apiPatient.Nome);
+              // Converter formato da API para formato esperado
+              const patient = {
+                id: apiPatient.id,
+                Nome: apiPatient.Nome,
+                Paciente_Codigo: apiPatient.Paciente_Codigo,
+                Nascimento: apiPatient.Nascimento_Formatado || apiPatient.Nascimento,
+                Sexo: apiPatient.Sexo,
+                Operadora: apiPatient.Operadora,
+                CID: apiPatient.Cid_Diagnostico || '',
+                cid: apiPatient.Cid_Diagnostico || ''
+              };
+              await handleSelectPatient(patient);
+            } else {
+              console.error("Paciente não encontrado na API");
               toast({
                 title: "Erro",
                 description: "Paciente não encontrado.",
-                status: "error",
-                duration: 3000,
-                isClosable: true,
+                variant: "destructive"
               });
-            }*/
+            }
           }
         } catch (error) {
           console.error("Erro ao carregar paciente:", error);
           toast({
             title: "Erro",
             description: "Não foi possível carregar os dados do paciente.",
-            status: "error",
-            duration: 3000,
-            isClosable: true,
+            variant: "destructive"
           });
         } finally {
           setIsLoadingPatient(false);
@@ -410,7 +423,7 @@ const NovaPreviaView = () => {
       
       fetchAndSelectPatient();
     }
-  }, [location.search, patients]);
+  }, [location.search]);
   
   // Adicionar estados para controlar carregamento
   const [isSearching, setIsSearching] = useState(false);
@@ -660,10 +673,39 @@ const NovaPreviaView = () => {
     }
   }, [selectedPatient]);
 
+  // NOVA: Função para buscar dados do paciente da API
+  const fetchPatientFromAPI = async (patientId) => {
+    try {
+      const response = await fetch(`https://api.lowcostonco.com.br/backend-php/api/Previas/get_patient_by_id.php?id=${patientId}`);
+      
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`);
+      }
+      
+      const patientData = await response.json();
+      
+      if (patientData.error) {
+        throw new Error(patientData.error);
+      }
+      
+      return patientData;
+    } catch (error) {
+      console.error("Erro ao buscar paciente da API:", error);
+      return null;
+    }
+  };
+
   // Modificado para usar o contexto com cache
   const loadPatientData = async (patientId) => {
     setIsLoadingPatient(true);
     try {
+      // Primeiro, buscar dados do paciente
+      const patientData = await fetchPatientFromAPI(patientId);
+      
+      if (!patientData) {
+        throw new Error("Paciente não encontrado na API");
+      }
+      
       // Buscar as prévias do paciente usando o contexto com cache
       const previas = await getPreviasDoPatient(patientId);
       
@@ -714,6 +756,10 @@ const NovaPreviaView = () => {
         });
         setPreviousConsultations([]);
       }
+      
+      // IMPORTANTE: Retornar os dados do paciente
+      return patientData;
+      
     } catch (error) {
       console.error("Erro ao carregar dados do paciente:", error);
       toast({
@@ -721,6 +767,7 @@ const NovaPreviaView = () => {
         description: "Não foi possível carregar o histórico do paciente",
         variant: "destructive"
       });
+      return null;
     } finally {
       setIsLoadingPatient(false);
     }
@@ -901,16 +948,37 @@ const NovaPreviaView = () => {
           if (localPatient) {
             patient = localPatient;
           } else {
-            throw new Error(`Paciente com ID ${patient.id} não encontrado`);
+            // ÚLTIMO RECURSO: Buscar diretamente da API sem usar loadPatientData
+            const apiPatient = await fetchPatientFromAPI(patient.id);
+            if (apiPatient) {
+              // Converter formato da API para formato esperado
+              patient = {
+                id: apiPatient.id,
+                Nome: apiPatient.Nome,
+                Paciente_Codigo: apiPatient.Paciente_Codigo,
+                Nascimento: apiPatient.Nascimento_Formatado || apiPatient.Nascimento,
+                Sexo: apiPatient.Sexo,
+                Operadora: apiPatient.Operadora,
+                CID: apiPatient.Cid_Diagnostico || '',
+                cid: apiPatient.Cid_Diagnostico || ''
+              };
+            } else {
+              throw new Error(`Paciente com ID ${patient.id} não encontrado`);
+            }
           }
         } else {
           // Se loadPatientData retornou dados, usar esses dados
-          // Nota: loadPatientData pode não retornar dados completos do paciente
-          // então vamos buscar na lista local também
-          const localPatient = patients.find(p => p.id === patient.id);
-          if (localPatient) {
-            patient = localPatient;
-          }
+          // Converter formato da API para formato esperado
+          patient = {
+            id: patientData.id,
+            Nome: patientData.Nome,
+            Paciente_Codigo: patientData.Paciente_Codigo,
+            Nascimento: patientData.Nascimento_Formatado || patientData.Nascimento,
+            Sexo: patientData.Sexo,
+            Operadora: patientData.Operadora,
+            CID: patientData.Cid_Diagnostico || '',
+            cid: patientData.Cid_Diagnostico || ''
+          };
         }
       } catch (error) {
         console.error("Erro ao buscar dados do paciente:", error);
