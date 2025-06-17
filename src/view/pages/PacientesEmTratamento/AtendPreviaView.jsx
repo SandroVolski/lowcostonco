@@ -176,7 +176,25 @@ const AtendPreviaView = () => {
   
   // Função para navegar para uma prévia específica
   const handleViewPrevia = (previa) => {
+    console.log("Navegando para prévia:", previa);
+    
+    // Verificar se temos os dados necessários
+    if (!previa || !previa.id || !previa.paciente_id) {
+      console.error("Dados da prévia inválidos:", previa);
+      toast({
+        title: "Erro",
+        description: "Não foi possível identificar a prévia selecionada",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Construir URL com parâmetros corretos
     const url = `/PacientesEmTratamento?tab=nova-previa&patientId=${previa.paciente_id}&previaId=${previa.id}`;
+    
+    console.log("Navegando para URL:", url);
+    
+    // Navegar para a página
     navigate(url);
   };
   
@@ -292,16 +310,16 @@ const AtendPreviaView = () => {
         <div className="card-inner">
           <div className="card-front">
             <div className="card-header">
-              <div className="protocol-code">Atend. {previa.numero_sequencial}</div>
+              <div className="protocol-code">Atend. {previa.numero_sequencial || previa.id}</div>
               <div className="protocol-cid">{previa.cid || 'N/D'}</div>
             </div>
             
-            <div className="protocol-name">{previa.paciente_nome}</div>
+            <div className="protocol-name">{previa.paciente_nome || 'Paciente não identificado'}</div>
             
             <div className="protocol-info">
               <div className="info-row">
                 <User size={14} />
-                <span>Código: {previa.paciente_codigo}</span>
+                <span>Código: {previa.paciente_codigo || 'N/D'}</span>
               </div>
               <div className="info-row">
                 <FileText size={14} />
@@ -315,7 +333,7 @@ const AtendPreviaView = () => {
                 <Activity size={14} />
                 <span>Guia: {previa.guia || 'N/D'}</span>
               </div>
-              {/* ✓ NOVO: Exibir ciclos previstos se preenchido */}
+              {/* Exibir ciclos previstos se preenchido */}
               {previa.ciclos_previstos && (
                 <div className="info-row">
                   <Clock size={14} />
@@ -380,9 +398,9 @@ const AtendPreviaView = () => {
     
     return (
       <div className="patient-list-item" onClick={() => handleViewPrevia(previa)}>
-        <div className="list-item-code">Atend. {previa.numero_sequencial}</div>
-        <div className="list-item-name">{previa.paciente_nome}</div>
-        <div className="list-item-provider">{previa.paciente_codigo}</div>
+        <div className="list-item-code">Atend. {previa.numero_sequencial || previa.id}</div>
+        <div className="list-item-name">{previa.paciente_nome || 'Paciente não identificado'}</div>
+        <div className="list-item-provider">{previa.paciente_codigo || 'N/D'}</div>
         <div className="list-item-prestador">{previa.protocolo || 'N/D'}</div>
         <div className="list-item-cid">{previa.cid || 'N/D'}</div>
         <div className="list-item-gender">{previa.guia || 'N/D'}</div>

@@ -885,7 +885,53 @@ const NovaPreviaView = () => {
 
   // Função para lidar com a seleção de um paciente
   const handleSelectPatient = async (patient) => {
-    console.log("Selecionando novo paciente:", patient.Nome);
+    console.log("Selecionando paciente:", patient);
+    
+    // Se recebeu apenas um ID, buscar os dados do paciente
+    if (typeof patient === 'object' && patient.id && !patient.Nome) {
+      try {
+        setIsLoadingPatient(true);
+        
+        // Buscar dados do paciente no servidor
+        const patientData = await loadPatientData(patient.id);
+        
+        if (!patientData) {
+          // Se não conseguiu carregar do servidor, tentar buscar na lista local
+          const localPatient = patients.find(p => p.id === patient.id);
+          if (localPatient) {
+            patient = localPatient;
+          } else {
+            throw new Error(`Paciente com ID ${patient.id} não encontrado`);
+          }
+        } else {
+          // Se loadPatientData retornou dados, usar esses dados
+          // Nota: loadPatientData pode não retornar dados completos do paciente
+          // então vamos buscar na lista local também
+          const localPatient = patients.find(p => p.id === patient.id);
+          if (localPatient) {
+            patient = localPatient;
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao buscar dados do paciente:", error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível encontrar os dados do paciente",
+          variant: "destructive"
+        });
+        return;
+      } finally {
+        setIsLoadingPatient(false);
+      }
+    }
+    
+    // Verificar se temos um objeto de paciente válido
+    if (!patient || !patient.id) {
+      console.error("Dados do paciente inválidos:", patient);
+      return;
+    }
+    
+    console.log("Selecionando paciente com dados completos:", patient.Nome || `ID: ${patient.id}`);
     
     // Ativar loading
     setIsLoadingPatient(true);
@@ -899,7 +945,7 @@ const NovaPreviaView = () => {
         guia: '',
         protocolo: '',
         cid: patientCID && patientCID.trim() !== '' ? patientCID : '',
-        ciclos_previstos: '', // ✓ Adicionar se não existir
+        ciclos_previstos: '',
         ciclo: '',
         dia: '',
         dataEmissaoGuia: '',
@@ -915,6 +961,13 @@ const NovaPreviaView = () => {
         cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
       };
       
+      // Verificar se já não é o paciente atual (evitar recarregamento desnecessário)
+      if (selectedPatient && selectedPatient.id === patient.id) {
+        console.log("Paciente já está selecionado, apenas atualizando dados");
+        setIsLoadingPatient(false);
+        return;
+      }
+      
       // Limpar dados do paciente anterior ANTES de selecionar o novo
       setFormData(initialFormData);
       setAttachments([]);
@@ -929,8 +982,9 @@ const NovaPreviaView = () => {
       setLocalPatientId(patient.id);
       
       // Pequeno delay para dar tempo da animação de loading aparecer
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 300));
       
+      // Fechar modal de busca se estiver aberto
       setShowSearchModal(false);
       
       console.log("Paciente selecionado e dados configurados com CID:", patientCID);
@@ -2578,6 +2632,9 @@ const NovaPreviaView = () => {
             await handleSelectPatient({ id: parseInt(patientId) });
           }
           
+          // Aguardar um momento para garantir que o paciente foi selecionado
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
           // Depois carregar os dados da prévia
           const previaData = await getPrevia(previaId);
           const ciclosDiasData = await getCiclosDias(previaId);
@@ -2591,15 +2648,15 @@ const NovaPreviaView = () => {
             data_atualizacao: previaData.data_atualizacao
           });
           
-          // Atualizar o formulário com os dados carregados
+          // CORRIGIDO: Usar previaData em vez de previaDetails
           setFormData(prevData => ({
             ...prevData,
-            id: previaDetails.id,
-            paciente_id: previaDetails.paciente_id,
-            guia: previaDetails.guia || '',
-            protocolo: previaDetails.protocolo || '',
-            cid: previaDetails.cid || '',
-            ciclos_previstos: previaDetails.ciclos_previstos || '', // ✓ Adicionar esta linha
+            id: previaData.id,                    // CORRIGIDO
+            paciente_id: previaData.paciente_id,  // CORRIGIDO
+            guia: previaData.guia || '',          // CORRIGIDO
+            protocolo: previaData.protocolo || '', // CORRIGIDO
+            cid: previaData.cid || '',            // CORRIGIDO
+            ciclos_previstos: previaData.ciclos_previstos || '', // CORRIGIDO
             ciclo: ciclosDiasData.length > 0 ? ciclosDiasData[0].ciclo : '',
             dia: ciclosDiasData.length > 0 ? ciclosDiasData[0].dia : '',
             dataEmissaoGuia: formatDateFromDB(previaData.data_emissao_guia),
@@ -2635,11 +2692,23 @@ const NovaPreviaView = () => {
             setTempoParaAnalise(null);
           }
 
-          // Encontrar o índice da prévia na lista de consultas anteriores
-          const previaIndex = previousConsultations.findIndex(cons => cons.id === parseInt(previaId));
-          if (previaIndex !== -1) {
-            setCurrentPage(previaIndex + 1);
-          }
+          // CORRIGIDO: Aguardar que previousConsultations seja carregado antes de definir currentPage
+          // Usar um timeout para garantir que os dados foram processados
+          setTimeout(() => {
+            // Encontrar o índice da prévia na lista de consultas anteriores
+            if (previousConsultations && previousConsultations.length > 0) {
+              const previaIndex = previousConsultations.findIndex(cons => cons.id === parseInt(previaId));
+              if (previaIndex !== -1) {
+                setCurrentPage(previaIndex + 1);
+                console.log(`Navegando para prévia ${previaId}, página ${previaIndex + 1}`);
+              } else {
+                console.warn(`Prévia ${previaId} não encontrada na lista de consultas`);
+                // Se não encontrar, ir para a primeira página
+                setCurrentPage(1);
+              }
+            }
+          }, 1000); // Aguardar 1 segundo para dados serem carregados
+          
         } catch (error) {
           console.error("Erro ao carregar prévia específica:", error);
           toast({
@@ -2661,7 +2730,7 @@ const NovaPreviaView = () => {
         isMounted = false;
       };
     }
-  }, [location.search, selectedPatient?.id]); // Adicionar selectedPatient.id como dependência
+  }, [location.search, getPrevia, getCiclosDias, getAnexos, selectedPatient?.id, previousConsultations.length]); // Dependências corrigidas
 
   // Efeito para evitar que o formulário seja limpo quando o paciente é carregado
   useEffect(() => {
