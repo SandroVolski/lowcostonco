@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { showSuccessAlert, showErrorAlert, showWarningAlert } from '../../../utils/CustomAlerts';
 import DataRefreshButton from '../../../components/DataRefreshButton';
+import Pagination from '../../../components/Pagination'; // Importar o componente Pagination
 import './PacientesEstilos.css';
 
 // API base URL - usando versão completa
@@ -31,11 +32,11 @@ const AtendPreviaView = () => {
   const [sortOrder, setSortOrder] = useState("desc");
   const [viewMode, setViewMode] = useState('grid'); // 'grid' ou 'list'
   
-  // Estados para paginação
+  // Estados para paginação - ALTERADO: pageSize inicial para 50
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(50); // MUDADO DE 20 PARA 50
   
   // Refs
   const searchInputRef = useRef(null);
@@ -161,13 +162,13 @@ const AtendPreviaView = () => {
     loadPrevias(1, '', 'patient_name'); // Voltando para patient_name
   };
   
-  // Handler para mudança de página
+  // NOVO: Handler para mudança de página
   const handlePageChange = (page) => {
     setCurrentPage(page);
     loadPrevias(page, searchTerm, searchType);
   };
   
-  // Handler para mudança no tamanho da página
+  // NOVO: Handler para mudança no tamanho da página
   const handlePageSizeChange = (newSize) => {
     setPageSize(newSize);
     setCurrentPage(1);
@@ -447,69 +448,6 @@ const AtendPreviaView = () => {
     );
   };
   
-  // Componente de paginação
-  const PaginationControls = () => {
-    const maxVisiblePages = 5;
-    const startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-    
-    const pages = [];
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(i);
-    }
-    
-    return (
-      <div className="pagination-container">
-        <div className="pagination-info">
-          <span className="pagination-status">
-            Mostrando {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, totalRecords)} de {totalRecords} registros
-          </span>
-          
-          <div className="page-size-selector">
-            <label>Itens por página:</label>
-            <select 
-              value={pageSize} 
-              onChange={(e) => handlePageSizeChange(parseInt(e.target.value))}
-            >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-          </div>
-        </div>
-        
-        <div className="pagination-controls">
-          <button 
-            className="pagination-button"
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage <= 1}
-          >
-            <ChevronLeft size={16} />
-          </button>
-          
-          {pages.map(page => (
-            <button
-              key={page}
-              className={`pagination-button ${currentPage === page ? 'active' : ''}`}
-              onClick={() => handlePageChange(page)}
-            >
-              {page}
-            </button>
-          ))}
-          
-          <button 
-            className="pagination-button"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage >= totalPages}
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      </div>
-    );
-  };
-  
   return (
     <div className="patient-dashboard">
       
@@ -692,8 +630,18 @@ const AtendPreviaView = () => {
               </div>
             )}
             
-            {/* Paginação */}
-            {totalPages > 1 && <PaginationControls />}
+            {/* ALTERADO: Usar o componente Pagination igual ao CadastroPaciente */}
+            {totalPages > 1 && (
+              <Pagination 
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalRecords={totalRecords}
+                pageSize={pageSize}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+                disabled={loading}
+              />
+            )}
           </>
         )}
       </div>
