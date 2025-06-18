@@ -14,7 +14,7 @@ import {
   Upload, Calendar, BarChart3, Clock, PlusCircle, ChevronDown,
   FilePlus, Clock8, FileText, CheckCircle, AlertCircle, 
   AlertTriangle, HelpCircle, Check, ChevronLeft, ChevronRight,
-  File, Info, Database, User // ADICIONAR User AQUI
+  File, Info, Database, User, Plus // ADICIONAR Plus AQUI
 } from 'lucide-react';
 import './NovaPreviaView.css';
 // Import previasService as a fallback
@@ -23,7 +23,7 @@ import { previasService } from '../../../services/previasService';
 const StatusRegistrationSection = ({ 
   formData, 
   handleInputChange, 
-  selectedPatient, 
+  selectedPatient: currentPatient, 
   currentPage, 
   loadingSection, 
   dataParecerRegistrado, 
@@ -49,9 +49,80 @@ const StatusRegistrationSection = ({
     
     handleInputChange(syntheticEvent);
   };
-  
+
+  // NOVAS FUNÇÕES PARA GERENCIAR MÚLTIPLOS REGISTROS
+  const handleAddParecerRegistro = () => {
+    // Salvar a posição atual da página
+    const currentScrollPosition = window.scrollY;
+    
+    const newId = Math.max(...formData.parecerRegistros.map(r => r.id), 0) + 1;
+    const newRegistro = {
+      id: newId,
+      parecer: '',
+      parecerGuia: '',
+      finalizacao: '',
+      dataParecer: '',
+      tempoAnalise: null,
+      observacoes: ''
+    };
+
+    // Simular evento para adicionar novo registro
+    const syntheticEvent = {
+      target: {
+        name: 'parecerRegistros',
+        value: [...formData.parecerRegistros, newRegistro]
+      }
+    };
+    
+    handleInputChange(syntheticEvent);
+    
+    // Restaurar a posição da página após a atualização
+    setTimeout(() => {
+      window.scrollTo(0, currentScrollPosition);
+    }, 0);
+  };
+
+  const handleRemoveParecerRegistro = (registroId) => {
+    if (formData.parecerRegistros.length <= 1) {
+      return; // Não permitir remover o último registro
+    }
+
+    const updatedRegistros = formData.parecerRegistros.filter(r => r.id !== registroId);
+    
+    const syntheticEvent = {
+      target: {
+        name: 'parecerRegistros',
+        value: updatedRegistros
+      }
+    };
+    
+    handleInputChange(syntheticEvent);
+  };
+
+  const handleParecerRegistroChange = (registroId, field, value) => {
+    const updatedRegistros = formData.parecerRegistros.map(registro => {
+      if (registro.id === registroId) {
+        return { ...registro, [field]: value };
+      }
+      return registro;
+    });
+
+    const syntheticEvent = {
+      target: {
+        name: 'parecerRegistros',
+        value: updatedRegistros
+      }
+    };
+    
+    handleInputChange(syntheticEvent);
+  };
+
+  const handleStatusCardSelectForRegistro = (registroId, field, value) => {
+    handleParecerRegistroChange(registroId, field, value);
+  };
+
   // Componente para exibir métricas de tempo
-  const TempoAnaliseMetrics = () => {
+  const TempoAnaliseMetrics = ({ registro }) => {
     // Definir cores com base no tempo de análise
     const getStatusColor = (dias) => {
       if (dias <= 2) return 'text-green-600 bg-green-100'; // Rápido
@@ -59,7 +130,7 @@ const StatusRegistrationSection = ({
       return 'text-red-600 bg-red-100'; // Demorado
     };
     
-    if (!dataParecerRegistrado) return null;
+    if (!registro.dataParecer) return null;
     
     return (
       <div className="tempo-analise-metrics">
@@ -73,20 +144,130 @@ const StatusRegistrationSection = ({
           
           <div className="metric-item">
             <span className="text-xs text-gray-500">Data Parecer:</span>
-            <span className="block text-sm font-medium">{dataParecerRegistrado}</span>
+            <span className="block text-sm font-medium">{registro.dataParecer}</span>
           </div>
         </div>
         
-        {tempoParaAnalise !== null && (
+        {registro.tempoAnalise !== null && (
           <div className="mt-3 flex items-center justify-between tempo-indicator">
             <div className="flex items-center">
               <Clock8 size={16} className="text-gray-500 mr-2" />
               <span className="text-sm font-medium">Tempo para análise:</span>
             </div>
             
-            <div className={`tempo-badge ${getStatusColor(tempoParaAnalise)}`}>
-              {tempoParaAnalise} {tempoParaAnalise === 1 ? 'dia' : 'dias'}
+            <div className={`tempo-badge ${getStatusColor(registro.tempoAnalise)}`}>
+              {registro.tempoAnalise} {registro.tempoAnalise === 1 ? 'dia' : 'dias'}
             </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Componente para renderizar um registro individual
+  const ParecerRegistroItem = ({ registro, index }) => {
+    return (
+      <div className="parecer-registro-item border border-gray-200 rounded-lg p-4 mb-4 bg-white">
+        {/* Cabeçalho do registro */}
+        <div className="flex justify-between items-center mb-4">
+          <h4 className="status-section-subtitle flex items-center">
+            <FileText size={16} className="mr-2" />
+            Registro de Parecer #{index + 1}
+          </h4>
+          
+          {formData.parecerRegistros.length > 1 && (
+            <button
+              type="button"
+              onClick={() => handleRemoveParecerRegistro(registro.id)}
+              className="text-red-500 hover:text-red-700 p-1 rounded"
+              title="Remover este registro"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* SEÇÃO: Parecer Técnico */}
+        <div className="status-section-group mb-4">
+          <h5 className="text-sm font-medium text-gray-700 mb-2">Parecer Técnico</h5>
+          <div className="form-field">
+            <textarea 
+              value={registro.parecer || ''}
+              onChange={(e) => handleParecerRegistroChange(registro.id, 'parecer', e.target.value)}
+              className="form-textarea w-full"
+              placeholder="Digite o parecer técnico detalhado sobre a análise da solicitação..."
+              rows="3"
+              style={{
+                minHeight: '80px',
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '6px'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* SEÇÃO: Parecer da Guia */}
+        <div className="status-section-group mb-4">
+          <h5 className="text-sm font-medium text-gray-700 mb-2">Parecer da Guia</h5>
+          
+          <div className="status-cards-container">
+            {statusOptions.map(option => (
+              <div 
+                key={`parecer-${registro.id}-${option.value}`}
+                className={`status-card ${option.color} ${registro.parecerGuia === option.value ? 'status-card-selected' : ''}`}
+                onClick={() => handleStatusCardSelectForRegistro(registro.id, 'parecerGuia', option.value)}
+              >
+                <div className="status-card-icon">
+                  {option.icon}
+                </div>
+                <div className="status-card-label">
+                  {option.value}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* SEÇÃO: Finalização */}
+        <div className="status-section-group mb-4">
+          <h5 className="text-sm font-medium text-gray-700 mb-2">Finalização</h5>
+          
+          <div className="status-cards-container">
+            {statusOptions.map(option => (
+              <div 
+                key={`finalizacao-${registro.id}-${option.value}`}
+                className={`status-card ${option.color} ${registro.finalizacao === option.value ? 'status-card-selected' : ''}`}
+                onClick={() => handleStatusCardSelectForRegistro(registro.id, 'finalizacao', option.value)}
+              >
+                <div className="status-card-icon">
+                  {option.icon}
+                </div>
+                <div className="status-card-label">
+                  {option.value}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Métricas de tempo de análise */}
+        <TempoAnaliseMetrics registro={registro} />
+        
+        {/* Botão Adicionar Registro - apenas se for o último registro */}
+        {index === formData.parecerRegistros.length - 1 && (
+          <div className="status-section-group mt-4 pt-4 border-t border-gray-200 flex justify-center">
+            <button 
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                handleAddParecerRegistro();
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 border border-green-200 transition-colors shadow-sm"
+            >
+              <Plus size={16} />
+              <span>Adicionar Registro</span>
+            </button>
           </div>
         )}
       </div>
@@ -117,74 +298,34 @@ const StatusRegistrationSection = ({
       </div>
       
       <div className="status-section-content">
-        {/* SEÇÃO: Parecer Técnico (movido da seção principal) */}
-        <div className="status-section-group">
-          <h4 className="status-section-subtitle">Parecer Técnico</h4>
-          <div className="form-field">
-            <textarea 
-              id="parecer"
-              name="parecer"
-              value={formData.parecer || ''} // GARANTIR QUE NUNCA SEJA UNDEFINED
-              onChange={handleInputChange}
-              className="form-textarea"
-              placeholder="Digite o parecer técnico detalhado sobre a análise da solicitação..."
-              rows="4"
-              style={{
-                minHeight: '100px',
-                backgroundColor: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: '6px'
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Seleção de Parecer da Guia */}
-        <div className="status-section-group">
-          <h4 className="status-section-subtitle">Parecer da Guia</h4>
-          
-          <div className="status-cards-container">
-            {statusOptions.map(option => (
-              <div 
-                key={`parecer-${option.value}`}
-                className={`status-card ${option.color} ${formData.parecerGuia === option.value ? 'status-card-selected' : ''}`}
-                onClick={() => handleStatusCardSelect('parecerGuia', option.value)}
+        {/* Lista de registros de parecer */}
+        <div className="parecer-registros-list">
+          {formData.parecerRegistros.length === 0 ? (
+            <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+              <FileText size={48} className="text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500 mb-2">Nenhum registro de parecer adicionado</p>
+              <p className="text-sm text-gray-400 mb-4">
+                Adicione pelo menos um registro de parecer para continuar
+              </p>
+              <button 
+                type="button"
+                onClick={handleAddParecerRegistro}
+                className="inline-flex items-center px-3 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 text-sm"
               >
-                <div className="status-card-icon">
-                  {option.icon}
-                </div>
-                <div className="status-card-label">
-                  {option.value}
-                </div>
-              </div>
-            ))}
-          </div>
+                <Plus size={14} className="mr-1" />
+                Adicionar Primeiro Registro
+              </button>
+            </div>
+          ) : (
+            formData.parecerRegistros.map((registro, index) => (
+              <ParecerRegistroItem 
+                key={registro.id} 
+                registro={registro} 
+                index={index}
+              />
+            ))
+          )}
         </div>
-        
-        {/* SEÇÃO: Finalização */}
-        <div className="status-section-group">
-          <h4 className="status-section-subtitle">Finalização</h4>
-          
-          <div className="status-cards-container">
-            {statusOptions.map(option => (
-              <div 
-                key={`finalizacao-${option.value}`}
-                className={`status-card ${option.color} ${formData.finalizacao === option.value ? 'status-card-selected' : ''}`}
-                onClick={() => handleStatusCardSelect('finalizacao', option.value)}
-              >
-                <div className="status-card-icon">
-                  {option.icon}
-                </div>
-                <div className="status-card-label">
-                  {option.value}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        
-        {/* Métricas de tempo de análise */}
-        <TempoAnaliseMetrics />
       </div>
     </div>
   );
@@ -452,7 +593,17 @@ const NovaPreviaView = () => {
     parecerGuia: '',
     finalizacao: '',
     inconsistencia: '',
-    cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
+    cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
+    // NOVO: Array para múltiplos registros de parecer/status
+    parecerRegistros: [{ 
+      id: 1, 
+      parecer: '', 
+      parecerGuia: '', 
+      finalizacao: '', 
+      dataParecer: '',
+      tempoAnalise: null,
+      observacoes: ''
+    }]
   });
   
   // Estado para anexos
@@ -1026,7 +1177,17 @@ const NovaPreviaView = () => {
         parecerGuia: '',
         finalizacao: '',
         inconsistencia: '',
-        cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
+        cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
+        // NOVO: Incluir parecerRegistros
+        parecerRegistros: [{ 
+          id: 1, 
+          parecer: '', 
+          parecerGuia: '', 
+          finalizacao: '', 
+          dataParecer: '',
+          tempoAnalise: null,
+          observacoes: ''
+        }]
       };
       
       // Verificar se já não é o paciente atual (evitar recarregamento desnecessário)
@@ -1390,6 +1551,17 @@ const NovaPreviaView = () => {
         data_parecer_registrado: dataParecerRegistrado || null,
         tempo_analise: tempoParaAnalise || 0,
         
+        // NOVO: Incluir dados de parecerRegistros
+        parecer_registros: formData.parecerRegistros.map(registro => ({
+          id: registro.id,
+          parecer: registro.parecer || '',
+          parecer_guia: registro.parecerGuia || '',
+          finalizacao: registro.finalizacao || '',
+          data_parecer: registro.dataParecer || null,
+          tempo_analise: registro.tempoAnalise || null,
+          observacoes: registro.observacoes || ''
+        })),
+        
         // Adicionar IDs dos usuários
         ...(formData.id 
           ? { usuario_alteracao_id: userId } // Se está editando, usar usuario_alteracao_id
@@ -1559,7 +1731,17 @@ const NovaPreviaView = () => {
         altura: '',
         parecerGuia: '',
         inconsistencia: '',
-        cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
+        cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
+        // NOVO: Incluir parecerRegistros
+        parecerRegistros: [{ 
+          id: 1, 
+          parecer: '', 
+          parecerGuia: '', 
+          finalizacao: '', 
+          dataParecer: '',
+          tempoAnalise: null,
+          observacoes: ''
+        }]
       });
       
       setAttachments([]);
@@ -1627,7 +1809,17 @@ const NovaPreviaView = () => {
         parecerGuia: previaDetails.parecer_guia,
         finalizacao: previaDetails.finalizacao,
         inconsistencia: previaDetails.inconsistencia,
-        cicloDiaEntries: ciclosDias.length > 0 ? ciclosDias : [{ id: 1, ciclo: '', dia: '', protocolo: '' }] // CORRIGIDO
+        cicloDiaEntries: ciclosDias.length > 0 ? ciclosDias : [{ id: 1, ciclo: '', dia: '', protocolo: '' }], // CORRIGIDO
+        // NOVO: Incluir parecerRegistros - por enquanto usar dados antigos como primeiro registro
+        parecerRegistros: [{
+          id: 1,
+          parecer: previaDetails.parecer || '',
+          parecerGuia: previaDetails.parecer_guia || '',
+          finalizacao: previaDetails.finalizacao || '',
+          dataParecer: previaDetails.data_parecer_registrado ? formatDateFromDB(previaDetails.data_parecer_registrado) : '',
+          tempoAnalise: previaDetails.tempo_analise || null,
+          observacoes: ''
+        }]
       });
       
       // Atualizar anexos
@@ -2585,7 +2777,17 @@ const NovaPreviaView = () => {
         parecerGuia: '',
         finalizacao: '',
         inconsistencia: '',
-        cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
+        cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
+        // NOVO: Incluir parecerRegistros
+        parecerRegistros: [{ 
+          id: 1, 
+          parecer: '', 
+          parecerGuia: '', 
+          finalizacao: '', 
+          dataParecer: '',
+          tempoAnalise: null,
+          observacoes: ''
+        }]
       };
 
       // Aplicar dados iniciais ao formulário
@@ -2831,10 +3033,25 @@ const NovaPreviaView = () => {
         parecerGuia: '',
         finalizacao: '',
         inconsistencia: '',
-        cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
+        cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
+        // NOVO: Incluir parecerRegistros
+        parecerRegistros: [{ 
+          id: 1, 
+          parecer: '', 
+          parecerGuia: '', 
+          finalizacao: '', 
+          dataParecer: '',
+          tempoAnalise: null,
+          observacoes: ''
+        }]
       }));
     }
   }, [selectedPatient, location.search]);
+  
+  // Função para visualizar anexo
+  const handlePreviewAttachment = (attachment) => {
+    setPreviewImage(attachment);
+  };
   
   return (
     <motion.div 
@@ -3668,6 +3885,137 @@ const NovaPreviaView = () => {
           transform: translateY(-1px);
           box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
           border-color: #6b7280;
+        }
+
+        /* NOVOS ESTILOS PARA PARECER REGISTROS */
+        .card-header-with-actions {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 1rem;
+          border-bottom: 1px solid #e5e7eb;
+        }
+
+        .parecer-registro-item {
+          transition: all 0.2s ease;
+        }
+
+        .parecer-registro-item:hover {
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .parecer-registros-list {
+          padding: 1rem;
+        }
+
+        .status-section-group {
+          margin-bottom: 1rem;
+        }
+
+        .status-section-subtitle {
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: #374151;
+          margin-bottom: 0.5rem;
+        }
+
+        .status-cards-container {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 0.5rem;
+          margin-top: 0.5rem;
+        }
+
+        .status-card {
+          display: flex;
+          align-items: center;
+          padding: 0.75rem;
+          border: 2px solid transparent;
+          border-radius: 0.5rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          min-height: 60px;
+        }
+
+        .status-card:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-card-selected {
+          border-color: #8cb369;
+          box-shadow: 0 0 0 1px #8cb369;
+        }
+
+        .status-card-icon {
+          margin-right: 0.5rem;
+          flex-shrink: 0;
+        }
+
+        .status-card-label {
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: #374151;
+          line-height: 1.2;
+        }
+
+        .tempo-analise-metrics {
+          margin-top: 1rem;
+          padding: 1rem;
+          background-color: #f9fafb;
+          border-radius: 0.5rem;
+          border: 1px solid #e5e7eb;
+        }
+
+        .metric-item {
+          margin-bottom: 0.5rem;
+        }
+
+        .tempo-indicator {
+          padding: 0.5rem;
+          border-radius: 0.375rem;
+          background-color: #f3f4f6;
+        }
+
+        .tempo-badge {
+          padding: 0.25rem 0.5rem;
+          border-radius: 0.25rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+        }
+
+        .form-textarea {
+          width: 100%;
+          padding: 0.75rem;
+          border: 1px solid #d1d5db;
+          border-radius: 0.375rem;
+          font-size: 0.875rem;
+          line-height: 1.5;
+          resize: vertical;
+          transition: border-color 0.2s ease;
+        }
+
+        .form-textarea:focus {
+          outline: none;
+          border-color: #8cb369;
+          box-shadow: 0 0 0 3px rgba(140, 179, 105, 0.1);
+        }
+
+        /* Responsividade para os status cards */
+        @media (max-width: 768px) {
+          .status-cards-container {
+            grid-template-columns: 1fr;
+          }
+          
+          .card-header-with-actions {
+            flex-direction: column;
+            gap: 1rem;
+            align-items: stretch;
+          }
+          
+          .card-header-with-actions button {
+            align-self: flex-start;
+          }
         }
       `}</style>
     </motion.div>
