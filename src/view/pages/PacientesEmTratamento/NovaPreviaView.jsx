@@ -100,14 +100,25 @@ const StatusRegistrationSection = ({
     handleInputChange(syntheticEvent);
   };
 
+  // CORREÇÃO PRINCIPAL: Função para alterar dados do registro
   const handleParecerRegistroChange = (registroId, field, value) => {
+    console.log(`🔧 Alterando registro ${registroId}, campo ${field}, valor:`, value);
+    
     const updatedRegistros = formData.parecerRegistros.map(registro => {
       if (registro.id === registroId) {
-        return { ...registro, [field]: value };
+        const updatedRegistro = { 
+          ...registro, 
+          [field]: value 
+        };
+        console.log(`✅ Registro ${registroId} atualizado:`, updatedRegistro);
+        return updatedRegistro;
       }
       return registro;
     });
 
+    console.log("📋 Todos os registros atualizados:", updatedRegistros);
+
+    // CORREÇÃO: Disparar mudança corretamente
     const syntheticEvent = {
       target: {
         name: 'parecerRegistros',
@@ -118,7 +129,9 @@ const StatusRegistrationSection = ({
     handleInputChange(syntheticEvent);
   };
 
+  // CORREÇÃO: Função específica para status cards
   const handleStatusCardSelectForRegistro = (registroId, field, value) => {
+    console.log(`🎯 Selecionando ${field} = ${value} para registro ${registroId}`);
     handleParecerRegistroChange(registroId, field, value);
   };
 
@@ -166,6 +179,9 @@ const StatusRegistrationSection = ({
 
   // Componente para renderizar um registro individual
   const ParecerRegistroItem = ({ registro, index }) => {
+    // DEBUGGING: Log do registro atual
+    console.log(`📝 Renderizando registro ${registro.id}:`, registro);
+    
     return (
       <div className="parecer-registro-item border border-gray-200 rounded-lg p-4 mb-4 bg-white">
         {/* Cabeçalho do registro */}
@@ -191,13 +207,18 @@ const StatusRegistrationSection = ({
           )}
         </div>
 
-        {/* SEÇÃO: Parecer Técnico */}
+        {/* SEÇÃO: Parecer Técnico - CORRIGIDA */}
         <div className="status-section-group mb-4">
           <h5 className="text-sm font-medium text-gray-700 mb-2">Parecer Técnico</h5>
           <div className="form-field">
             <textarea 
               value={registro.parecer || ''}
-              onChange={(e) => handleParecerRegistroChange(registro.id, 'parecer', e.target.value)}
+              onChange={(e) => {
+                // CORREÇÃO PRINCIPAL: Usar e.target.value corretamente
+                const newValue = e.target.value;
+                console.log(`✏️ Digitando no parecer do registro ${registro.id}:`, newValue);
+                handleParecerRegistroChange(registro.id, 'parecer', newValue);
+              }}
               className="form-textarea w-full"
               placeholder="Digite o parecer técnico detalhado sobre a análise da solicitação..."
               rows="3"
@@ -207,51 +228,94 @@ const StatusRegistrationSection = ({
                 border: '1px solid #e2e8f0',
                 borderRadius: '6px'
               }}
+              // CORREÇÃO: Prevenção de problemas de foco
+              onFocus={(e) => {
+                // Manter o cursor no final do texto
+                setTimeout(() => {
+                  e.target.selectionStart = e.target.value.length;
+                  e.target.selectionEnd = e.target.value.length;
+                }, 0);
+              }}
             />
           </div>
         </div>
 
-        {/* SEÇÃO: Parecer da Guia */}
+        {/* SEÇÃO: Parecer da Guia - CORRIGIDA */}
         <div className="status-section-group mb-4">
-          <h5 className="text-sm font-medium text-gray-700 mb-2">Parecer da Guia</h5>
+          <h5 className="text-sm font-medium text-gray-700 mb-2">
+            Parecer da Guia
+            {/* DEBUG: Mostrar valor atual */}
+            <span className="text-xs text-blue-600 ml-2">
+              (Atual: {registro.parecerGuia || 'Nenhum'})
+            </span>
+          </h5>
           
           <div className="status-cards-container">
-            {statusOptions.map(option => (
-              <div 
-                key={`parecer-${registro.id}-${option.value}`}
-                className={`status-card ${option.color} ${registro.parecerGuia === option.value ? 'status-card-selected' : ''}`}
-                onClick={() => handleStatusCardSelectForRegistro(registro.id, 'parecerGuia', option.value)}
-              >
-                <div className="status-card-icon">
-                  {option.icon}
+            {statusOptions.map(option => {
+              const isSelected = registro.parecerGuia === option.value;
+              console.log(`🎨 Card ${option.value} - Selecionado: ${isSelected} (valor atual: ${registro.parecerGuia})`);
+              
+              return (
+                <div 
+                  key={`parecer-${registro.id}-${option.value}`}
+                  className={`status-card ${option.color} ${isSelected ? 'status-card-selected' : ''}`}
+                  onClick={() => {
+                    console.log(`🖱️ Clicando em ${option.value} para registro ${registro.id}`);
+                    handleStatusCardSelectForRegistro(registro.id, 'parecerGuia', option.value);
+                  }}
+                  style={{
+                    cursor: 'pointer',
+                    border: isSelected ? '2px solid #8cb369' : '2px solid transparent'
+                  }}
+                >
+                  <div className="status-card-icon">
+                    {option.icon}
+                  </div>
+                  <div className="status-card-label">
+                    {option.value}
+                  </div>
                 </div>
-                <div className="status-card-label">
-                  {option.value}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         
-        {/* SEÇÃO: Finalização */}
+        {/* SEÇÃO: Finalização - CORRIGIDA */}
         <div className="status-section-group mb-4">
-          <h5 className="text-sm font-medium text-gray-700 mb-2">Finalização</h5>
+          <h5 className="text-sm font-medium text-gray-700 mb-2">
+            Finalização
+            {/* DEBUG: Mostrar valor atual */}
+            <span className="text-xs text-blue-600 ml-2">
+              (Atual: {registro.finalizacao || 'Nenhum'})
+            </span>
+          </h5>
           
           <div className="status-cards-container">
-            {statusOptions.map(option => (
-              <div 
-                key={`finalizacao-${registro.id}-${option.value}`}
-                className={`status-card ${option.color} ${registro.finalizacao === option.value ? 'status-card-selected' : ''}`}
-                onClick={() => handleStatusCardSelectForRegistro(registro.id, 'finalizacao', option.value)}
-              >
-                <div className="status-card-icon">
-                  {option.icon}
+            {statusOptions.map(option => {
+              const isSelected = registro.finalizacao === option.value;
+              
+              return (
+                <div 
+                  key={`finalizacao-${registro.id}-${option.value}`}
+                  className={`status-card ${option.color} ${isSelected ? 'status-card-selected' : ''}`}
+                  onClick={() => {
+                    console.log(`🖱️ Clicando em Finalização ${option.value} para registro ${registro.id}`);
+                    handleStatusCardSelectForRegistro(registro.id, 'finalizacao', option.value);
+                  }}
+                  style={{
+                    cursor: 'pointer',
+                    border: isSelected ? '2px solid #8cb369' : '2px solid transparent'
+                  }}
+                >
+                  <div className="status-card-icon">
+                    {option.icon}
+                  </div>
+                  <div className="status-card-label">
+                    {option.value}
+                  </div>
                 </div>
-                <div className="status-card-label">
-                  {option.value}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         
@@ -337,7 +401,7 @@ const StatusRegistrationSection = ({
           ) : (
             formData.parecerRegistros.map((registro, index) => (
               <ParecerRegistroItem 
-                key={registro.id} 
+                key={`registro-${registro.id}-${currentPage}`} 
                 registro={registro} 
                 index={index}
               />
@@ -1370,6 +1434,9 @@ const NovaPreviaView = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
+    // Log para debug
+    console.log(`🔄 handleInputChange - Campo: ${name}, Valor:`, value);
+    
     // Validação específica para ciclos_previstos
     if (name === 'ciclos_previstos') {
       // Permitir apenas números inteiros positivos ou campo vazio
@@ -1378,6 +1445,18 @@ const NovaPreviaView = () => {
       }
     }
     
+    // CORREÇÃO ESPECIAL: Tratar parecerRegistros separadamente
+    if (name === 'parecerRegistros') {
+      console.log('📋 Atualizando parecerRegistros:', value);
+      
+      setFormData(prev => ({
+        ...prev,
+        parecerRegistros: Array.isArray(value) ? value : prev.parecerRegistros
+      }));
+      return;
+    }
+    
+    // Para outros campos, comportamento normal
     setFormData(prev => ({
       ...prev,
       [name]: value === undefined ? '' : value // CORREÇÃO: garantir que nunca seja undefined
@@ -1392,6 +1471,11 @@ const NovaPreviaView = () => {
       calculateProcessingTime(formData.dataSolicitacao, currentDate);
     }
   };
+
+  // ADICIONAL: Debug para verificar o estado atual dos registros
+  useEffect(() => {
+    console.log('🔍 Estado atual dos parecerRegistros:', formData.parecerRegistros);
+  }, [formData.parecerRegistros]);
   
   // Modificado para usar o contexto com cache
   const handleFileUpload = async (e) => {
@@ -1573,10 +1657,14 @@ const NovaPreviaView = () => {
         parecer_registros: formData.parecerRegistros.map(registro => ({
           id: registro.id,
           parecer: registro.parecer || '',
-          parecer_guia: registro.parecerGuia || '',
+          // CORREÇÃO: Mapear corretamente o parecerGuia
+          parecerGuia: registro.parecerGuia || '', // Frontend usa parecerGuia
+          parecer_guia: registro.parecerGuia || '', // Backend pode esperar parecer_guia
           finalizacao: registro.finalizacao || '',
-          data_parecer: registro.dataParecer || null,
-          tempo_analise: registro.tempoAnalise || null,
+          dataParecer: registro.dataParecer || null,
+          data_parecer: registro.dataParecer || null, // Compatibilidade
+          tempoAnalise: registro.tempoAnalise || null,
+          tempo_analise: registro.tempoAnalise || null, // Compatibilidade
           observacoes: registro.observacoes || ''
         })),
         
@@ -1809,7 +1897,7 @@ const NovaPreviaView = () => {
       
       // *** CORREÇÃO PRINCIPAL: Processar múltiplos registros de parecer ***
       let parecerRegistrosProcessados = [];
-      
+
       // 1. Primeiro, tentar carregar do campo JSON parecer_registros
       if (previaDetails.parecer_registros) {
         try {
@@ -1820,10 +1908,12 @@ const NovaPreviaView = () => {
             parecerRegistrosProcessados = registrosFromJSON.map((registro, index) => ({
               id: registro.id || (index + 1),
               parecer: registro.parecer || '',
-              parecerGuia: registro.parecerGuia || '',
-              finalizacao: registro.finalizacao || '',
-              dataParecer: registro.dataParecer || '',
-              tempoAnalise: registro.tempoAnalise || null,
+              // CORREÇÃO: Verificar tanto parecerGuia quanto parecer_guia
+              parecerGuia: registro.parecerGuia || registro.parecer_guia || '',
+              // CORREÇÃO: Verificar tanto finalizacao quanto finalizacao
+              finalizacao: registro.finalizacao || registro.finalizacao || '',
+              dataParecer: registro.dataParecer || registro.data_parecer || '',
+              tempoAnalise: registro.tempoAnalise || registro.tempo_analise || null,
               observacoes: registro.observacoes || ''
             }));
             
@@ -1831,7 +1921,6 @@ const NovaPreviaView = () => {
           }
         } catch (jsonError) {
           console.error("Erro ao fazer parse do JSON parecer_registros:", jsonError);
-          // Se falhar, usar campos antigos como fallback
           parecerRegistrosProcessados = [];
         }
       }
@@ -1840,19 +1929,17 @@ const NovaPreviaView = () => {
       if (parecerRegistrosProcessados.length === 0) {
         console.log("📄 Usando campos antigos como fallback");
         
-        // Verificar se há dados nos campos antigos
         if (previaDetails.parecer || previaDetails.parecer_guia || previaDetails.finalizacao) {
           parecerRegistrosProcessados = [{
             id: 1,
             parecer: previaDetails.parecer || '',
-            parecerGuia: previaDetails.parecer_guia || '',
+            parecerGuia: previaDetails.parecer_guia || '', // CORRIGIDO
             finalizacao: previaDetails.finalizacao || '',
             dataParecer: previaDetails.data_parecer_registrado ? formatDateFromDB(previaDetails.data_parecer_registrado) : '',
             tempoAnalise: previaDetails.tempo_analise || null,
             observacoes: ''
           }];
         } else {
-          // Se não há dados em lugar nenhum, criar registro vazio
           parecerRegistrosProcessados = [{
             id: 1,
             parecer: '',
