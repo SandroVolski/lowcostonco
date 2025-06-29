@@ -40,6 +40,38 @@ const StatusRegistrationSection = ({
   // LIMITE MÁXIMO DE REGISTROS
   const MAX_REGISTROS = 5;
   
+  // Função para calcular diferença de dias entre duas datas
+  const calculateDaysDifference = (startDate, endDate) => {
+    if (!startDate || !endDate) return null;
+    
+    const parseDate = (dateString) => {
+      if (!dateString) return null;
+      const parts = dateString.split('/');
+      if (parts.length !== 3) return null;
+      return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+    };
+    
+    const start = parseDate(startDate);
+    const end = parseDate(endDate);
+    
+    if (start && end) {
+      const diffTime = Math.abs(end - start);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    }
+    
+    return null;
+  };
+  
+  // Função para formatar data atual no formato DD/MM/YYYY
+  const getCurrentDateFormatted = () => {
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const year = today.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+  
   // Função para lidar com a seleção do status por cartão
   const handleStatusCardSelect = (name, value) => {
     const syntheticEvent = {
@@ -48,9 +80,8 @@ const StatusRegistrationSection = ({
     handleInputChange(syntheticEvent);
   };
 
-  // FUNÇÃO MODIFICADA - Com limite de 5 registros
+  // Função para adicionar novo registro
   const handleAddParecerRegistro = () => {
-    // Verificar limite antes de adicionar
     if (formData.parecerRegistros.length >= MAX_REGISTROS) {
       alert(`Limite máximo de ${MAX_REGISTROS} registros de parecer atingido.`);
       return;
@@ -64,6 +95,7 @@ const StatusRegistrationSection = ({
       parecer: '',
       parecerGuia: '',
       finalizacao: '',
+      dataSolicitacao: formData.dataSolicitacao || '', // Data vem do formulário principal
       dataParecer: '',
       tempoAnalise: null,
       observacoes: ''
@@ -85,7 +117,7 @@ const StatusRegistrationSection = ({
 
   const handleRemoveParecerRegistro = (registroId) => {
     if (formData.parecerRegistros.length <= 1) {
-      return; // Não permitir remover o último registro
+      return;
     }
 
     const updatedRegistros = formData.parecerRegistros.filter(r => r.id !== registroId);
@@ -110,6 +142,29 @@ const StatusRegistrationSection = ({
           ...registro, 
           [field]: value 
         };
+        
+        // NOVO: Lógica para calcular tempo de análise automaticamente
+        if (field === 'dataParecer' && value) {
+          const dataSolicitacao = registro.dataSolicitacao || formData.dataSolicitacao;
+          if (dataSolicitacao) {
+            const tempoCalculado = calculateDaysDifference(dataSolicitacao, value);
+            updatedRegistro.tempoAnalise = tempoCalculado;
+          }
+        }
+        
+        // NOVO: Quando finalização é preenchida, auto-preencher data do parecer se vazia
+        if (field === 'finalizacao' && value && !registro.dataParecer) {
+          const currentDate = getCurrentDateFormatted();
+          updatedRegistro.dataParecer = currentDate;
+          
+          // Calcular tempo de análise
+          const dataSolicitacao = registro.dataSolicitacao || formData.dataSolicitacao;
+          if (dataSolicitacao) {
+            const tempoCalculado = calculateDaysDifference(dataSolicitacao, currentDate);
+            updatedRegistro.tempoAnalise = tempoCalculado;
+          }
+        }
+        
         console.log(`✅ Registro ${registroId} atualizado:`, updatedRegistro);
         return updatedRegistro;
       }
@@ -118,7 +173,6 @@ const StatusRegistrationSection = ({
 
     console.log("📋 Todos os registros atualizados:", updatedRegistros);
 
-    // CORREÇÃO: Disparar mudança corretamente
     const syntheticEvent = {
       target: {
         name: 'parecerRegistros',
@@ -129,10 +183,30 @@ const StatusRegistrationSection = ({
     handleInputChange(syntheticEvent);
   };
 
-  // CORREÇÃO: Função específica para status cards
+  // Função específica para status cards
   const handleStatusCardSelectForRegistro = (registroId, field, value) => {
     console.log(`🎯 Selecionando ${field} = ${value} para registro ${registroId}`);
     handleParecerRegistroChange(registroId, field, value);
+  };
+
+  // NOVA: Função para aplicar máscara de data
+  const applyDateMask = (value) => {
+    const numbers = value.replace(/\D/g, '');
+    const limitedNumbers = numbers.substring(0, 8);
+    
+    if (limitedNumbers.length <= 2) {
+      return limitedNumbers;
+    } else if (limitedNumbers.length <= 4) {
+      return `${limitedNumbers.substring(0, 2)}/${limitedNumbers.substring(2)}`;
+    } else {
+      return `${limitedNumbers.substring(0, 2)}/${limitedNumbers.substring(2, 4)}/${limitedNumbers.substring(4)}`;
+    }
+  };
+
+  // NOVA: Handler para campos de data com máscara
+  const handleDateChange = (registroId, value) => {
+    const maskedValue = applyDateMask(value);
+    handleParecerRegistroChange(registroId, 'dataParecer', maskedValue);
   };
 
   // Componente para exibir métricas de tempo
@@ -143,7 +217,9 @@ const StatusRegistrationSection = ({
       return 'text-red-600 bg-red-100';
     };
     
-    if (!registro.dataParecer) return null;
+    const dataSolicitacao = registro.dataSolicitacao || formData.dataSolicitacao;
+    
+    if (!dataSolicitacao) return null;
     
     return (
       <div className="tempo-analise-metrics">
@@ -152,16 +228,16 @@ const StatusRegistrationSection = ({
         <div className="grid grid-cols-2 gap-4">
           <div className="metric-item">
             <span className="text-xs text-gray-500">Data Solicitação:</span>
-            <span className="block text-sm font-medium">{formData.dataSolicitacao}</span>
+            <span className="block text-sm font-medium">{dataSolicitacao}</span>
           </div>
           
           <div className="metric-item">
             <span className="text-xs text-gray-500">Data Parecer:</span>
-            <span className="block text-sm font-medium">{registro.dataParecer}</span>
+            <span className="block text-sm font-medium">{registro.dataParecer || 'Não informado'}</span>
           </div>
         </div>
         
-        {registro.tempoAnalise !== null && (
+        {registro.tempoAnalise !== null && registro.tempoAnalise !== undefined && (
           <div className="mt-3 flex items-center justify-between tempo-indicator">
             <div className="flex items-center">
               <Clock8 size={16} className="text-gray-500 mr-2" />
@@ -179,7 +255,6 @@ const StatusRegistrationSection = ({
 
   // Componente para renderizar um registro individual
   const ParecerRegistroItem = ({ registro, index }) => {
-    // DEBUGGING: Log do registro atual
     console.log(`📝 Renderizando registro ${registro.id}:`, registro);
     
     return (
@@ -189,7 +264,6 @@ const StatusRegistrationSection = ({
           <h4 className="status-section-subtitle flex items-center">
             <FileText size={16} className="mr-2" />
             Registro de Parecer #{index + 1}
-            {/* INDICADOR VISUAL DO LIMITE */}
             <span className="ml-2 text-xs text-gray-500">
               ({index + 1}/{MAX_REGISTROS})
             </span>
@@ -214,10 +288,8 @@ const StatusRegistrationSection = ({
             <textarea 
               value={registro.parecer || ''}
               onChange={(e) => {
-                // CORREÇÃO PRINCIPAL: Usar e.target.value corretamente
-                const newValue = e.target.value;
-                console.log(`✏️ Digitando no parecer do registro ${registro.id}:`, newValue);
-                handleParecerRegistroChange(registro.id, 'parecer', newValue);
+                // CORREÇÃO: Usar handleParecerRegistroChange diretamente
+                handleParecerRegistroChange(registro.id, 'parecer', e.target.value);
               }}
               className="form-textarea w-full"
               placeholder="Digite o parecer técnico detalhado sobre a análise da solicitação..."
@@ -228,32 +300,17 @@ const StatusRegistrationSection = ({
                 border: '1px solid #e2e8f0',
                 borderRadius: '6px'
               }}
-              // CORREÇÃO: Prevenção de problemas de foco
-              onFocus={(e) => {
-                // Manter o cursor no final do texto
-                setTimeout(() => {
-                  e.target.selectionStart = e.target.value.length;
-                  e.target.selectionEnd = e.target.value.length;
-                }, 0);
-              }}
             />
           </div>
         </div>
 
-        {/* SEÇÃO: Parecer da Guia - CORRIGIDA */}
+        {/* SEÇÃO: Parecer da Guia - CORRIGIDA (removido debug text) */}
         <div className="status-section-group mb-4">
-          <h5 className="text-sm font-medium text-gray-700 mb-2">
-            Parecer da Guia
-            {/* DEBUG: Mostrar valor atual */}
-            <span className="text-xs text-blue-600 ml-2">
-              (Atual: {registro.parecerGuia || 'Nenhum'})
-            </span>
-          </h5>
+          <h5 className="text-sm font-medium text-gray-700 mb-2">Parecer da Guia</h5>
           
           <div className="status-cards-container">
             {statusOptions.map(option => {
               const isSelected = registro.parecerGuia === option.value;
-              console.log(`🎨 Card ${option.value} - Selecionado: ${isSelected} (valor atual: ${registro.parecerGuia})`);
               
               return (
                 <div 
@@ -280,15 +337,9 @@ const StatusRegistrationSection = ({
           </div>
         </div>
         
-        {/* SEÇÃO: Finalização - CORRIGIDA */}
+        {/* SEÇÃO: Finalização - CORRIGIDA (removido debug text) */}
         <div className="status-section-group mb-4">
-          <h5 className="text-sm font-medium text-gray-700 mb-2">
-            Finalização
-            {/* DEBUG: Mostrar valor atual */}
-            <span className="text-xs text-blue-600 ml-2">
-              (Atual: {registro.finalizacao || 'Nenhum'})
-            </span>
-          </h5>
+          <h5 className="text-sm font-medium text-gray-700 mb-2">Finalização</h5>
           
           <div className="status-cards-container">
             {statusOptions.map(option => {
@@ -318,11 +369,51 @@ const StatusRegistrationSection = ({
             })}
           </div>
         </div>
+
+        {/* NOVA SEÇÃO: Campos de Data */}
+        <div className="status-section-group mb-4">
+          <h5 className="text-sm font-medium text-gray-700 mb-2">Datas e Tempo de Análise</h5>
+          
+          <div className="grid grid-cols-2 gap-4 mb-3">
+            <div className="form-field">
+              <label className="form-label text-xs">Data Solicitação</label>
+              <input
+                type="text"
+                value={registro.dataSolicitacao || formData.dataSolicitacao || ''}
+                readOnly
+                className="form-input bg-gray-100 text-gray-600 cursor-not-allowed"
+                placeholder="DD/MM/AAAA"
+                style={{
+                  backgroundColor: '#f9fafb',
+                  color: '#6b7280'
+                }}
+              />
+              <span className="text-xs text-gray-500 mt-1">Preenchido automaticamente</span>
+            </div>
+            
+            <div className="form-field">
+              <label className="form-label text-xs">Data Parecer</label>
+              <input
+                type="text"
+                value={registro.dataParecer || ''}
+                onChange={(e) => handleDateChange(registro.id, e.target.value)}
+                className="form-input"
+                placeholder="DD/MM/AAAA"
+                maxLength="10"
+                style={{
+                  backgroundColor: '#fff',
+                  border: '1px solid #d1d5db'
+                }}
+              />
+              <span className="text-xs text-gray-500 mt-1">Preenchido automaticamente ao finalizar</span>
+            </div>
+          </div>
+        </div>
         
         {/* Métricas de tempo de análise */}
         <TempoAnaliseMetrics registro={registro} />
         
-        {/* BOTÃO MODIFICADO - Só aparece se não atingiu o limite */}
+        {/* Botão para adicionar novo registro */}
         {index === formData.parecerRegistros.length - 1 && formData.parecerRegistros.length < MAX_REGISTROS && (
           <div className="status-section-group mt-4 pt-4 border-t border-gray-200 flex justify-center">
             <button 
@@ -339,7 +430,7 @@ const StatusRegistrationSection = ({
           </div>
         )}
         
-        {/* AVISO QUANDO ATINGIR O LIMITE */}
+        {/* Aviso quando atingir o limite */}
         {index === formData.parecerRegistros.length - 1 && formData.parecerRegistros.length >= MAX_REGISTROS && (
           <div className="status-section-group mt-4 pt-4 border-t border-gray-200 flex justify-center">
             <div className="flex items-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-700 rounded-md border border-yellow-200">
@@ -373,7 +464,6 @@ const StatusRegistrationSection = ({
       
       <div className="card-header">
         <h3>Parecer/Registro de Status</h3>
-        {/* INDICADOR GLOBAL DO LIMITE */}
         <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
           {formData.parecerRegistros.length}/{MAX_REGISTROS} registros
         </span>
@@ -1838,12 +1928,13 @@ const NovaPreviaView = () => {
         parecerGuia: '',
         inconsistencia: '',
         cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
-        // NOVO: Incluir parecerRegistros
+        // NOVO: Incluir parecerRegistros com dataSolicitacao
         parecerRegistros: [{ 
           id: 1, 
           parecer: '', 
           parecerGuia: '', 
           finalizacao: '', 
+          dataSolicitacao: formatDate(new Date()), // NOVO CAMPO
           dataParecer: '',
           tempoAnalise: null,
           observacoes: ''
@@ -1895,29 +1986,42 @@ const NovaPreviaView = () => {
         data_atualizacao: previaDetails.data_atualizacao
       });
       
-      // *** CORREÇÃO PRINCIPAL: Processar múltiplos registros de parecer ***
+      // *** CORREÇÃO PRINCIPAL: Processar múltiplos registros de parecer com novos campos ***
       let parecerRegistrosProcessados = [];
 
-      // 1. Primeiro, tentar carregar do campo JSON parecer_registros
-      if (previaDetails.parecer_registros) {
+      // 1. Primeiro, tentar carregar do campo JSON parecer_registros_processed (que vem do backend melhorado)
+      if (previaDetails.parecer_registros_processed && Array.isArray(previaDetails.parecer_registros_processed)) {
+        parecerRegistrosProcessados = previaDetails.parecer_registros_processed.map((registro, index) => ({
+          id: registro.id || (index + 1),
+          parecer: registro.parecer || '',
+          parecerGuia: registro.parecerGuia || '',
+          finalizacao: registro.finalizacao || '',
+          dataSolicitacao: registro.dataSolicitacao || formatDateFromDB(previaDetails.data_solicitacao) || '', // NOVO CAMPO
+          dataParecer: registro.dataParecer || '',
+          tempoAnalise: registro.tempoAnalise || null,
+          observacoes: registro.observacoes || ''
+        }));
+        
+        console.log(`✅ Carregados ${parecerRegistrosProcessados.length} registros do backend melhorado`);
+      }
+      // 2. Fallback: tentar carregar do campo JSON parecer_registros original
+      else if (previaDetails.parecer_registros) {
         try {
           const registrosFromJSON = JSON.parse(previaDetails.parecer_registros);
           
           if (Array.isArray(registrosFromJSON) && registrosFromJSON.length > 0) {
-            // Processar cada registro do JSON
             parecerRegistrosProcessados = registrosFromJSON.map((registro, index) => ({
               id: registro.id || (index + 1),
               parecer: registro.parecer || '',
-              // CORREÇÃO: Verificar tanto parecerGuia quanto parecer_guia
               parecerGuia: registro.parecerGuia || registro.parecer_guia || '',
-              // CORREÇÃO: Verificar tanto finalizacao quanto finalizacao
-              finalizacao: registro.finalizacao || registro.finalizacao || '',
+              finalizacao: registro.finalizacao || '',
+              dataSolicitacao: registro.dataSolicitacao || formatDateFromDB(previaDetails.data_solicitacao) || '', // NOVO CAMPO
               dataParecer: registro.dataParecer || registro.data_parecer || '',
               tempoAnalise: registro.tempoAnalise || registro.tempo_analise || null,
               observacoes: registro.observacoes || ''
             }));
             
-            console.log(`✅ Carregados ${parecerRegistrosProcessados.length} registros do JSON`);
+            console.log(`✅ Carregados ${parecerRegistrosProcessados.length} registros do JSON original`);
           }
         } catch (jsonError) {
           console.error("Erro ao fazer parse do JSON parecer_registros:", jsonError);
@@ -1925,7 +2029,7 @@ const NovaPreviaView = () => {
         }
       }
       
-      // 2. Se não há registros do JSON, usar campos antigos como fallback
+      // 3. Se não há registros do JSON, usar campos antigos como fallback
       if (parecerRegistrosProcessados.length === 0) {
         console.log("📄 Usando campos antigos como fallback");
         
@@ -1933,8 +2037,9 @@ const NovaPreviaView = () => {
           parecerRegistrosProcessados = [{
             id: 1,
             parecer: previaDetails.parecer || '',
-            parecerGuia: previaDetails.parecer_guia || '', // CORRIGIDO
+            parecerGuia: previaDetails.parecer_guia || '',
             finalizacao: previaDetails.finalizacao || '',
+            dataSolicitacao: formatDateFromDB(previaDetails.data_solicitacao) || '', // NOVO CAMPO
             dataParecer: previaDetails.data_parecer_registrado ? formatDateFromDB(previaDetails.data_parecer_registrado) : '',
             tempoAnalise: previaDetails.tempo_analise || null,
             observacoes: ''
@@ -1945,6 +2050,7 @@ const NovaPreviaView = () => {
             parecer: '',
             parecerGuia: '',
             finalizacao: '',
+            dataSolicitacao: formatDateFromDB(previaDetails.data_solicitacao) || '', // NOVO CAMPO
             dataParecer: '',
             tempoAnalise: null,
             observacoes: ''
@@ -1952,13 +2058,14 @@ const NovaPreviaView = () => {
         }
       }
       
-      // 3. Se ainda não temos registros, criar um padrão
+      // 4. Se ainda não temos registros, criar um padrão
       if (parecerRegistrosProcessados.length === 0) {
         parecerRegistrosProcessados = [{
           id: 1,
           parecer: '',
           parecerGuia: '',
           finalizacao: '',
+          dataSolicitacao: formatDateFromDB(previaDetails.data_solicitacao) || '', // NOVO CAMPO
           dataParecer: '',
           tempoAnalise: null,
           observacoes: ''
@@ -1988,7 +2095,7 @@ const NovaPreviaView = () => {
         finalizacao: previaDetails.finalizacao,
         inconsistencia: previaDetails.inconsistencia,
         cicloDiaEntries: ciclosDias.length > 0 ? ciclosDias : [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
-        // *** CORREÇÃO: Usar os registros processados do JSON ***
+        // *** CORREÇÃO: Usar os registros processados com os novos campos ***
         parecerRegistros: parecerRegistrosProcessados
       });
       
@@ -2026,7 +2133,7 @@ const NovaPreviaView = () => {
     } finally {
       setLoadingSection(false);
     }
-  };  
+  }; 
 
   const UserInfoDisplay = () => {
     // Se estivermos visualizando uma prévia existente
