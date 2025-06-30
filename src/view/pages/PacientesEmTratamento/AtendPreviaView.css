@@ -219,6 +219,58 @@
   outline-offset: 2px;
 }
 
+/* AUMENTO DA ALTURA DOS CARDS PARA VISUALIZAÇÃO COMPLETA */
+.protocol-card {
+  min-height: 320px !important; /* Aumentado de 280px para 320px */
+  height: auto !important; /* Permite altura dinâmica se necessário */
+}
+
+.protocol-card .card-inner {
+  min-height: 320px !important;
+  height: auto !important;
+}
+
+.protocol-card .card-front {
+  min-height: 320px !important;
+  height: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Garantir que o status sempre apareça no final */
+.protocol-card .card-front > div:last-child {
+  margin-top: auto;
+}
+
+/* Responsividade para diferentes tamanhos de tela */
+@media (max-width: 1200px) {
+  .protocol-card {
+    min-height: 300px !important;
+  }
+  
+  .protocol-card .card-inner,
+  .protocol-card .card-front {
+    min-height: 300px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .protocol-card {
+    min-height: 280px !important;
+  }
+  
+  .protocol-card .card-inner,
+  .protocol-card .card-front {
+    min-height: 280px !important;
+  }
+}
+
+/* Melhorar visual dos status badges nos cards */
+.protocol-card [style*="backgroundColor"]:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 /* Estados de hover melhorados */
 .protocol-card:hover {
   transform: translateY(-4px);
@@ -255,6 +307,261 @@
     min-width: 28px;
     height: 28px;
     font-size: 12px;
+  }
+}
+
+/* ESTILOS ESPECÍFICOS PARA ATENDPREVIA - VISUALIZAÇÃO EM LISTA */
+
+/* Layout de grid otimizado */
+.patients-list .list-header,
+.patients-list .previa-list-row {
+  display: grid;
+  grid-template-columns: 0.7fr 2.2fr 0.9fr 1.3fr 0.7fr 1.2fr 1fr 1.4fr 1.4fr;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px;
+}
+
+.patients-list .list-header {
+  background: linear-gradient(135deg, #8cb369 0%, #c6d651 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 13px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+  text-align: center;
+}
+
+.patients-list .previa-list-row {
+  border-bottom: 1px solid #f3f4f6;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-size: 12px;
+}
+
+.patients-list .previa-list-row:hover {
+  background-color: #f9fafb;
+}
+
+.patients-list .previa-list-row:last-child {
+  border-bottom: none;
+}
+
+/* Garantir que o grid seja aplicado corretamente */
+.patients-list .patient-list-item.previa-list-row {
+  display: grid !important;
+}
+
+/* Estilos para cabeçalhos clicáveis */
+.list-header .sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  min-height: 24px;
+  text-align: center;
+}
+
+.list-header .sortable:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.list-header .sortable.active {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  font-weight: 700;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Estilos específicos para células */
+.list-item-code {
+  text-align: center;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.list-item-name {
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.list-item-provider {
+  font-family: monospace;
+  font-size: 11px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.list-item-prestador {
+  color: #374151;
+}
+
+.list-item-cid {
+  font-size: 11px;
+  color: #6b7280;
+  text-align: center;
+  font-weight: 500;
+}
+
+.list-item-gender {
+  font-family: monospace;
+  font-size: 11px;
+  color: #374151;
+}
+
+.list-item-age {
+  font-size: 11px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.list-item-birthday,
+.list-item-first-request {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+
+
+/* Estilos para texto truncado */
+.truncated-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.truncated-cell:hover {
+  color: #8cb369;
+}
+
+/* Estilos para status badges */
+.status-badge-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  position: relative;
+}
+
+.status-badge-custom {
+  cursor: help;
+  transition: all 0.2s ease;
+}
+
+.status-badge-custom:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Melhorar aparência geral da tabela */
+.patients-list {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  background-color: white;
+  margin-top: 8px;
+}
+
+/* Responsividade */
+@media (max-width: 1400px) {
+  .patients-list .list-header,
+  .patients-list .previa-list-row {
+    grid-template-columns: 0.6fr 2fr 0.8fr 1.2fr 0.6fr 1.1fr 0.9fr 1.3fr 1.3fr;
+    gap: 10px;
+    padding: 10px 14px;
+  }
+  
+  .patients-list .list-header,
+  .patients-list .previa-list-row {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .patients-list .list-header,
+  .patients-list .previa-list-row {
+    grid-template-columns: 0.6fr 1.8fr 0.7fr 1.1fr 0.5fr 1fr 0.8fr 1.2fr 1.2fr;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  
+  .list-item-provider,
+  .list-item-cid,
+  .list-item-gender,
+  .list-item-age {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .patients-list .list-header,
+  .patients-list .previa-list-row {
+    grid-template-columns: 0.5fr 1.6fr 0.6fr 1fr 0.4fr 0.9fr 0.7fr 1.1fr 1.1fr;
+    gap: 6px;
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Layout simplificado para mobile - esconder algumas colunas (sem ações) */
+  .patients-list .list-header,
+  .patients-list .previa-list-row {
+    grid-template-columns: 0.7fr 2.5fr 0.9fr 1.5fr 1.4fr;
+    gap: 8px;
+  }
+  
+  /* Esconder colunas menos importantes em mobile */
+  .list-header-cid,
+  .list-header-gender,
+  .list-header-age,
+  .list-item-cid,
+  .list-item-gender,
+  .list-item-age {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Layout ainda mais simplificado para telas pequenas (sem ações) */
+  .patients-list .list-header,
+  .patients-list .previa-list-row {
+    grid-template-columns: 2.2fr 1.2fr 1.4fr;
+    gap: 6px;
+    padding: 8px;
+  }
+  
+  /* Esconder mais colunas */
+  .list-header-code,
+  .list-header-provider,
+  .list-item-code,
+  .list-item-provider {
+    display: none;
+  }
+  
+  .patients-list .list-header {
+    font-size: 12px;
+  }
+  
+  .patients-list .previa-list-row {
+    font-size: 11px;
+  }
+  
+  .status-badge-custom {
+    font-size: 9px;
+    padding: 3px 6px;
+    min-width: 60px;
   }
 }
 

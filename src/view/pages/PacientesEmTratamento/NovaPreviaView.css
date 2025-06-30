@@ -2795,3 +2795,269 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* CSS para o componente de informações do usuário em registros de parecer */
+/* Adicionar este CSS ao arquivo NovaPreviaView.css */
+
+/* Cabeçalho do registro de parecer com layout flexível */
+.parecer-registro-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.parecer-registro-title-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+/* Componente de informações do usuário para registros de parecer */
+.parecer-user-info-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background-color: transparent !important;
+  border: 1px solid #8cb369 !important;
+  border-radius: 4px;
+  font-size: 0.75rem; /* Menor que o original */
+  color: #8cb369 !important;
+  max-width: 300px;
+  position: relative;
+  cursor: help;
+  transition: all 0.2s ease;
+}
+
+.parecer-user-info-inline:hover {
+  background-color: var(--background-hover);
+  border-color: var(--border-hover);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Tooltip para registros de parecer */
+.parecer-user-info-inline::after {
+  content: "Este usuário criou ou alterou este registro de parecer.";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background-color: var(--background-tooltip);
+  color: var(--text-tooltip);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.parecer-user-info-inline:hover::after {
+  opacity: 1;
+  visibility: visible;
+  bottom: calc(100% + 6px);
+}
+
+.parecer-user-info-inline::before {
+  content: "";
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 4px;
+  border-style: solid;
+  border-color: var(--background-tooltip) transparent transparent transparent;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+}
+
+.parecer-user-info-inline:hover::before {
+  opacity: 1;
+  visibility: visible;
+  bottom: calc(100% + 6px);
+}
+
+/* Variante para novo registro */
+.parecer-user-info-inline.new-record {
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1e40af !important;
+}
+
+/* Variante para registro existente */
+.parecer-user-info-inline.existing-record {
+  background-color: #f9fafb !important;
+  border-color: #8cb369 !important;
+  color: #8cb369 !important;
+}
+
+/* Layout flexível para as informações do usuário */
+.parecer-user-info-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.parecer-user-text {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.75rem;
+}
+
+.parecer-user-text-secondary {
+  opacity: 0.8;
+  margin-left: 6px;
+}
+
+.parecer-user-timestamp {
+  margin-left: 6px;
+  white-space: nowrap;
+  color: var(--text-tertiary);
+  font-size: 0.7rem;
+}
+
+/* Indicadores coloridos para registros de parecer */
+.parecer-user-info-inline .user-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.parecer-user-info-inline .user-indicator.created {
+  background-color: #10b981; /* Verde para criação */
+}
+
+.parecer-user-info-inline .user-indicator.modified {
+  background-color: #f59e0b; /* Laranja para modificação */
+}
+
+.parecer-user-info-inline .user-indicator.current {
+  background-color: #3b82f6; /* Azul para usuário atual */
+}
+
+/* Ícone do usuário menor */
+.parecer-user-info-inline .user-icon {
+  width: 12px;
+  height: 12px;
+}
+
+/* Labels destacados */
+.parecer-user-info-inline .user-info-label {
+  font-weight: 600;
+  color: inherit;
+}
+
+/* Estados de foco para acessibilidade */
+.parecer-user-info-inline:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(140, 179, 105, 0.5);
+}
+
+.parecer-user-info-inline:focus:not(:focus-visible) {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsividade para dispositivos móveis */
+@media (max-width: 768px) {
+  .parecer-registro-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .parecer-registro-title-section {
+    order: 1;
+  }
+  
+  .parecer-user-info-inline {
+    font-size: 0.7rem;
+    padding: 3px 6px;
+    max-width: 100%;
+    order: 2;
+    align-self: flex-start;
+  }
+  
+  .parecer-user-text {
+    font-size: 0.7rem;
+  }
+  
+  .parecer-user-timestamp {
+    font-size: 0.65rem;
+    display: block;
+    margin-left: 12px;
+    margin-top: 2px;
+  }
+  
+  /* Botão de remoção */
+  .parecer-registro-header > button {
+    order: 3;
+    align-self: flex-end;
+  }
+}
+
+/* Melhorar integração visual com o card do registro */
+.parecer-registro-item .parecer-user-info-inline {
+  margin-top: 4px;
+  align-self: flex-start;
+}
+
+/* Estado de carregamento específico para registros */
+.parecer-user-info-loading {
+  display: flex;
+  align-items: center;
+  color: #6b7280;
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+}
+
+.parecer-user-info-loading .loading-dot {
+  width: 3px;
+  height: 3px;
+  background-color: #9ca3af;
+  border-radius: 50%;
+  margin: 0 1px;
+  animation: pulse 1.5s infinite;
+}
+
+.parecer-user-info-loading .loading-dot:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.parecer-user-info-loading .loading-dot:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+/* Variação para temas escuros (se necessário no futuro) */
+@media (prefers-color-scheme: dark) {
+  .parecer-user-info-inline.new-record {
+    background-color: #1e3a8a;
+    border-color: #3b82f6;
+    color: #93c5fd;
+  }
+  
+  .parecer-user-info-inline.existing-record {
+    background-color: #374151;
+    border-color: #4b5563;
+    color: #d1d5db;
+  }
+}
+
+/* Garantir que não interfira com outros elementos do registro */
+.parecer-registro-title-section + * {
+  margin-left: 12px;
+}

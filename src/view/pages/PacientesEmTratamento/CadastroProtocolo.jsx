@@ -97,6 +97,9 @@ function ProtocoloForm() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [medicamentosCache, setMedicamentosCache] = useState({});
   const [expandedRows, setExpandedRows] = useState({});
+  
+  // Estado para autopreenchimento baseado em protocolo existente
+  const [selectedProtocoloTemplate, setSelectedProtocoloTemplate] = useState('');
 
   // Refs
   const searchInputRef = useRef(null);
@@ -697,7 +700,89 @@ function ProtocoloForm() {
       Linha: '',
       medicamentos: [] // Array vazio ao resetar
     });
+    setSelectedProtocoloTemplate('');
     setUpdateError(null);
+  };
+
+  // Função para preencher o formulário baseado em um protocolo existente
+  const handleProtocoloTemplateChange = async (protocoloId) => {
+    setSelectedProtocoloTemplate(protocoloId);
+    
+    if (!protocoloId) {
+      // Resetar apenas os campos, mas manter o estado de isAdding
+      setFormData({
+        Protocolo_Nome: '',
+        Protocolo_Sigla: '',
+        CID: '',
+        Intervalo_Ciclos: '',
+        Ciclos_Previstos: '',
+        Linha: '',
+        medicamentos: []
+      });
+      return;
+    }
+    
+    // Encontrar o protocolo selecionado
+    const protocoloTemplate = filteredProtocolos.find(p => p.id == protocoloId);
+    
+    if (!protocoloTemplate) {
+      showErrorAlert("Erro", "Protocolo selecionado não encontrado.");
+      return;
+    }
+    
+    try {
+      setLocalLoading(true);
+      
+      // Buscar medicamentos do protocolo template
+      let medicamentosTemplate = [];
+      
+      // Primeiro tentar buscar do cache
+      const cachedMedicamentos = getMedicamentosFromCache(protocoloId);
+      if (cachedMedicamentos && cachedMedicamentos.length > 0) {
+        medicamentosTemplate = cachedMedicamentos;
+      } 
+      // Se não tiver no cache, carregar da API
+      else if (typeof fetchServicos === 'function') {
+        medicamentosTemplate = await fetchServicos(protocoloId) || [];
+      }
+      
+      // Preencher o formulário com os dados do protocolo template
+      setFormData({
+        Protocolo_Nome: `${protocoloTemplate.Protocolo_Nome} (Cópia)`,
+        Protocolo_Sigla: `${protocoloTemplate.Protocolo_Sigla}_COPIA`,
+        CID: protocoloTemplate.CID || '',
+        Intervalo_Ciclos: protocoloTemplate.Intervalo_Ciclos || '',
+        Ciclos_Previstos: protocoloTemplate.Ciclos_Previstos || '',
+        Linha: protocoloTemplate.Linha || '',
+        medicamentos: medicamentosTemplate.length > 0 
+          ? medicamentosTemplate.map(med => {
+              // Converter unidade de medida se necessário
+              let unidadeMedida = med.unidade_medida || '';
+              if (unidadeMedida && !isNaN(unidadeMedida)) {
+                const unidadeEncontrada = UNIDADES_MEDIDA_PREDEFINIDAS.find(u => u.id === unidadeMedida);
+                if (unidadeEncontrada) {
+                  unidadeMedida = unidadeEncontrada.sigla;
+                }
+              }
+              
+              return {
+                nome: med.nome || '',
+                dose: med.dose || med.dose_m2 || '',
+                unidade_medida: unidadeMedida,
+                via_adm: med.via_adm || med.via_administracao || '',
+                dias_adm: med.dias_adm || med.dias_aplicacao || '',
+                frequencia: med.frequencia || ''
+              };
+            }) 
+          : []
+      });
+      
+    } catch (error) {
+      console.error("Erro ao carregar protocolo template:", error);
+      showErrorAlert("Erro", `Não foi possível carregar os dados do protocolo: ${error.message}`);
+    } finally {
+      setLocalLoading(false);
+    }
   };
 
   // Submissão do formulário
@@ -840,6 +925,7 @@ function ProtocoloForm() {
   // Handlers para CRUD de protocolos
   const handleAdd = () => {
     resetForm();
+    setSelectedProtocoloTemplate('');
     setIsAdding(true);
     setIsEditing(false);
     setSelectedRows(new Set());
@@ -2474,6 +2560,54 @@ const ProtocoloCard = ({
                 <p>{updateError}</p>
               </div>
             )}
+
+            {/* Seção de autopreenchimento - apenas para novos protocolos */}
+            {isAdding && (
+              <div className="form-group mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="form-label text-sm font-medium text-gray-700 flex items-center">
+                    <Database size={14} className="mr-2 text-gray-500" />
+                    Copiar de protocolo existente (opcional)
+                  </label>
+                  {selectedProtocoloTemplate && (
+                    <button
+                      type="button"
+                      onClick={() => handleProtocoloTemplateChange('')}
+                      className="text-xs text-gray-500 hover:text-red-500 transition-colors"
+                      title="Limpar seleção"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                
+                <select
+                  value={selectedProtocoloTemplate}
+                  onChange={(e) => handleProtocoloTemplateChange(e.target.value)}
+                  className="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  disabled={localLoading}
+                >
+                  <option value="">Selecione um protocolo para copiar...</option>
+                  {filteredProtocolos && filteredProtocolos.length > 0 ? (
+                    [...filteredProtocolos]
+                      .sort((a, b) => a.Protocolo_Nome.localeCompare(b.Protocolo_Nome))
+                      .map(protocolo => (
+                        <option key={protocolo.id} value={protocolo.id}>
+                          {protocolo.Protocolo_Nome} ({protocolo.Protocolo_Sigla})
+                        </option>
+                      ))
+                  ) : (
+                    <option value="" disabled>Nenhum protocolo disponível</option>
+                  )}
+                </select>
+                
+                {selectedProtocoloTemplate && (
+                  <div className="mt-1 text-xs text-green-600">
+                    ✓ Dados copiados de: {filteredProtocolos.find(p => p.id == selectedProtocoloTemplate)?.Protocolo_Nome || 'N/D'}
+                  </div>
+                )}
+              </div>
+            )}
           
             {/* Seção principal do protocolo */}
             <div className="form-header border-b border-gray-200 pb-4 mb-4">
@@ -2615,7 +2749,10 @@ const ProtocoloCard = ({
                   <div className="text-center py-6 bg-white rounded-lg border border-dashed border-gray-300">
                     <p className="text-gray-500 mb-2">Nenhum medicamento adicionado</p>
                     <p className="text-sm text-gray-400 mb-3">
-                      Você pode cadastrar o protocolo sem medicamentos ou adicionar medicamentos usando o botão abaixo
+                      {selectedProtocoloTemplate ? 
+                        "O protocolo selecionado não possui medicamentos cadastrados" :
+                        "Você pode cadastrar o protocolo sem medicamentos ou adicionar medicamentos usando o botão abaixo"
+                      }
                     </p>
                     <button 
                       type="button" 
@@ -2623,7 +2760,7 @@ const ProtocoloCard = ({
                       className="inline-flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-md hover:bg-green-100 text-sm"
                     >
                       <Plus size={14} className="mr-1" />
-                      Adicionar Medicamento (Opcional)
+                      Adicionar Medicamento
                     </button>
                   </div>
                 ) : (

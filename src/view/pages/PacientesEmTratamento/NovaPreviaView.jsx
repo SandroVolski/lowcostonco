@@ -14,7 +14,9 @@ import {
   Upload, Calendar, BarChart3, Clock, PlusCircle, ChevronDown,
   FilePlus, Clock8, FileText, CheckCircle, AlertCircle, 
   AlertTriangle, HelpCircle, Check, ChevronLeft, ChevronRight,
-  File, Info, Database, User, Plus // ADICIONAR Plus AQUI
+  File, Info, Database, User, Plus, // ADICIONAR Plus AQUI
+  // NOVOS ÍCONES PARA ORDENAÇÃO
+  ArrowUpWideNarrow, ArrowDownWideNarrow, SlidersHorizontal, Grid, List
 } from 'lucide-react';
 import './NovaPreviaView.css';
 // Import previasService as a fallback
@@ -567,6 +569,11 @@ const NovaPreviaView = () => {
     changePage
   } = usePatient();
 
+  // NOVOS ESTADOS PARA ORDENAÇÃO E VISUALIZAÇÃO
+  const [patientSortField, setPatientSortField] = useState("Nome"); // Campo para ordenação
+  const [patientSortOrder, setPatientSortOrder] = useState("asc"); // Ordem: asc/desc
+  const [patientViewMode, setPatientViewMode] = useState('list'); // Modo de visualização: 'list' ou 'grid'
+
   // Função para mapear status para cores
   const getStatusColor = (status) => {
     switch (status) {
@@ -765,6 +772,7 @@ const NovaPreviaView = () => {
     parecerGuia: '',
     finalizacao: '',
     inconsistencia: '',
+    titulo_atendimento: '', // NOVO: Campo para nomear o atendimento
     cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
     // NOVO: Array para múltiplos registros de parecer/status
     parecerRegistros: [{ 
@@ -847,6 +855,57 @@ const NovaPreviaView = () => {
     return () => clearTimeout(timer);
   }, [localSearchTerm]);
 
+  // NOVA FUNÇÃO: Ordenar pacientes alfabeticamente por padrão
+  const sortPatientsAlphabetically = useCallback((patients, field = "Nome", order = "asc") => {
+    if (!patients || !Array.isArray(patients)) return [];
+    
+    return [...patients].sort((a, b) => {
+      let aValue = a[field] || '';
+      let bValue = b[field] || '';
+      
+      // Tratamento especial para diferentes campos
+      if (field === 'Prestador') {
+        aValue = a.Prestador || a.Prestador_Nome_Fantasia || '';
+        bValue = b.Prestador || b.Prestador_Nome_Fantasia || '';
+      }
+      
+      // Valores vazios sempre vão para o final
+      if (!aValue && bValue) return order === 'asc' ? 1 : -1;
+      if (aValue && !bValue) return order === 'asc' ? -1 : 1;
+      if (!aValue && !bValue) return 0;
+      
+      // Verificar se são campos numéricos
+      const numericFields = ['id', 'Paciente_Codigo', 'Idade'];
+      
+      if (numericFields.includes(field) && !isNaN(aValue) && !isNaN(bValue)) {
+        const numA = Number(aValue);
+        const numB = Number(bValue);
+        const comparison = numA - numB;
+        return order === 'asc' ? comparison : -comparison;
+      } else {
+        // Comparação alfabética
+        const comparison = String(aValue).localeCompare(String(bValue), 'pt-BR', { 
+          numeric: true, 
+          sensitivity: 'base' 
+        });
+        return order === 'asc' ? comparison : -comparison;
+      }
+    });
+  }, []);
+
+  // NOVA FUNÇÃO: Handler para mudança de ordenação
+  const handlePatientSortChange = (field) => {
+    if (field === patientSortField) {
+      // Se é o mesmo campo, inverte a ordem
+      setPatientSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Se é um novo campo, começa com ascendente
+      setPatientSortField(field);
+      setPatientSortOrder('asc');
+    }
+  };
+
+  // MODIFICAR A FUNÇÃO handleSearchPatients para usar ordenação alfabética
   const handleSearchPatients = async (term, page = 1) => {
     if (term.trim().length < 2) return;
     
@@ -855,12 +914,8 @@ const NovaPreviaView = () => {
       // Buscar resultados da API
       const results = await searchPatients(term, 'nome', page, 1000);
       
-      // Ordenar resultados por relevância
-      const sortedResults = [...results].sort((a, b) => {
-        const scoreA = calculateRelevanceScore(a, term);
-        const scoreB = calculateRelevanceScore(b, term);
-        return scoreB - scoreA; // Ordem decrescente de pontuação
-      });
+      // MODIFICAÇÃO: Usar ordenação alfabética por padrão em vez de relevância
+      const sortedResults = sortPatientsAlphabetically(results, patientSortField, patientSortOrder);
       
       // Se estamos carregando a primeira página, substituir completamente
       if (page === 1) {
@@ -868,16 +923,11 @@ const NovaPreviaView = () => {
         setFilteredPatients(sortedResults);
       } else {
         // Se estamos carregando mais páginas, anexar aos resultados existentes
-        // e reordenar tudo junto
         const allResults = [...searchResults, ...sortedResults];
         const uniqueResults = removeDuplicates(allResults, 'id');
         
-        // Ordenar todos os resultados combinados
-        const allSorted = uniqueResults.sort((a, b) => {
-          const scoreA = calculateRelevanceScore(a, term);
-          const scoreB = calculateRelevanceScore(b, term);
-          return scoreB - scoreA;
-        });
+        // Reordenar todos os resultados combinados
+        const allSorted = sortPatientsAlphabetically(uniqueResults, patientSortField, patientSortOrder);
         
         setSearchResults(allSorted);
         setFilteredPatients(allSorted);
@@ -1108,11 +1158,17 @@ const NovaPreviaView = () => {
     const isParecerGuiaUndefined = !consultation.parecer_guia || consultation.parecer_guia === '';
     const isFinalizacaoUndefined = !consultation.finalizacao || consultation.finalizacao === '';
     
+    // Determinar o texto a ser exibido: título personalizado ou número padrão
+    const displayText = consultation.titulo_atendimento && consultation.titulo_atendimento.trim() !== '' 
+      ? consultation.titulo_atendimento 
+      : `Atend. ${numeroExibido}`;
+    
     return (
       <button 
         key={consultation.id}
         className={`pagination-button status-split-button ${isActive ? 'active' : ''}`}
         onClick={onClick}
+        title={consultation.titulo_atendimento ? `${consultation.titulo_atendimento} (Atendimento ${numeroExibido})` : `Atendimento ${numeroExibido}`}
       >
         {/* Fundo dividido */}
         <div 
@@ -1131,15 +1187,19 @@ const NovaPreviaView = () => {
         {/* Linha divisória */}
         <div className="status-divider" />
         
-        {/* Texto */}
+        {/* Texto com título personalizado ou padrão */}
         <span className="status-button-text">
-          Atend. {numeroExibido}
+          {displayText}
         </span>
         
-        {/* Tooltip com informações dos status */}
+        {/* Tooltip com informações dos status e título */}
         <div className="status-tooltip">
+          {consultation.titulo_atendimento && (
+            <div className="tooltip-title">Título: {consultation.titulo_atendimento}</div>
+          )}
           <div>Parecer: {consultation.parecer_guia || 'Não definido'}</div>
           <div>Finalização: {consultation.finalizacao || 'Não definido'}</div>
+          <div>Data: {consultation.data_criacao ? new Date(consultation.data_criacao).toLocaleDateString('pt-BR') : 'N/D'}</div>
           <div className="status-tooltip-arrow" />
         </div>
       </button>
@@ -1349,6 +1409,7 @@ const NovaPreviaView = () => {
         parecerGuia: '',
         finalizacao: '',
         inconsistencia: '',
+        titulo_atendimento: '', // NOVO: Campo para título do atendimento
         cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
         // NOVO: Incluir parecerRegistros
         parecerRegistros: [{ 
@@ -1740,6 +1801,7 @@ const NovaPreviaView = () => {
         parecer_guia: formData.parecerGuia || '',
         finalizacao: formData.finalizacao || '',
         inconsistencia: formData.inconsistencia || '',
+        titulo_atendimento: formData.titulo_atendimento || '', // NOVO: Incluir título do atendimento
         data_parecer_registrado: dataParecerRegistrado || null,
         tempo_analise: tempoParaAnalise || 0,
         
@@ -1927,6 +1989,7 @@ const NovaPreviaView = () => {
         altura: '',
         parecerGuia: '',
         inconsistencia: '',
+        titulo_atendimento: '', // NOVO: Campo para título do atendimento
         cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
         // NOVO: Incluir parecerRegistros com dataSolicitacao
         parecerRegistros: [{ 
@@ -2094,6 +2157,7 @@ const NovaPreviaView = () => {
         parecerGuia: previaDetails.parecer_guia,
         finalizacao: previaDetails.finalizacao,
         inconsistencia: previaDetails.inconsistencia,
+        titulo_atendimento: previaDetails.titulo_atendimento || '', // NOVO: Carregar título do atendimento
         cicloDiaEntries: ciclosDias.length > 0 ? ciclosDias : [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
         // *** CORREÇÃO: Usar os registros processados com os novos campos ***
         parecerRegistros: parecerRegistrosProcessados
@@ -3058,6 +3122,7 @@ const NovaPreviaView = () => {
         parecerGuia: '',
         finalizacao: '',
         inconsistencia: '',
+        titulo_atendimento: '', // NOVO: Campo para título do atendimento
         cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
         // NOVO: Incluir parecerRegistros
         parecerRegistros: [{ 
@@ -3220,6 +3285,7 @@ const NovaPreviaView = () => {
             parecerGuia: previaData.parecer_guia,
             finalizacao: previaData.finalizacao,
             inconsistencia: previaData.inconsistencia,
+            titulo_atendimento: previaData.titulo_atendimento || '', // NOVO: Carregar título do atendimento
             cicloDiaEntries: ciclosDiasData.length > 0 ? ciclosDiasData : [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
           }));
           
@@ -3314,6 +3380,7 @@ const NovaPreviaView = () => {
         parecerGuia: '',
         finalizacao: '',
         inconsistencia: '',
+        titulo_atendimento: '', // NOVO: Campo para título do atendimento
         cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
         // NOVO: Incluir parecerRegistros
         parecerRegistros: [{ 
@@ -3333,6 +3400,14 @@ const NovaPreviaView = () => {
   const handlePreviewAttachment = (attachment) => {
     setPreviewImage(attachment);
   };
+  
+  // EFEITO PARA REORDENAR QUANDO MUDA OS CRITÉRIOS DE ORDENAÇÃO
+  useEffect(() => {
+    if (searchResults && searchResults.length > 0) {
+      const sorted = sortPatientsAlphabetically(searchResults, patientSortField, patientSortOrder);
+      setFilteredPatients(sorted);
+    }
+  }, [patientSortField, patientSortOrder, searchResults, sortPatientsAlphabetically]);
   
   return (
     <motion.div 
@@ -3389,26 +3464,143 @@ const NovaPreviaView = () => {
                 <SearchIndicator isSearching={isSearching} />
               </div>
               
+              {/* NOVO: Controles de visualização e ordenação */}
+              {filteredPatients.length > 0 && (
+                <div className="patient-controls">
+                  {/* Controles de visualização */}
+                  <div className="view-toggle">
+                    <button 
+                      className={`toggle-button ${patientViewMode === 'list' ? 'active' : ''}`}
+                      onClick={() => setPatientViewMode('list')}
+                    >
+                      <List size={16} />
+                      Lista
+                    </button>
+                    <button 
+                      className={`toggle-button ${patientViewMode === 'grid' ? 'active' : ''}`}
+                      onClick={() => setPatientViewMode('grid')}
+                    >
+                      <Grid size={16} />
+                      Grade
+                    </button>
+                  </div>
+                  
+                  {/* Controles de ordenação */}
+                  <div className="sort-container-pacientes">
+                    <div className="sort-label">
+                      <SlidersHorizontal size={14} /> Ordenar por
+                    </div>
+                    <div className="sort-options">
+                      <select 
+                        value={patientSortField}
+                        onChange={(e) => handlePatientSortChange(e.target.value)}
+                      >
+                        <option value="Nome">Nome</option>
+                        <option value="Paciente_Codigo">Código</option>
+                        <option value="Operadora">Operadora</option>
+                        <option value="Nascimento">Data Nascimento</option>
+                        <option value="Sexo">Sexo</option>
+                      </select>
+                      <button 
+                        className="sort-order-button"
+                        onClick={() => setPatientSortOrder(patientSortOrder === 'asc' ? 'desc' : 'asc')}
+                      >
+                        {patientSortOrder === 'asc' ? <ArrowUpWideNarrow size={16} /> : <ArrowDownWideNarrow size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {/* Área de resultados com loading condicional */}
               <div className="results-area">
                 {isSearching ? (
                   <ResultsAreaLoading />
                 ) : filteredPatients.length > 0 ? (
-                  <div className="patient-list">
-                    {filteredPatients.map(patient => (
-                      <div 
-                        key={patient.id} 
-                        className="patient-item"
-                        onClick={() => handleSelectPatient(patient)}
-                      >
-                        <div className="patient-item-name">{patient.Nome}</div>
-                        <div className="patient-item-info">
-                          Código: {patient.Paciente_Codigo} | 
-                          Operadora: {patient.Operadora || 'N/A'}
+                  patientViewMode === 'list' ? (
+                    /* NOVO: Modo lista com tabela */
+                    <div className="patients-table-container">
+                      <div className="patients-table-header">
+                        <div 
+                          className={`table-header-cell sortable ${patientSortField === 'Nome' ? 'active' : ''}`}
+                          onClick={() => handlePatientSortChange('Nome')}
+                        >
+                          Nome
+                          {patientSortField === 'Nome' && (
+                            patientSortOrder === 'asc' ? <ArrowUpWideNarrow size={14} /> : <ArrowDownWideNarrow size={14} />
+                          )}
+                        </div>
+                        <div 
+                          className={`table-header-cell sortable ${patientSortField === 'Paciente_Codigo' ? 'active' : ''}`}
+                          onClick={() => handlePatientSortChange('Paciente_Codigo')}
+                        >
+                          Código
+                          {patientSortField === 'Paciente_Codigo' && (
+                            patientSortOrder === 'asc' ? <ArrowUpWideNarrow size={14} /> : <ArrowDownWideNarrow size={14} />
+                          )}
+                        </div>
+                        <div 
+                          className={`table-header-cell sortable ${patientSortField === 'Operadora' ? 'active' : ''}`}
+                          onClick={() => handlePatientSortChange('Operadora')}
+                        >
+                          Operadora
+                          {patientSortField === 'Operadora' && (
+                            patientSortOrder === 'asc' ? <ArrowUpWideNarrow size={14} /> : <ArrowDownWideNarrow size={14} />
+                          )}
+                        </div>
+                        <div 
+                          className={`table-header-cell sortable ${patientSortField === 'Nascimento' ? 'active' : ''}`}
+                          onClick={() => handlePatientSortChange('Nascimento')}
+                        >
+                          Nasc.
+                          {patientSortField === 'Nascimento' && (
+                            patientSortOrder === 'asc' ? <ArrowUpWideNarrow size={14} /> : <ArrowDownWideNarrow size={14} />
+                          )}
+                        </div>
+                        <div 
+                          className={`table-header-cell sortable ${patientSortField === 'Sexo' ? 'active' : ''}`}
+                          onClick={() => handlePatientSortChange('Sexo')}
+                        >
+                          Sexo
+                          {patientSortField === 'Sexo' && (
+                            patientSortOrder === 'asc' ? <ArrowUpWideNarrow size={14} /> : <ArrowDownWideNarrow size={14} />
+                          )}
                         </div>
                       </div>
-                    ))}
-                  </div>
+                      <div className="patients-table-body">
+                        {filteredPatients.map(patient => (
+                          <div 
+                            key={patient.id} 
+                            className="patient-table-row"
+                            onClick={() => handleSelectPatient(patient)}
+                          >
+                            <div className="table-cell table-cell-nome">{patient.Nome}</div>
+                            <div className="table-cell table-cell-codigo">{patient.Paciente_Codigo}</div>
+                            <div className="table-cell table-cell-operadora">{patient.Operadora || 'N/A'}</div>
+                            <div className="table-cell table-cell-nascimento">{patient.Nascimento || 'N/A'}</div>
+                            <div className="table-cell table-cell-sexo">{patient.Sexo || 'N/A'}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    /* MODO GRADE (mantido como estava) */
+                    <div className="patient-list">
+                      {filteredPatients.map(patient => (
+                        <div 
+                          key={patient.id} 
+                          className="patient-item"
+                          onClick={() => handleSelectPatient(patient)}
+                        >
+                          <div className="patient-item-name">{patient.Nome}</div>
+                          <div className="patient-item-info">
+                            Código: {patient.Paciente_Codigo} | 
+                            Operadora: {patient.Operadora || 'N/A'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
                 ) : localSearchTerm && !isSearching ? (
                   // Só mostra "não encontrado" se não estiver buscando
                   <p className="text-center text-gray-500 mt-4">
@@ -3629,7 +3821,31 @@ const NovaPreviaView = () => {
 
             <UserInfoDisplay />
             
-            {/* PRIMEIRA LINHA: Guia e CID (2 colunas) */}
+            {/* PRIMEIRA LINHA: Título do Atendimento (largura completa) */}
+            <div className="form-grid-1-col">
+              <div className="form-field">
+                <label htmlFor="titulo_atendimento" className="form-label">
+                  Título do Atendimento 
+                  <span className="form-label-optional">(opcional)</span>
+                </label>
+                <input 
+                  type="text"
+                  id="titulo_atendimento"
+                  name="titulo_atendimento"
+                  value={formData.titulo_atendimento}
+                  onChange={handleInputChange}
+                  className="form-input"
+                  placeholder="Ex: Quimioterapia Adjuvante, Protocolo de Resgate, etc."
+                  maxLength="50"
+                  key={`titulo-${selectedPatient?.id}-${currentPage}`}
+                />
+                <div className="form-helper-text">
+                  Este título aparecerá nos botões de navegação para identificar facilmente este atendimento
+                </div>
+              </div>
+            </div>
+
+            {/* SEGUNDA LINHA: Guia e CID (2 colunas) */}
             <div className="form-grid-2-cols">
               <div className="form-field">
                 <label htmlFor="guia" className="form-label">Guia</label>
@@ -3664,7 +3880,7 @@ const NovaPreviaView = () => {
               </div>
             </div>
 
-            {/* SEGUNDA LINHA: Protocolo (largura completa) */}
+            {/* TERCEIRA LINHA: Protocolo (largura completa) */}
             <div className="form-grid-1-col">
               <div className="form-field">
                 <label htmlFor="protocolo" className="form-label">Protocolo</label>
@@ -3689,7 +3905,7 @@ const NovaPreviaView = () => {
               </div>
             </div>
 
-            {/* TERCEIRA LINHA: Datas (3 colunas - perfeitamente preenchidas) */}
+            {/* QUARTA LINHA: Datas (3 colunas - perfeitamente preenchidas) */}
             <div className="form-grid">
               <div className="form-field">
                 <label htmlFor="dataEmissaoGuia" className="form-label">Data de Emissão da Guia</label>
@@ -3744,7 +3960,7 @@ const NovaPreviaView = () => {
             </div>
 
             
-            {/* QUARTA LINHA: Peso e Altura (2 colunas) */}
+            {/* QUINTA LINHA: Peso e Altura (2 colunas) */}
             <div className="form-grid-2-cols">
               <div className="form-field">
                 <label htmlFor="peso" className="form-label">Peso (kg)</label>
@@ -3775,7 +3991,7 @@ const NovaPreviaView = () => {
               </div>
             </div>
 
-            {/* QUINTA LINHA: Ciclo/Dia (largura completa) */}
+            {/* SEXTA LINHA: Ciclo/Dia (largura completa) */}
             <div className="form-field mt-4">
               <label className="form-label-datas">Ciclos Previstos (Opcional)</label>
               <input 
@@ -3822,7 +4038,7 @@ const NovaPreviaView = () => {
               />
             </div>
             
-            {/* SEXTA LINHA: Comentário (largura completa) - CAMPO ALTERADO */}
+            {/* SÉTIMA LINHA: Comentário (largura completa) - CAMPO ALTERADO */}
             <div className="form-field">
               <label htmlFor="comentario" className="form-label-datas">Comentário</label>
               <textarea 
@@ -4092,6 +4308,251 @@ const NovaPreviaView = () => {
           animation: fadeIn 0.3s ease-out;
         }
 
+        /* NOVOS ESTILOS PARA BUSCA DE PACIENTES */
+        
+        /* Controles de paciente (visualização e ordenação) */
+        .patient-controls {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 0;
+          border-bottom: 1px solid #e5e7eb;
+          margin-bottom: 12px;
+          gap: 16px;
+        }
+        
+        /* Toggle de visualização */
+        .view-toggle {
+          display: flex;
+          background-color: #f3f4f6;
+          border-radius: 6px;
+          overflow: hidden;
+        }
+        
+        .toggle-button {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 12px;
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-size: 13px;
+          color: #6b7280;
+          transition: all 0.2s;
+        }
+        
+        .toggle-button:hover {
+          background-color: #e5e7eb;
+          color: #374151;
+        }
+        
+        .toggle-button.active {
+          background-color: #8cb369;
+          color: white;
+          font-weight: 500;
+        }
+        
+        /* Container de ordenação (reutilizando estilos existentes) */
+        .sort-container-pacientes {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        
+        .sort-label {
+          font-size: 12px;
+          color: #6b7280;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        
+        .sort-options {
+          display: flex;
+          align-items: center;
+          background-color: #f9fafb;
+          border-radius: 6px;
+          overflow: hidden;
+        }
+        
+        .sort-options select {
+          border: none;
+          background: none;
+          padding: 6px 12px;
+          font-size: 13px;
+          color: #374151;
+          outline: none;
+          cursor: pointer;
+        }
+        
+        .sort-order-button {
+          background: none;
+          border: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 6px 10px;
+          color: #6b7280;
+          cursor: pointer;
+          transition: color 0.2s;
+        }
+        
+        .sort-order-button:hover {
+          color: #374151;
+        }
+        
+        /* Tabela de pacientes */
+        .patients-table-container {
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          overflow: hidden;
+          max-height: 400px;
+          overflow-y: auto;
+        }
+        
+        .patients-table-header {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1.5fr 1fr 0.8fr;
+          background: linear-gradient(135deg, #8cb369 0%, #c6d651 100%);
+          color: white;
+          font-weight: 600;
+          font-size: 13px;
+          position: sticky;
+          top: 0;
+          z-index: 10;
+        }
+        
+        .table-header-cell {
+          padding: 12px 16px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-right: 1px solid rgba(255, 255, 255, 0.2);
+          transition: background-color 0.2s;
+        }
+        
+        .table-header-cell:last-child {
+          border-right: none;
+        }
+        
+        .table-header-cell.sortable {
+          cursor: pointer;
+        }
+        
+        .table-header-cell.sortable:hover {
+          background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .table-header-cell.active {
+          background-color: rgba(255, 255, 255, 0.2);
+          font-weight: 700;
+        }
+        
+        .patients-table-body {
+          background-color: white;
+        }
+        
+        .patient-table-row {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1.5fr 1fr 0.8fr;
+          border-bottom: 1px solid #f3f4f6;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        
+        .patient-table-row:hover {
+          background-color: #f9fafb;
+        }
+        
+        .patient-table-row:last-child {
+          border-bottom: none;
+        }
+        
+        .table-cell {
+          padding: 12px 16px;
+          border-right: 1px solid #f3f4f6;
+          font-size: 13px;
+          color: #374151;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        
+        .table-cell:last-child {
+          border-right: none;
+        }
+        
+        .table-cell-nome {
+          font-weight: 500;
+          color: #1f2937;
+        }
+        
+        .table-cell-codigo {
+          font-family: monospace;
+          color: #6b7280;
+        }
+        
+        .table-cell-operadora {
+          color: #6b7280;
+        }
+        
+        .table-cell-nascimento {
+          color: #6b7280;
+          font-size: 12px;
+        }
+        
+        .table-cell-sexo {
+          text-align: center;
+          font-weight: 500;
+          color: #6b7280;
+        }
+        
+        /* Responsividade */
+        @media (max-width: 768px) {
+          .patient-controls {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+          }
+          
+          .view-toggle {
+            align-self: flex-start;
+          }
+          
+          .patients-table-header,
+          .patient-table-row {
+            grid-template-columns: 1.5fr 1fr 1fr 0.8fr 0.6fr;
+            font-size: 12px;
+          }
+          
+          .table-header-cell,
+          .table-cell {
+            padding: 8px 12px;
+          }
+          
+          .sort-container-pacientes {
+            align-self: flex-end;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .patients-table-header,
+          .patient-table-row {
+            grid-template-columns: 2fr 1fr 1fr;
+          }
+          
+          .table-cell-nascimento,
+          .table-cell-sexo {
+            display: none;
+          }
+          
+          .patients-table-header .table-header-cell:nth-child(4),
+          .patients-table-header .table-header-cell:nth-child(5) {
+            display: none;
+          }
+        }
+
         .form-grid-1-col {
           display: grid;
           grid-template-columns: 1fr;
@@ -4296,6 +4757,101 @@ const NovaPreviaView = () => {
           
           .card-header-with-actions button {
             align-self: flex-start;
+          }
+        }
+
+        /* NOVOS ESTILOS PARA TÍTULO DO ATENDIMENTO */
+        .form-label-optional {
+          color: #6b7280;
+          font-weight: 400;
+          font-style: italic;
+          margin-left: 0.5rem;
+        }
+
+        .form-helper-text {
+          font-size: 0.75rem;
+          color: #6b7280;
+          margin-top: 0.25rem;
+          line-height: 1.2;
+        }
+
+        /* Melhorar tooltips dos botões de atendimento */
+        .status-tooltip {
+          position: absolute;
+          bottom: 115%;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(0, 0, 0, 0.9);
+          color: white;
+          padding: 8px 12px;
+          border-radius: 6px;
+          font-size: 12px;
+          line-height: 1.3;
+          white-space: nowrap;
+          opacity: 0;
+          visibility: hidden;
+          transition: all 0.2s ease;
+          z-index: 1000;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          min-width: 200px;
+          text-align: left;
+        }
+
+        .status-tooltip .tooltip-title {
+          font-weight: 600;
+          color: #fbbf24;
+          margin-bottom: 4px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+          padding-bottom: 2px;
+        }
+
+        .status-tooltip-arrow {
+          position: absolute;
+          top: 100%;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 0;
+          height: 0;
+          border-left: 6px solid transparent;
+          border-right: 6px solid transparent;
+          border-top: 6px solid rgba(0, 0, 0, 0.9);
+        }
+
+        .status-split-button:hover .status-tooltip {
+          opacity: 1;
+          visibility: visible;
+        }
+
+        /* Ajustar largura dos botões para acomodar títulos mais longos */
+        .status-split-button {
+          min-width: 80px;
+          max-width: 140px;
+          text-overflow: ellipsis;
+          overflow: hidden;
+        }
+
+        .status-button-text {
+          font-size: 11px;
+          font-weight: 500;
+          text-overflow: ellipsis;
+          overflow: hidden;
+          white-space: nowrap;
+          max-width: 100%;
+        }
+
+        /* Responsividade para o campo de título */
+        @media (max-width: 768px) {
+          .form-helper-text {
+            font-size: 0.7rem;
+          }
+          
+          .status-split-button {
+            min-width: 60px;
+            max-width: 100px;
+          }
+          
+          .status-button-text {
+            font-size: 10px;
           }
         }
       `}</style>

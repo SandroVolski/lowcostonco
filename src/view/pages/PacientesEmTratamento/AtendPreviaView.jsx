@@ -11,6 +11,7 @@ import { showSuccessAlert, showErrorAlert, showWarningAlert } from '../../../uti
 import DataRefreshButton from '../../../components/DataRefreshButton';
 import Pagination from '../../../components/Pagination'; // Importar o componente Pagination
 import './PacientesEstilos.css';
+import './AtendPreviaView.css'; // Estilos específicos para a visualização em lista
 
 // API base URL - usando versão completa
 const API_BASE_URL = "https://api.lowcostonco.com.br/backend-php/api/Previas"; 
@@ -28,9 +29,12 @@ const AtendPreviaView = () => {
   // Estados para controle da UI
   const [searchTerm, setSearchTerm] = useState("");
   const [searchType, setSearchType] = useState("patient_name"); // Voltando para busca por paciente
-  const [sortField, setSortField] = useState("data_criacao");
-  const [sortOrder, setSortOrder] = useState("desc");
+  const [sortField, setSortField] = useState("paciente_nome"); // ALTERADO: ordenação alfabética por padrão
+  const [sortOrder, setSortOrder] = useState("asc"); // ALTERADO: ordem ascendente por padrão
   const [viewMode, setViewMode] = useState('grid'); // 'grid' ou 'list'
+  
+  // NOVO: Estados para ordenação local
+  const [orderedPrevias, setOrderedPrevias] = useState([]);
   
   // Estados para paginação - ALTERADO: pageSize inicial para 50
   const [currentPage, setCurrentPage] = useState(1);
@@ -40,6 +44,60 @@ const AtendPreviaView = () => {
   
   // Refs
   const searchInputRef = useRef(null);
+  
+  // NOVA FUNÇÃO: Ordenar prévias alfabeticamente
+  const sortPrevias = useCallback((previas, field = "paciente_nome", order = "asc") => {
+    if (!previas || !Array.isArray(previas)) return [];
+    
+    return [...previas].sort((a, b) => {
+      let aValue = a[field] || '';
+      let bValue = b[field] || '';
+      
+      // Valores vazios sempre vão para o final
+      if (!aValue && bValue) return order === 'asc' ? 1 : -1;
+      if (aValue && !bValue) return order === 'asc' ? -1 : 1;
+      if (!aValue && !bValue) return 0;
+      
+      // Verificar se são campos numéricos
+      const numericFields = ['id', 'numero_sequencial', 'paciente_id', 'ciclos_previstos'];
+      
+      if (numericFields.includes(field) && !isNaN(aValue) && !isNaN(bValue)) {
+        const numA = Number(aValue);
+        const numB = Number(bValue);
+        const comparison = numA - numB;
+        return order === 'asc' ? comparison : -comparison;
+      }
+      
+      // Verificar se são campos de data
+      const dateFields = ['data_criacao', 'data_atualizacao', 'data_solicitacao'];
+      
+      if (dateFields.includes(field)) {
+        const dateA = new Date(aValue);
+        const dateB = new Date(bValue);
+        const comparison = dateA - dateB;
+        return order === 'asc' ? comparison : -comparison;
+      }
+      
+      // Comparação alfabética para outros campos
+      const comparison = String(aValue).localeCompare(String(bValue), 'pt-BR', { 
+        numeric: true, 
+        sensitivity: 'base' 
+      });
+      return order === 'asc' ? comparison : -comparison;
+    });
+  }, []);
+
+  // NOVA FUNÇÃO: Handler para mudança de ordenação
+  const handleSortChange = (field) => {
+    if (field === sortField) {
+      // Se é o mesmo campo, inverte a ordem
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Se é um novo campo, começa com ascendente
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
   
   // Função para carregar prévias da API
   const loadPrevias = useCallback(async (page = 1, search = '', searchType = 'patient_name') => {
@@ -91,6 +149,11 @@ const AtendPreviaView = () => {
       
       setPrevias(filteredData);
       setFilteredPrevias(filteredData);
+      
+      // NOVO: Aplicar ordenação aos dados carregados
+      const sortedData = sortPrevias(filteredData, sortField, sortOrder);
+      setOrderedPrevias(sortedData);
+      
       setCurrentPage(data.pagination?.current_page || 1);
       setTotalPages(data.pagination?.total_pages || 0);
       setTotalRecords(filteredData.length);
@@ -102,12 +165,20 @@ const AtendPreviaView = () => {
     } finally {
       setLoading(false);
     }
-  }, [pageSize]);
+  }, [pageSize, sortField, sortOrder, sortPrevias]);
   
   // Carregar dados iniciais
   useEffect(() => {
     loadPrevias();
   }, [loadPrevias]);
+  
+  // NOVO: Efeito para reordenar quando mudam os critérios de ordenação
+  useEffect(() => {
+    if (filteredPrevias && filteredPrevias.length > 0) {
+      const sorted = sortPrevias(filteredPrevias, sortField, sortOrder);
+      setOrderedPrevias(sorted);
+    }
+  }, [filteredPrevias, sortField, sortOrder, sortPrevias]);
   
   // Função para buscar com debounce
   const debounce = (func, wait) => {
@@ -259,35 +330,43 @@ const AtendPreviaView = () => {
     }
   };
   
-  // CSS inline styles para status (substituindo o styled-jsx)
+  // CSS inline styles para status - OTIMIZADO PARA CARDS DE 320px
   const statusStyles = {
     statusIndicators: {
-      padding: '8px 16px',
+      padding: '10px 16px', // Espaçamento adequado
       display: 'flex',
       flexDirection: 'column',
-      gap: '8px',
-      borderTop: '1px solid #e5e7eb'
+      gap: '10px', // Espaçamento entre os status
+      borderTop: '1px solid #e5e7eb',
+      marginTop: 'auto', // Sempre no final do card
+      backgroundColor: '#f8fafc', // Fundo sutil
+      minHeight: '70px' // Altura mínima garantida
     },
     statusItem: {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: '8px'
+      gap: '8px',
+      minHeight: '28px' // Altura mínima para cada status
     },
     statusLabel: {
       fontSize: '11px',
       color: '#6b7280',
-      fontWeight: '500'
+      fontWeight: '600', // Mais bold
+      textTransform: 'uppercase',
+      letterSpacing: '0.3px'
     },
     statusBadge: {
       display: 'flex',
       alignItems: 'center',
       gap: '4px',
-      padding: '4px 8px',
+      padding: '5px 10px', // Padding otimizado
       borderRadius: '12px',
       fontSize: '11px',
       fontWeight: '500',
-      border: '1px solid rgba(0, 0, 0, 0.1)'
+      border: '1px solid rgba(0, 0, 0, 0.1)',
+      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)', // Sombra sutil
+      transition: 'all 0.2s ease'
     },
     statusBadgeSmall: {
       display: 'inline-block',
@@ -334,13 +413,6 @@ const AtendPreviaView = () => {
                 <Activity size={14} />
                 <span>Guia: {previa.guia || 'N/D'}</span>
               </div>
-              {/* Exibir ciclos previstos se preenchido */}
-              {previa.ciclos_previstos && (
-                <div className="info-row">
-                  <Clock size={14} />
-                  <span>Ciclos Previstos: {previa.ciclos_previstos}</span>
-                </div>
-              )}
             </div>
             
             {/* Status cards */}
@@ -374,18 +446,7 @@ const AtendPreviaView = () => {
               </div>
             </div>
             
-            <div className="card-actions">
-              <button 
-                className="action-button-pacientes info"
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  handleViewPrevia(previa); 
-                }}
-                title="Ver prévia"
-              >
-                <Eye size={16} />
-              </button>
-            </div>
+
           </div>
         </div>
       </div>
@@ -397,53 +458,97 @@ const AtendPreviaView = () => {
     const parecerColors = getStatusColor(previa.parecer_guia);
     const finalizacaoColors = getStatusColor(previa.finalizacao);
     
-    return (
-      <div className="patient-list-item" onClick={() => handleViewPrevia(previa)}>
-        <div className="list-item-code">Atend. {previa.numero_sequencial || previa.id}</div>
-        <div className="list-item-name">{previa.paciente_nome || 'Paciente não identificado'}</div>
-        <div className="list-item-provider">{previa.paciente_codigo || 'N/D'}</div>
-        <div className="list-item-prestador">{previa.protocolo || 'N/D'}</div>
-        <div className="list-item-cid">{previa.cid || 'N/D'}</div>
-        <div className="list-item-gender">{previa.guia || 'N/D'}</div>
-        <div className="list-item-age">{formatDate(previa.data_criacao)}</div>
-        <div className="list-item-birthday">
+    // Função para truncar texto e mostrar tooltip
+    const renderTruncatedText = (text, maxLength = 20, className = "") => {
+      const displayText = text || 'N/D';
+      const isTruncated = displayText.length > maxLength;
+      const truncatedText = isTruncated ? `${displayText.substring(0, maxLength)}...` : displayText;
+      
+      return (
+        <div 
+          className={`truncated-cell ${className}`} 
+          title={isTruncated ? displayText : ''}
+        >
+          {truncatedText}
+        </div>
+      );
+    };
+
+    // Função para renderizar status badge com abreviação
+    const renderStatusBadge = (status, colors) => {
+      const displayText = status || 'Pendente';
+      let shortText = displayText;
+      
+      // Abreviações inteligentes para status longos
+      const abbreviations = {
+        'Favorável com Inconsistência': 'Fav. c/ Incons.',
+        'Favorável': 'Favorável',
+        'Inconclusivo': 'Inconclusivo',
+        'Desfavorável': 'Desfavorável',
+        'Pendente': 'Pendente'
+      };
+      
+      shortText = abbreviations[displayText] || displayText;
+      
+      return (
+        <div 
+          className="status-badge-wrapper"
+          title={displayText}
+        >
           <div 
+            className="status-badge-custom"
             style={{
-              ...statusStyles.statusBadgeSmall,
-              backgroundColor: parecerColors.bg, 
-              color: parecerColors.text,
+              backgroundColor: colors.bg, 
+              color: colors.text,
               fontSize: '10px',
-              padding: '2px 6px'
+              padding: '4px 8px',
+              borderRadius: '12px',
+              border: `1px solid ${colors.text}30`,
+              fontWeight: '500',
+              textAlign: 'center',
+              whiteSpace: 'nowrap',
+              minWidth: '75px',
+              maxWidth: '110px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
             }}
           >
-            {previa.parecer_guia || 'Pendente'}
+            {shortText}
           </div>
+        </div>
+      );
+    };
+    
+    return (
+      <div className="patient-list-item previa-list-row" onClick={() => handleViewPrevia(previa)}>
+        <div className="list-item-code">
+          {previa.numero_sequencial || previa.id}
+        </div>
+        <div className="list-item-name">
+          {renderTruncatedText(previa.paciente_nome || 'Paciente não identificado', 30)}
+        </div>
+        <div className="list-item-provider">
+          {previa.paciente_codigo || 'N/D'}
+        </div>
+        <div className="list-item-prestador">
+          {renderTruncatedText(previa.protocolo, 20)}
+        </div>
+        <div className="list-item-cid">
+          {previa.cid || 'N/D'}
+        </div>
+        <div className="list-item-gender">
+          {renderTruncatedText(previa.guia, 18)}
+        </div>
+        <div className="list-item-age">
+          {formatDate(previa.data_criacao)}
+        </div>
+        <div className="list-item-birthday">
+          {renderStatusBadge(previa.parecer_guia, parecerColors)}
         </div>
         <div className="list-item-first-request">
-          <div 
-            style={{
-              ...statusStyles.statusBadgeSmall,
-              backgroundColor: finalizacaoColors.bg, 
-              color: finalizacaoColors.text,
-              fontSize: '10px',
-              padding: '2px 6px'
-            }}
-          >
-            {previa.finalizacao || 'Pendente'}
-          </div>
+          {renderStatusBadge(previa.finalizacao, finalizacaoColors)}
         </div>
-        <div className="list-item-actions">
-          <button 
-            className="action-button-pacientes info"
-            onClick={(e) => { 
-              e.stopPropagation(); 
-              handleViewPrevia(previa); 
-            }}
-            title="Ver prévia"
-          >
-            <Eye size={16} />
-          </button>
-        </div>
+
       </div>
     );
   };
@@ -545,6 +650,34 @@ const AtendPreviaView = () => {
           </div>
         </div>
         
+        {/* NOVO: Controles de ordenação */}
+        <div className="sort-container-pacientes">
+          <div className="sort-label">
+            <SlidersHorizontal size={14} /> Ordenar por
+          </div>
+          <div className="sort-options">
+            <select 
+              value={sortField}
+              onChange={(e) => handleSortChange(e.target.value)}
+            >
+              <option value="paciente_nome">Nome do Paciente</option>
+              <option value="data_criacao">Data de Criação</option>
+              <option value="protocolo">Protocolo</option>
+              <option value="guia">Guia</option>
+              <option value="cid">CID</option>
+              <option value="parecer_guia">Parecer</option>
+              <option value="finalizacao">Finalização</option>
+              <option value="numero_sequencial">Número Atendimento</option>
+            </select>
+            <button 
+              className="sort-order-button"
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            >
+              {sortOrder === 'asc' ? <ArrowUpWideNarrow size={16} /> : <ArrowDownWideNarrow size={16} />}
+            </button>
+          </div>
+        </div>
+        
         <div className="controls-container">
           <button 
             className="cache-button" 
@@ -603,27 +736,99 @@ const AtendPreviaView = () => {
           <>
             {viewMode === 'grid' ? (
               <div className="patients-grid">
-                {filteredPrevias.map(previa => (
+                {(orderedPrevias.length > 0 ? orderedPrevias : filteredPrevias).map(previa => (
                   <PreviaCard key={`${previa.id}-${previa.paciente_id}`} previa={previa} />
                 ))}
               </div>
             ) : (
               <div className="patients-list">
                 <div className="list-header">
-                  <div className="list-header-code">Atend.</div>
-                  <div className="list-header-name">Paciente</div>
-                  <div className="list-header-provider">Código</div>
-                  <div className="list-header-prestador">Protocolo</div>
-                  <div className="list-header-cid">CID</div>
-                  <div className="list-header-gender">Guia</div>
-                  <div className="list-header-age">Data Criação</div>
-                  <div className="list-header-birthday">Parecer</div>
-                  <div className="list-header-first-request">Finalização</div>
-                  <div className="list-header-actions">Ações</div>
+                  <div 
+                    className={`list-header-code sortable ${sortField === 'numero_sequencial' ? 'active' : ''}`}
+                    onClick={() => handleSortChange('numero_sequencial')}
+                  >
+                    Atend.
+                    {sortField === 'numero_sequencial' && (
+                      sortOrder === 'asc' ? <ArrowUpWideNarrow size={12} /> : <ArrowDownWideNarrow size={12} />
+                    )}
+                  </div>
+                  <div 
+                    className={`list-header-name sortable ${sortField === 'paciente_nome' ? 'active' : ''}`}
+                    onClick={() => handleSortChange('paciente_nome')}
+                  >
+                    Paciente
+                    {sortField === 'paciente_nome' && (
+                      sortOrder === 'asc' ? <ArrowUpWideNarrow size={12} /> : <ArrowDownWideNarrow size={12} />
+                    )}
+                  </div>
+                  <div 
+                    className={`list-header-provider sortable ${sortField === 'paciente_codigo' ? 'active' : ''}`}
+                    onClick={() => handleSortChange('paciente_codigo')}
+                  >
+                    Código
+                    {sortField === 'paciente_codigo' && (
+                      sortOrder === 'asc' ? <ArrowUpWideNarrow size={12} /> : <ArrowDownWideNarrow size={12} />
+                    )}
+                  </div>
+                  <div 
+                    className={`list-header-prestador sortable ${sortField === 'protocolo' ? 'active' : ''}`}
+                    onClick={() => handleSortChange('protocolo')}
+                  >
+                    Protocolo
+                    {sortField === 'protocolo' && (
+                      sortOrder === 'asc' ? <ArrowUpWideNarrow size={12} /> : <ArrowDownWideNarrow size={12} />
+                    )}
+                  </div>
+                  <div 
+                    className={`list-header-cid sortable ${sortField === 'cid' ? 'active' : ''}`}
+                    onClick={() => handleSortChange('cid')}
+                  >
+                    CID
+                    {sortField === 'cid' && (
+                      sortOrder === 'asc' ? <ArrowUpWideNarrow size={12} /> : <ArrowDownWideNarrow size={12} />
+                    )}
+                  </div>
+                  <div 
+                    className={`list-header-gender sortable ${sortField === 'guia' ? 'active' : ''}`}
+                    onClick={() => handleSortChange('guia')}
+                  >
+                    Guia
+                    {sortField === 'guia' && (
+                      sortOrder === 'asc' ? <ArrowUpWideNarrow size={12} /> : <ArrowDownWideNarrow size={12} />
+                    )}
+                  </div>
+                  <div 
+                    className={`list-header-age sortable ${sortField === 'data_criacao' ? 'active' : ''}`}
+                    onClick={() => handleSortChange('data_criacao')}
+                  >
+                    Data Criação
+                    {sortField === 'data_criacao' && (
+                      sortOrder === 'asc' ? <ArrowUpWideNarrow size={12} /> : <ArrowDownWideNarrow size={12} />
+                    )}
+                  </div>
+                  <div 
+                    className={`list-header-birthday sortable ${sortField === 'parecer_guia' ? 'active' : ''}`}
+                    onClick={() => handleSortChange('parecer_guia')}
+                  >
+                    Parecer
+                    {sortField === 'parecer_guia' && (
+                      sortOrder === 'asc' ? <ArrowUpWideNarrow size={12} /> : <ArrowDownWideNarrow size={12} />
+                    )}
+                  </div>
+                  <div 
+                    className={`list-header-first-request sortable ${sortField === 'finalizacao' ? 'active' : ''}`}
+                    onClick={() => handleSortChange('finalizacao')}
+                  >
+                    Finalização
+                    {sortField === 'finalizacao' && (
+                      sortOrder === 'asc' ? <ArrowUpWideNarrow size={12} /> : <ArrowDownWideNarrow size={12} />
+                    )}
+                  </div>
+
                 </div>
                 
                 <div className="list-body">
-                  {filteredPrevias.map(previa => (
+                  {(orderedPrevias.length > 0 ? orderedPrevias : filteredPrevias).map(previa => (
                     <PreviaListItem key={`${previa.id}-${previa.paciente_id}`} previa={previa} />
                   ))}
                 </div>
@@ -650,3 +855,105 @@ const AtendPreviaView = () => {
 };
 
 export default AtendPreviaView;
+
+/* ESTILOS COMPLEMENTARES PARA CONTROLES DE ORDENAÇÃO */
+const addSortingStyles = () => {
+  const styleId = 'atend-previa-sorting-styles';
+  
+  // Verificar se o estilo já foi adicionado
+  if (document.getElementById(styleId)) return;
+  
+  const style = document.createElement('style');
+  style.id = styleId;
+  style.textContent = `
+    /* Estilos para controles de ordenação */
+    .sort-container-pacientes {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .sort-label {
+      font-size: 12px;
+      color: #6b7280;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .sort-options {
+      display: flex;
+      align-items: center;
+      background-color: #f9fafb;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    
+    .sort-options select {
+      border: none;
+      background: none;
+      padding: 6px 12px;
+      font-size: 13px;
+      color: #374151;
+      outline: none;
+      cursor: pointer;
+    }
+    
+    .sort-order-button {
+      background: none;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 10px;
+      color: #6b7280;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    
+    .sort-order-button:hover {
+      color: #374151;
+    }
+    
+    /* Centralização dos headers para lista sem ações */
+    .patients-list .list-header .sortable {
+      justify-content: center;
+      text-align: center;
+    }
+    
+    /* Responsividade dos controles */
+    @media (max-width: 1024px) {
+      .dashboard-header {
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      
+      .sort-container-pacientes {
+        order: 2;
+        width: auto;
+      }
+      
+      .controls-container {
+        order: 3;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .sort-container-pacientes {
+        width: 100%;
+        justify-content: flex-end;
+      }
+      
+      .sort-label {
+        display: none;
+      }
+    }
+  `;
+  
+  document.head.appendChild(style);
+};
+
+// Adicionar os estilos quando o componente for carregado
+if (typeof document !== 'undefined') {
+  addSortingStyles();
+}
