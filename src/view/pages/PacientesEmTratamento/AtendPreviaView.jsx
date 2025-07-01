@@ -29,8 +29,8 @@ const AtendPreviaView = () => {
   // Estados para controle da UI
   const [searchTerm, setSearchTerm] = useState("");
   const [searchType, setSearchType] = useState("patient_name"); // Voltando para busca por paciente
-  const [sortField, setSortField] = useState("paciente_nome"); // ALTERADO: ordenação alfabética por padrão
-  const [sortOrder, setSortOrder] = useState("asc"); // ALTERADO: ordem ascendente por padrão
+  const [sortField, setSortField] = useState("data_criacao"); // ALTERADO: ordenação por data de criação por padrão
+  const [sortOrder, setSortOrder] = useState("desc"); // ALTERADO: ordem decrescente para mostrar mais recentes primeiro
   const [viewMode, setViewMode] = useState('grid'); // 'grid' ou 'list'
   
   // NOVO: Estados para ordenação local
@@ -45,13 +45,29 @@ const AtendPreviaView = () => {
   // Refs
   const searchInputRef = useRef(null);
   
-  // NOVA FUNÇÃO: Ordenar prévias alfabeticamente
-  const sortPrevias = useCallback((previas, field = "paciente_nome", order = "asc") => {
+  // NOVA FUNÇÃO: Ordenar prévias (padrão: data de criação decrescente)
+  const sortPrevias = useCallback((previas, field = "data_criacao", order = "desc") => {
     if (!previas || !Array.isArray(previas)) return [];
     
     return [...previas].sort((a, b) => {
-      let aValue = a[field] || '';
-      let bValue = b[field] || '';
+      let aValue, bValue;
+      
+      // TRATAMENTO ESPECIAL para campos de status - usar último registro
+      if (field === 'parecer_guia' || field === 'finalizacao') {
+        const ultimoRegistroA = getLastParecerRegistro(a);
+        const ultimoRegistroB = getLastParecerRegistro(b);
+        
+        if (field === 'parecer_guia') {
+          aValue = ultimoRegistroA.parecerGuia || '';
+          bValue = ultimoRegistroB.parecerGuia || '';
+        } else {
+          aValue = ultimoRegistroA.finalizacao || '';
+          bValue = ultimoRegistroB.finalizacao || '';
+        }
+      } else {
+        aValue = a[field] || '';
+        bValue = b[field] || '';
+      }
       
       // Valores vazios sempre vão para o final
       if (!aValue && bValue) return order === 'asc' ? 1 : -1;
@@ -109,7 +125,9 @@ const AtendPreviaView = () => {
         page: page.toString(),
         limit: pageSize.toString(),
         search: search,
-        search_type: searchType
+        search_type: searchType,
+        // SOLICITAR DADOS COMPLETOS DOS REGISTROS DE PARECER
+        include_parecer_registros: 'true'
       });
       
       // Se for uma busca por status, adicionar o parâmetro de status
@@ -119,6 +137,9 @@ const AtendPreviaView = () => {
         params.append('status', status);
       }
       
+      console.log(`🌐 [AtendPrevia] Fazendo requisição para: ${API_BASE_URL}/${API_ENDPOINT}?${params}`);
+      console.log(`📋 [AtendPrevia] Parâmetros enviados:`, Object.fromEntries(params));
+      
       const response = await fetch(`${API_BASE_URL}/${API_ENDPOINT}?${params}`);
       
       if (!response.ok) {
@@ -126,6 +147,22 @@ const AtendPreviaView = () => {
       }
       
       const data = await response.json();
+      
+      console.log("📡 [AtendPrevia] Resposta da API:", {
+        total_previas: data.data?.length || 0,
+        primeira_previa: data.data?.[0] ? {
+          id: data.data[0].id,
+          paciente_nome: data.data[0].paciente_nome,
+          parecer_guia: data.data[0].parecer_guia,
+          finalizacao: data.data[0].finalizacao,
+          tem_parecer_registros: !!data.data[0].parecer_registros,
+          tipo_parecer_registros: typeof data.data[0].parecer_registros,
+          parecer_registros_raw: data.data[0].parecer_registros,
+          tem_parecer_registros_processed: !!data.data[0].parecer_registros_processed,
+          tipo_parecer_registros_processed: typeof data.data[0].parecer_registros_processed,
+          parecer_registros_processed_raw: data.data[0].parecer_registros_processed
+        } : 'nenhuma prévia'
+      });
       
       if (data.error) {
         throw new Error(data.error);
@@ -142,9 +179,11 @@ const AtendPreviaView = () => {
         if (status === 'inconclusivo') statusFormatted = 'Inconclusivo';
         if (status === 'desfavoravel') statusFormatted = 'Desfavorável';
         
-        filteredData = filteredData.filter(previa => 
-          previa.parecer_guia === statusFormatted || previa.finalizacao === statusFormatted
-        );
+        // FILTRAR USANDO ÚLTIMO REGISTRO DE PARECER
+        filteredData = filteredData.filter(previa => {
+          const ultimoRegistro = getLastParecerRegistro(previa);
+          return ultimoRegistro.parecerGuia === statusFormatted || ultimoRegistro.finalizacao === statusFormatted;
+        });
       }
       
       setPrevias(filteredData);
@@ -157,6 +196,19 @@ const AtendPreviaView = () => {
       setCurrentPage(data.pagination?.current_page || 1);
       setTotalPages(data.pagination?.total_pages || 0);
       setTotalRecords(filteredData.length);
+      
+      // INSTRUÇÕES PARA DEBUG
+      console.log(`
+🔎 INSTRUÇÕES PARA DEBUG:
+1. Verifique se 'include_parecer_registros: true' está sendo enviado para a API
+2. Veja se na resposta da API aparecem 'parecer_registros' ou 'parecer_registros_processed'
+3. Se não aparecerem, o backend não está retornando os dados completos
+4. Se aparecerem, veja se a função getLastParecerRegistro está processando corretamente
+5. Para testar: clique em uma prévia e veja se navega corretamente
+
+🎯 Total de prévias carregadas: ${filteredData.length}
+📊 Primeira prévia tem registros múltiplos? ${data.data?.[0]?.parecer_registros ? 'SIM' : 'NÃO'}
+      `);
       
     } catch (error) {
       console.error("Erro ao carregar prévias:", error);
@@ -248,23 +300,29 @@ const AtendPreviaView = () => {
   
   // Função para navegar para uma prévia específica
   const handleViewPrevia = (previa) => {
-    console.log("Navegando para prévia:", previa);
+    console.log("🔄 Navegando para prévia:", previa.id, "do paciente:", previa.paciente_id);
     
     // Verificar se temos os dados necessários
     if (!previa || !previa.id || !previa.paciente_id) {
-      console.error("Dados da prévia inválidos:", previa);
-      toast({
-        title: "Erro",
-        description: "Não foi possível identificar a prévia selecionada",
-        variant: "destructive"
-      });
+      console.error("❌ Dados da prévia inválidos:", previa);
+      showErrorAlert("Erro", "Não foi possível identificar a prévia selecionada");
       return;
     }
+    
+    // DEBUG: Verificar se temos dados dos registros de parecer antes de navegar
+    console.log("📋 Dados da prévia antes de navegar:", {
+      id: previa.id,
+      paciente_id: previa.paciente_id,
+      tem_parecer_registros: !!previa.parecer_registros,
+      tem_parecer_registros_processed: !!previa.parecer_registros_processed,
+      parecer_direto: previa.parecer_guia,
+      finalizacao_direto: previa.finalizacao
+    });
     
     // Construir URL com parâmetros corretos
     const url = `/PacientesEmTratamento?tab=nova-previa&patientId=${previa.paciente_id}&previaId=${previa.id}`;
     
-    console.log("Navegando para URL:", url);
+    console.log("🌐 Navegando para URL:", url);
     
     // Navegar para a página
     navigate(url);
@@ -329,6 +387,93 @@ const AtendPreviaView = () => {
       return 'N/D';
     }
   };
+
+  // FUNÇÃO: Obter o último registro de parecer de uma prévia (igual aos botões de atendimento)
+  const getLastParecerRegistro = (previa) => {
+    // Verificação básica
+    if (!previa) {
+      console.warn("⚠️ getLastParecerRegistro: prévia é null/undefined");
+      return { parecerGuia: '', finalizacao: '', totalRegistros: 1 };
+    }
+
+    console.log(`🔍 [AtendPrevia] Analisando prévia ${previa.id}:`, {
+      tem_parecer_registros_processed: !!previa.parecer_registros_processed,
+      tipo_parecer_registros_processed: typeof previa.parecer_registros_processed,
+      tem_parecer_registros: !!previa.parecer_registros,
+      tipo_parecer_registros: typeof previa.parecer_registros,
+      parecer_guia_direto: previa.parecer_guia,
+      finalizacao_direto: previa.finalizacao
+    });
+
+    let registros = [];
+    let fonteUsada = '';
+    
+    // 1. Tentar parecer_registros_processed primeiro
+    if (previa.parecer_registros_processed && Array.isArray(previa.parecer_registros_processed)) {
+      registros = previa.parecer_registros_processed;
+      fonteUsada = 'parecer_registros_processed';
+      console.log(`✅ [AtendPrevia] Usando parecer_registros_processed: ${registros.length} registros`, registros);
+    }
+    // 2. Tentar parecer_registros como JSON
+    else if (previa.parecer_registros) {
+      try {
+        const parsed = JSON.parse(previa.parecer_registros);
+        if (Array.isArray(parsed)) {
+          registros = parsed;
+          fonteUsada = 'parecer_registros (JSON)';
+          console.log(`✅ [AtendPrevia] Usando parecer_registros JSON: ${registros.length} registros`, registros);
+        }
+      } catch (error) {
+        console.warn("❌ [AtendPrevia] Erro ao fazer parse dos parecer_registros:", error);
+        registros = [];
+      }
+    }
+    
+    // Se temos registros, pegar o último (maior ID ou último do array)
+    if (Array.isArray(registros) && registros.length > 0) {
+      console.log(`📊 [AtendPrevia] TODOS os registros da prévia ${previa.id}:`, registros.map((r, i) => ({
+        indice: i,
+        id: r.id,
+        parecerGuia: r.parecerGuia || r.parecer_guia,
+        finalizacao: r.finalizacao
+      })));
+      
+      // Ordenar por ID para garantir que pegamos o último
+      const sortedRegistros = [...registros].sort((a, b) => {
+        const idA = parseInt(a.id) || 0;
+        const idB = parseInt(b.id) || 0;
+        return idB - idA; // Ordem decrescente (maior ID primeiro)
+      });
+      
+      const ultimoRegistro = sortedRegistros[0];
+      
+      console.log(`🎯 [AtendPrevia] ÚLTIMO registro selecionado da prévia ${previa.id}:`, {
+        id: ultimoRegistro.id,
+        parecerGuia: ultimoRegistro.parecerGuia || ultimoRegistro.parecer_guia,
+        finalizacao: ultimoRegistro.finalizacao,
+        fonte: fonteUsada,
+        total: registros.length
+      });
+      
+      return {
+        parecerGuia: ultimoRegistro.parecerGuia || ultimoRegistro.parecer_guia || '',
+        finalizacao: ultimoRegistro.finalizacao || '',
+        totalRegistros: registros.length
+      };
+    }
+    
+    // Fallback: usar campos antigos diretamente da prévia
+    console.log(`📄 [AtendPrevia] FALLBACK para prévia ${previa.id} - usando campos diretos:`, {
+      parecer_guia: previa.parecer_guia,
+      finalizacao: previa.finalizacao
+    });
+    
+    return {
+      parecerGuia: previa.parecer_guia || '',
+      finalizacao: previa.finalizacao || '',
+      totalRegistros: 1
+    };
+  };
   
   // CSS inline styles para status - OTIMIZADO PARA CARDS DE 320px
   const statusStyles = {
@@ -382,15 +527,44 @@ const AtendPreviaView = () => {
   
   // Componente de Card para visualização em grade
   const PreviaCard = ({ previa }) => {
-    const parecerColors = getStatusColor(previa.parecer_guia);
-    const finalizacaoColors = getStatusColor(previa.finalizacao);
+    // USAR O ÚLTIMO REGISTRO DE PARECER (igual aos botões de atendimento)
+    const ultimoRegistro = getLastParecerRegistro(previa);
+    
+    const parecerColors = getStatusColor(ultimoRegistro.parecerGuia);
+    const finalizacaoColors = getStatusColor(ultimoRegistro.finalizacao);
     
     return (
       <div className="protocol-card" onClick={() => handleViewPrevia(previa)}>
         <div className="card-inner">
           <div className="card-front">
             <div className="card-header">
-              <div className="protocol-code">Atend. {previa.numero_sequencial || previa.id}</div>
+              <div className="protocol-code">
+                Atend. {previa.numero_sequencial || previa.id}
+                {/* Indicador de múltiplos registros - Design melhorado */}
+                {ultimoRegistro.totalRegistros > 1 && (
+                  <span 
+                    style={{
+                      fontSize: '9px',
+                      backgroundColor: '#8cb369',
+                      color: 'white',
+                      padding: '3px 6px',
+                      borderRadius: '12px',
+                      marginLeft: '6px',
+                      fontWeight: '700',
+                      border: '1px solid rgba(255,255,255,0.3)',
+                      boxShadow: '0 2px 4px rgba(140, 179, 105, 0.3)',
+                      minWidth: '20px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      lineHeight: '1'
+                    }}
+                    title={`${ultimoRegistro.totalRegistros} registros de parecer`}
+                  >
+                    {ultimoRegistro.totalRegistros}
+                  </span>
+                )}
+              </div>
               <div className="protocol-cid">{previa.cid || 'N/D'}</div>
             </div>
             
@@ -415,33 +589,59 @@ const AtendPreviaView = () => {
               </div>
             </div>
             
-            {/* Status cards */}
+            {/* Status cards - USANDO ÚLTIMO REGISTRO */}
             <div style={statusStyles.statusIndicators}>
               <div style={statusStyles.statusItem}>
-                <span style={statusStyles.statusLabel}>Parecer:</span>
+                <span style={statusStyles.statusLabel}>
+                  Parecer{ultimoRegistro.totalRegistros > 1 ? ' (Último):' : ':'}
+                </span>
                 <div 
                   style={{ 
                     ...statusStyles.statusBadge,
                     backgroundColor: parecerColors.bg, 
-                    color: parecerColors.text 
+                    color: parecerColors.text,
+                    borderRadius: '16px',
+                    padding: '6px 12px',
+                    border: `1px solid ${parecerColors.text}20`,
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    fontWeight: '600'
                   }}
+                  title={ultimoRegistro.totalRegistros > 1 ? 
+                    `Último de ${ultimoRegistro.totalRegistros} registros: ${ultimoRegistro.parecerGuia || 'Pendente'}` : 
+                    ultimoRegistro.parecerGuia || 'Pendente'
+                  }
                 >
-                  {getStatusIcon(previa.parecer_guia)}
-                  <span>{previa.parecer_guia || 'Pendente'}</span>
+                  {getStatusIcon(ultimoRegistro.parecerGuia)}
+                  <span style={{ marginLeft: '4px' }}>
+                    {ultimoRegistro.parecerGuia === 'Favorável com Inconsistência' ? 'Fav. c/ Inc.' : (ultimoRegistro.parecerGuia || 'Pendente')}
+                  </span>
                 </div>
               </div>
               
               <div style={statusStyles.statusItem}>
-                <span style={statusStyles.statusLabel}>Finalização:</span>
+                <span style={statusStyles.statusLabel}>
+                  Finalização{ultimoRegistro.totalRegistros > 1 ? ' (Último):' : ':'}
+                </span>
                 <div 
                   style={{ 
                     ...statusStyles.statusBadge,
                     backgroundColor: finalizacaoColors.bg, 
-                    color: finalizacaoColors.text 
+                    color: finalizacaoColors.text,
+                    borderRadius: '16px',
+                    padding: '6px 12px',
+                    border: `1px solid ${finalizacaoColors.text}20`,
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    fontWeight: '600'
                   }}
+                  title={ultimoRegistro.totalRegistros > 1 ? 
+                    `Último de ${ultimoRegistro.totalRegistros} registros: ${ultimoRegistro.finalizacao || 'Pendente'}` : 
+                    ultimoRegistro.finalizacao || 'Pendente'
+                  }
                 >
-                  {getStatusIcon(previa.finalizacao)}
-                  <span>{previa.finalizacao || 'Pendente'}</span>
+                  {getStatusIcon(ultimoRegistro.finalizacao)}
+                  <span style={{ marginLeft: '4px' }}>
+                    {ultimoRegistro.finalizacao === 'Favorável com Inconsistência' ? 'Fav. c/ Inc.' : (ultimoRegistro.finalizacao || 'Pendente')}
+                  </span>
                 </div>
               </div>
             </div>
@@ -455,8 +655,11 @@ const AtendPreviaView = () => {
   
   // Componente para visualização em lista
   const PreviaListItem = ({ previa }) => {
-    const parecerColors = getStatusColor(previa.parecer_guia);
-    const finalizacaoColors = getStatusColor(previa.finalizacao);
+    // USAR O ÚLTIMO REGISTRO DE PARECER (igual aos botões de atendimento)
+    const ultimoRegistro = getLastParecerRegistro(previa);
+    
+    const parecerColors = getStatusColor(ultimoRegistro.parecerGuia);
+    const finalizacaoColors = getStatusColor(ultimoRegistro.finalizacao);
     
     // Função para truncar texto e mostrar tooltip
     const renderTruncatedText = (text, maxLength = 20, className = "") => {
@@ -474,14 +677,14 @@ const AtendPreviaView = () => {
       );
     };
 
-    // Função para renderizar status badge com abreviação
-    const renderStatusBadge = (status, colors) => {
+    // Função para renderizar status badge com abreviação melhorada
+    const renderStatusBadge = (status, colors, totalRegistros = 1) => {
       const displayText = status || 'Pendente';
       let shortText = displayText;
       
-      // Abreviações inteligentes para status longos
+      // Abreviações melhoradas para status longos
       const abbreviations = {
-        'Favorável com Inconsistência': 'Fav. c/ Incons.',
+        'Favorável com Inconsistência': 'Fav. c/ Inc.',
         'Favorável': 'Favorável',
         'Inconclusivo': 'Inconclusivo',
         'Desfavorável': 'Desfavorável',
@@ -490,10 +693,15 @@ const AtendPreviaView = () => {
       
       shortText = abbreviations[displayText] || displayText;
       
+      // Tooltip melhorado para múltiplos registros
+      const tooltipText = totalRegistros > 1 ? 
+        `Último de ${totalRegistros} registros: ${displayText}` : 
+        displayText;
+      
       return (
         <div 
           className="status-badge-wrapper"
-          title={displayText}
+          title={tooltipText}
         >
           <div 
             className="status-badge-custom"
@@ -501,19 +709,48 @@ const AtendPreviaView = () => {
               backgroundColor: colors.bg, 
               color: colors.text,
               fontSize: '10px',
-              padding: '4px 8px',
-              borderRadius: '12px',
-              border: `1px solid ${colors.text}30`,
-              fontWeight: '500',
+              padding: '6px 10px',
+              borderRadius: '16px',
+              border: `1px solid ${colors.text}20`,
+              fontWeight: '600',
               textAlign: 'center',
               whiteSpace: 'nowrap',
-              minWidth: '75px',
-              maxWidth: '110px',
+              minWidth: '80px',
+              maxWidth: '120px',
               overflow: 'hidden',
-              textOverflow: 'ellipsis'
+              textOverflow: 'ellipsis',
+              position: 'relative',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              transition: 'all 0.2s ease'
             }}
           >
             {shortText}
+            {/* Indicador de múltiplos registros - Design melhorado */}
+            {totalRegistros > 1 && (
+              <span 
+                style={{
+                  position: 'absolute',
+                  top: '-8px',
+                  right: '-8px',
+                  fontSize: '9px',
+                  backgroundColor: '#8cb369',
+                  color: 'white',
+                  padding: '2px 6px',
+                  borderRadius: '10px',
+                  lineHeight: '1',
+                  fontWeight: '700',
+                  border: '2px solid white',
+                  boxShadow: '0 2px 6px rgba(140, 179, 105, 0.4)',
+                  minWidth: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title={`${totalRegistros} registros de parecer`}
+              >
+                {totalRegistros}
+              </span>
+            )}
           </div>
         </div>
       );
@@ -523,6 +760,30 @@ const AtendPreviaView = () => {
       <div className="patient-list-item previa-list-row" onClick={() => handleViewPrevia(previa)}>
         <div className="list-item-code">
           {previa.numero_sequencial || previa.id}
+          {/* Indicador de múltiplos registros para o código - Design melhorado */}
+          {ultimoRegistro.totalRegistros > 1 && (
+            <span 
+              style={{
+                fontSize: '8px',
+                backgroundColor: '#8cb369',
+                color: 'white',
+                padding: '2px 5px',
+                borderRadius: '10px',
+                marginLeft: '6px',
+                fontWeight: '700',
+                border: '1px solid rgba(255,255,255,0.3)',
+                boxShadow: '0 1px 3px rgba(140, 179, 105, 0.3)',
+                minWidth: '16px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                lineHeight: '1'
+              }}
+              title={`${ultimoRegistro.totalRegistros} registros de parecer`}
+            >
+              {ultimoRegistro.totalRegistros}
+            </span>
+          )}
         </div>
         <div className="list-item-name">
           {renderTruncatedText(previa.paciente_nome || 'Paciente não identificado', 30)}
@@ -543,10 +804,10 @@ const AtendPreviaView = () => {
           {formatDate(previa.data_criacao)}
         </div>
         <div className="list-item-birthday">
-          {renderStatusBadge(previa.parecer_guia, parecerColors)}
+          {renderStatusBadge(ultimoRegistro.parecerGuia, parecerColors, ultimoRegistro.totalRegistros)}
         </div>
         <div className="list-item-first-request">
-          {renderStatusBadge(previa.finalizacao, finalizacaoColors)}
+          {renderStatusBadge(ultimoRegistro.finalizacao, finalizacaoColors, ultimoRegistro.totalRegistros)}
         </div>
 
       </div>
@@ -660,8 +921,8 @@ const AtendPreviaView = () => {
               value={sortField}
               onChange={(e) => handleSortChange(e.target.value)}
             >
-              <option value="paciente_nome">Nome do Paciente</option>
               <option value="data_criacao">Data de Criação</option>
+              <option value="paciente_nome">Nome do Paciente</option>
               <option value="protocolo">Protocolo</option>
               <option value="guia">Guia</option>
               <option value="cid">CID</option>
@@ -856,7 +1117,47 @@ const AtendPreviaView = () => {
 
 export default AtendPreviaView;
 
-/* ESTILOS COMPLEMENTARES PARA CONTROLES DE ORDENAÇÃO */
+/*
+🚨 INSTRUÇÕES PARA DEBUG DOS REGISTROS DE PARECER:
+
+📍 PROBLEMA IDENTIFICADO:
+O usuário relata que quando clica numa prévia no AtendPreviaView para navegar para 
+a página de edição, apenas o primeiro registro de parecer é carregado.
+
+🔍 COMO FAZER DEBUG:
+
+1. ABRA O DEVTOOLS (F12) e vá para a aba CONSOLE
+
+2. RECARREGUE A PÁGINA AtendPreviaView 
+
+3. VERIFIQUE OS LOGS:
+   ✅ "Fazendo requisição para..." - deve mostrar include_parecer_registros=true
+   ✅ "Parâmetros enviados" - deve incluir include_parecer_registros: 'true'
+   ✅ "Resposta da API" - deve mostrar se tem parecer_registros na primeira prévia
+   ✅ "Analisando prévia X" - deve mostrar se encontrou registros múltiplos
+
+4. SE NÃO APARECER include_parecer_registros=true:
+   - O problema está na requisição
+   - Verificar se o parâmetro está sendo adicionado corretamente
+
+5. SE APARECER include_parecer_registros=true MAS "parecer_registros" for null:
+   - O problema está no BACKEND
+   - A API não está processando o parâmetro include_parecer_registros
+   - Precisa verificar get_all_previas.php
+
+6. SE APARECER parecer_registros MAS getLastParecerRegistro usar FALLBACK:
+   - O problema está no parsing dos dados
+   - Verificar o formato dos dados retornados
+
+7. TESTE DE NAVEGAÇÃO:
+   - Clique numa prévia que deveria ter múltiplos registros
+   - Veja se navega corretamente para NovaPreviaView
+   - Verifique se todos os registros são carregados na página de edição
+
+📧 REPORTE O PROBLEMA COM ESTES LOGS DO CONSOLE
+*/
+
+/* ESTILOS COMPLEMENTARES PARA CONTROLES DE ORDENAÇÃO E DESIGN MELHORADO */
 const addSortingStyles = () => {
   const styleId = 'atend-previa-sorting-styles';
   
@@ -919,6 +1220,43 @@ const addSortingStyles = () => {
     .patients-list .list-header .sortable {
       justify-content: center;
       text-align: center;
+    }
+    
+    /* NOVOS ESTILOS: Design melhorado para badges e indicadores */
+    .status-badge-custom:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+    }
+    
+    .protocol-card:hover .status-badge-custom {
+      box-shadow: 0 3px 6px rgba(0,0,0,0.12) !important;
+    }
+    
+    /* Animação para indicadores de múltiplos registros */
+    @keyframes pulse-indicator {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    
+    .protocol-card:hover span[title*="registros de parecer"] {
+      animation: pulse-indicator 2s ease-in-out infinite;
+    }
+    
+    /* Melhor responsividade para textos longos */
+    @media (max-width: 1200px) {
+      .status-badge-custom {
+        max-width: 100px !important;
+        font-size: 9px !important;
+      }
+    }
+    
+    @media (max-width: 900px) {
+      .status-badge-custom {
+        max-width: 85px !important;
+        font-size: 8px !important;
+        padding: 4px 8px !important;
+      }
     }
     
     /* Responsividade dos controles */

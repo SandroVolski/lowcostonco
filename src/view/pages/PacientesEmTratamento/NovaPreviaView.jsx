@@ -97,7 +97,7 @@ const StatusRegistrationSection = ({
       parecer: '',
       parecerGuia: '',
       finalizacao: '',
-      dataSolicitacao: formData.dataSolicitacao || '', // Data vem do formulário principal
+      dataSolicitacao: '', // CORREÇÃO: Não preencher automaticamente
       dataParecer: '',
       tempoAnalise: null,
       observacoes: ''
@@ -188,6 +188,35 @@ const StatusRegistrationSection = ({
   // Função específica para status cards
   const handleStatusCardSelectForRegistro = (registroId, field, value) => {
     console.log(`🎯 Selecionando ${field} = ${value} para registro ${registroId}`);
+    
+    // NOVO: Se está selecionando um Parecer da Guia, preencher data de solicitação automaticamente
+    if (field === 'parecerGuia' && value && !formData.dataSolicitacao) {
+      const currentDate = getCurrentDateFormatted();
+      
+      // Preencher no formulário principal
+      handleInputChange({
+        target: {
+          name: 'dataSolicitacao',
+          value: currentDate
+        }
+      });
+      
+      // Também preencher em todos os registros de parecer que não têm data
+      const updatedRegistros = formData.parecerRegistros.map(registro => ({
+        ...registro,
+        dataSolicitacao: registro.dataSolicitacao || currentDate
+      }));
+      
+      handleInputChange({
+        target: {
+          name: 'parecerRegistros',
+          value: updatedRegistros
+        }
+      });
+      
+      console.log(`📅 Data de solicitação preenchida automaticamente: ${currentDate}`);
+    }
+    
     handleParecerRegistroChange(registroId, field, value);
   };
 
@@ -257,7 +286,44 @@ const StatusRegistrationSection = ({
 
   // Componente para renderizar um registro individual
   const ParecerRegistroItem = ({ registro, index }) => {
-    console.log(`📝 Renderizando registro ${registro.id}:`, registro);
+    // CORREÇÃO DO BUG: Estado local para o parecer técnico
+    const [localParecer, setLocalParecer] = useState(registro.parecer || '');
+    
+    // Sincronizar estado local quando o registro muda (navegação entre páginas)
+    useEffect(() => {
+      setLocalParecer(registro.parecer || '');
+    }, [registro.id, registro.parecer]);
+    
+    // Função para atualizar o formData apenas quando necessário
+    const updateParecerInFormData = useCallback((newValue) => {
+      const syntheticEvent = {
+        target: {
+          name: 'parecerRegistros',
+          value: formData.parecerRegistros.map(r => 
+            r.id === registro.id 
+              ? { ...r, parecer: newValue }
+              : r
+          )
+        }
+      };
+      handleInputChange(syntheticEvent);
+    }, [registro.id, formData.parecerRegistros, handleInputChange]);
+    
+    // Debounce para atualizar o formData (evita muitas atualizações)
+    useEffect(() => {
+      const timeoutId = setTimeout(() => {
+        if (localParecer !== registro.parecer) {
+          updateParecerInFormData(localParecer);
+        }
+      }, 1000); // 1 segundo de delay para permitir digitação fluida
+      
+      return () => clearTimeout(timeoutId);
+    }, [localParecer, registro.parecer, updateParecerInFormData]);
+    
+    // Log mais silencioso - apenas quando há problemas
+    if (!registro.parecerGuia && !registro.finalizacao && !registro.parecer) {
+      console.log(`📝 Renderizando registro vazio ${registro.id}:`, registro);
+    }
     
     return (
       <div className="parecer-registro-item border border-gray-200 rounded-lg p-4 mb-4 bg-white">
@@ -283,15 +349,20 @@ const StatusRegistrationSection = ({
           )}
         </div>
 
-        {/* SEÇÃO: Parecer Técnico - CORRIGIDA */}
+        {/* SEÇÃO: Parecer Técnico - CORREÇÃO FINAL DO BUG */}
         <div className="status-section-group mb-4">
           <h5 className="text-sm font-medium text-gray-700 mb-2">Parecer Técnico</h5>
           <div className="form-field">
             <textarea 
-              value={registro.parecer || ''}
+              key={`parecer-textarea-${registro.id}-${currentPage}`}
+              value={localParecer}
               onChange={(e) => {
-                // CORREÇÃO: Usar handleParecerRegistroChange diretamente
-                handleParecerRegistroChange(registro.id, 'parecer', e.target.value);
+                // CORREÇÃO FINAL: Usar apenas estado local, sem atualizar formData imediatamente
+                setLocalParecer(e.target.value);
+              }}
+              onBlur={() => {
+                // Atualizar formData apenas quando perder o foco
+                updateParecerInFormData(localParecer);
               }}
               className="form-textarea w-full"
               placeholder="Digite o parecer técnico detalhado sobre a análise da solicitação..."
@@ -372,48 +443,52 @@ const StatusRegistrationSection = ({
           </div>
         </div>
 
-        {/* NOVA SEÇÃO: Campos de Data */}
-        <div className="status-section-group mb-4">
-          <h5 className="text-sm font-medium text-gray-700 mb-2">Datas e Tempo de Análise</h5>
-          
-          <div className="grid grid-cols-2 gap-4 mb-3">
-            <div className="form-field">
-              <label className="form-label text-xs">Data Solicitação</label>
-              <input
-                type="text"
-                value={registro.dataSolicitacao || formData.dataSolicitacao || ''}
-                readOnly
-                className="form-input bg-gray-100 text-gray-600 cursor-not-allowed"
-                placeholder="DD/MM/AAAA"
-                style={{
-                  backgroundColor: '#f9fafb',
-                  color: '#6b7280'
-                }}
-              />
-              <span className="text-xs text-gray-500 mt-1">Preenchido automaticamente</span>
-            </div>
+        {/* NOVA SEÇÃO: Campos de Data - CONDICIONAL */}
+        {(registro.parecerGuia || registro.finalizacao) && (
+          <div className="status-section-group mb-4">
+            <h5 className="text-sm font-medium text-gray-700 mb-2">Datas e Tempo de Análise</h5>
             
-            <div className="form-field">
-              <label className="form-label text-xs">Data Parecer</label>
-              <input
-                type="text"
-                value={registro.dataParecer || ''}
-                onChange={(e) => handleDateChange(registro.id, e.target.value)}
-                className="form-input"
-                placeholder="DD/MM/AAAA"
-                maxLength="10"
-                style={{
-                  backgroundColor: '#fff',
-                  border: '1px solid #d1d5db'
-                }}
-              />
-              <span className="text-xs text-gray-500 mt-1">Preenchido automaticamente ao finalizar</span>
+            <div className="grid grid-cols-2 gap-4 mb-3">
+              <div className="form-field">
+                <label className="form-label text-xs">Data Solicitação</label>
+                <input
+                  type="text"
+                  value={registro.dataSolicitacao || formData.dataSolicitacao || ''}
+                  readOnly
+                  className="form-input bg-gray-100 text-gray-600 cursor-not-allowed"
+                  placeholder="DD/MM/AAAA"
+                  style={{
+                    backgroundColor: '#f9fafb',
+                    color: '#6b7280'
+                  }}
+                />
+                <span className="text-xs text-gray-500 mt-1">Preenchido automaticamente</span>
+              </div>
+              
+              <div className="form-field">
+                <label className="form-label text-xs">Data Parecer</label>
+                <input
+                  type="text"
+                  value={registro.dataParecer || ''}
+                  onChange={(e) => handleDateChange(registro.id, e.target.value)}
+                  className="form-input"
+                  placeholder="DD/MM/AAAA"
+                  maxLength="10"
+                  style={{
+                    backgroundColor: '#fff',
+                    border: '1px solid #d1d5db'
+                  }}
+                />
+                <span className="text-xs text-gray-500 mt-1">Preenchido automaticamente ao finalizar</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
         
-        {/* Métricas de tempo de análise */}
-        <TempoAnaliseMetrics registro={registro} />
+        {/* Métricas de tempo de análise - CONDICIONAL */}
+        {(registro.parecerGuia || registro.finalizacao) && (
+          <TempoAnaliseMetrics registro={registro} />
+        )}
         
         {/* Botão para adicionar novo registro */}
         {index === formData.parecerRegistros.length - 1 && formData.parecerRegistros.length < MAX_REGISTROS && (
@@ -831,13 +906,8 @@ const NovaPreviaView = () => {
     setTimeout(() => setCacheRefreshed(false), 3000);
   };*/
   
-  // Inicializar data atual para o formulário
-  useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
-      dataSolicitacao: formatDate(new Date())
-    }));
-  }, []);
+  // REMOVIDO: Não inicializar data de solicitação automaticamente
+  // A data será preenchida apenas quando o usuário selecionar um Parecer da Guia
   
   // Efeito para filtrar pacientes quando o termo de busca muda
   useEffect(() => {
@@ -1082,27 +1152,25 @@ const NovaPreviaView = () => {
       // Buscar as prévias do paciente usando o contexto com cache
       const previas = await getPreviasDoPatient(patientId);
       
-      // Atualizar o estado de consultas anteriores COM OS STATUS
+      // Atualizar o estado de consultas anteriores COM OS STATUS E REGISTROS DE PARECER
       if (previas && previas.length > 0) {
-        // Enriquecer as consultas com dados detalhados se necessário
+        // Enriquecer as consultas com dados detalhados incluindo registros de parecer
         const consultasComStatus = await Promise.all(
           previas.map(async (previa) => {
-            // Se já temos os dados de status, usar; senão buscar detalhes
-            if (previa.parecer_guia !== undefined && previa.finalizacao !== undefined) {
-              return previa;
-            } else {
-              // Buscar detalhes da prévia se não temos os status
-              try {
-                const detalhes = await getPrevia(previa.id);
-                return {
-                  ...previa,
-                  parecer_guia: detalhes.parecer_guia,
-                  finalizacao: detalhes.finalizacao
-                };
-              } catch (error) {
-                console.warn(`Erro ao buscar detalhes da prévia ${previa.id}:`, error);
-                return previa; // Retorna a prévia original se houver erro
-              }
+            // Sempre buscar detalhes completos para ter acesso aos registros de parecer
+            try {
+              const detalhes = await getPrevia(previa.id);
+              return {
+                ...previa,
+                parecer_guia: detalhes.parecer_guia,
+                finalizacao: detalhes.finalizacao,
+                // NOVO: Incluir dados dos registros de parecer
+                parecer_registros: detalhes.parecer_registros,
+                parecer_registros_processed: detalhes.parecer_registros_processed
+              };
+            } catch (error) {
+              console.warn(`Erro ao buscar detalhes da prévia ${previa.id}:`, error);
+              return previa; // Retorna a prévia original se houver erro
             }
           })
         );
@@ -1147,21 +1215,88 @@ const NovaPreviaView = () => {
   };
 
 
+  // Função para obter o último registro de parecer de uma consultation
+  const getLastParecerRegistro = (consultation) => {
+    // Tentar diferentes fontes de dados dos registros
+    let registros = [];
+    
+    // 1. Tentar parecer_registros_processed primeiro
+    if (consultation.parecer_registros_processed && Array.isArray(consultation.parecer_registros_processed)) {
+      registros = consultation.parecer_registros_processed;
+      console.log(`📋 Usando parecer_registros_processed para consultation ${consultation.id}:`, registros.length, 'registros');
+    }
+    // 2. Tentar parecer_registros como JSON
+    else if (consultation.parecer_registros) {
+      try {
+        registros = JSON.parse(consultation.parecer_registros);
+        console.log(`📋 Usando parecer_registros (JSON) para consultation ${consultation.id}:`, registros.length, 'registros');
+      } catch (error) {
+        console.warn("Erro ao fazer parse dos parecer_registros:", error);
+        registros = [];
+      }
+    }
+    
+    // Se temos registros, pegar o último (maior ID ou último do array)
+    if (Array.isArray(registros) && registros.length > 0) {
+      // Ordenar por ID para garantir que pegamos o último
+      const sortedRegistros = [...registros].sort((a, b) => {
+        const idA = a.id || 0;
+        const idB = b.id || 0;
+        return idB - idA; // Ordem decrescente (maior ID primeiro)
+      });
+      
+      const ultimoRegistro = sortedRegistros[0];
+      console.log(`🎯 Último registro para consultation ${consultation.id}:`, {
+        registroId: ultimoRegistro.id,
+        parecerGuia: ultimoRegistro.parecerGuia,
+        finalizacao: ultimoRegistro.finalizacao,
+        totalRegistros: registros.length
+      });
+      
+      return ultimoRegistro;
+    }
+    
+    // Fallback: usar campos antigos diretamente da consultation
+    console.log(`🔄 Usando fallback (campos antigos) para consultation ${consultation.id}`);
+    return {
+      parecerGuia: consultation.parecer_guia || '',
+      finalizacao: consultation.finalizacao || ''
+    };
+  };
+
   // Componente para renderizar botão com status dividido
   const StatusSplitButton = ({ consultation, atendimentoNumero, numeroExibido, currentPage, onClick }) => {
-    const parecerGuiaColor = getStatusColor(consultation.parecer_guia);
-    const finalizacaoColor = getStatusColor(consultation.finalizacao);
+    // MUDANÇA: Usar o último registro de parecer ao invés dos campos principais
+    const ultimoRegistro = getLastParecerRegistro(consultation);
+    
+    const parecerGuiaColor = getStatusColor(ultimoRegistro.parecerGuia);
+    const finalizacaoColor = getStatusColor(ultimoRegistro.finalizacao);
     
     const isActive = currentPage === atendimentoNumero;
     
     // Verificar se os status são "não definidos" (vazios ou nulos)
-    const isParecerGuiaUndefined = !consultation.parecer_guia || consultation.parecer_guia === '';
-    const isFinalizacaoUndefined = !consultation.finalizacao || consultation.finalizacao === '';
+    const isParecerGuiaUndefined = !ultimoRegistro.parecerGuia || ultimoRegistro.parecerGuia === '';
+    const isFinalizacaoUndefined = !ultimoRegistro.finalizacao || ultimoRegistro.finalizacao === '';
     
     // Determinar o texto a ser exibido: título personalizado ou número padrão
     const displayText = consultation.titulo_atendimento && consultation.titulo_atendimento.trim() !== '' 
       ? consultation.titulo_atendimento 
       : `Atend. ${numeroExibido}`;
+    
+    // Calcular quantos registros existem para mostrar no tooltip
+    let quantidadeRegistros = 0;
+    if (consultation.parecer_registros_processed && Array.isArray(consultation.parecer_registros_processed)) {
+      quantidadeRegistros = consultation.parecer_registros_processed.length;
+    } else if (consultation.parecer_registros) {
+      try {
+        const registros = JSON.parse(consultation.parecer_registros);
+        quantidadeRegistros = Array.isArray(registros) ? registros.length : 1;
+      } catch {
+        quantidadeRegistros = 1;
+      }
+    } else {
+      quantidadeRegistros = 1;
+    }
     
     return (
       <button 
@@ -1197,8 +1332,9 @@ const NovaPreviaView = () => {
           {consultation.titulo_atendimento && (
             <div className="tooltip-title">Título: {consultation.titulo_atendimento}</div>
           )}
-          <div>Parecer: {consultation.parecer_guia || 'Não definido'}</div>
-          <div>Finalização: {consultation.finalizacao || 'Não definido'}</div>
+          <div>Parecer (Último): {ultimoRegistro.parecerGuia || 'Não definido'}</div>
+          <div>Finalização (Último): {ultimoRegistro.finalizacao || 'Não definido'}</div>
+          <div>Registros de Parecer: {quantidadeRegistros}</div>
           <div>Data: {consultation.data_criacao ? new Date(consultation.data_criacao).toLocaleDateString('pt-BR') : 'N/D'}</div>
           <div className="status-tooltip-arrow" />
         </div>
@@ -1401,7 +1537,7 @@ const NovaPreviaView = () => {
         dia: '',
         dataEmissaoGuia: '',
         dataEncaminhamentoAF: '',
-        dataSolicitacao: formatDate(new Date()),
+        dataSolicitacao: '', // CORREÇÃO: Não preencher automaticamente
         parecer: '',
         comentario: '',
         peso: '',
@@ -1737,6 +1873,9 @@ const NovaPreviaView = () => {
   
   // Modificado para usar o contexto com cache
   const handleSavePrevia = async () => {
+    // NOVO: Aguardar um momento para garantir que debounced updates sejam processados
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     // Validar os campos essenciais
     if (!formData.guia || !formData.protocolo || !formData.cid) {
       toast({
@@ -1982,7 +2121,7 @@ const NovaPreviaView = () => {
         ciclos_previstos: '',
         ciclo: '',
         dia: '',
-        dataSolicitacao: formatDate(new Date()),
+        dataSolicitacao: '', // CORREÇÃO: Não preencher automaticamente
         parecer: '',
         comentario: '',
         peso: '',
@@ -1997,7 +2136,7 @@ const NovaPreviaView = () => {
           parecer: '', 
           parecerGuia: '', 
           finalizacao: '', 
-          dataSolicitacao: formatDate(new Date()), // NOVO CAMPO
+          dataSolicitacao: '', // CORREÇÃO: Não preencher automaticamente
           dataParecer: '',
           tempoAnalise: null,
           observacoes: ''
@@ -3114,7 +3253,7 @@ const NovaPreviaView = () => {
         dia: '',
         dataEmissaoGuia: '',
         dataEncaminhamentoAF: '',
-        dataSolicitacao: formatDate(new Date()),
+        dataSolicitacao: '', // CORREÇÃO: Não preencher automaticamente
         parecer: '',
         comentario: '',
         peso: '',
@@ -3264,15 +3403,89 @@ const NovaPreviaView = () => {
             data_atualizacao: previaData.data_atualizacao
           });
           
-          // CORRIGIDO: Usar previaData em vez de previaDetails
+          // *** CORREÇÃO PRINCIPAL: Processar múltiplos registros de parecer ***
+          let parecerRegistrosProcessados = [];
+
+          // 1. Primeiro, tentar carregar do campo JSON parecer_registros_processed
+          if (previaData.parecer_registros_processed && Array.isArray(previaData.parecer_registros_processed)) {
+            parecerRegistrosProcessados = previaData.parecer_registros_processed.map((registro, index) => ({
+              id: registro.id || (index + 1),
+              parecer: registro.parecer || '',
+              parecerGuia: registro.parecerGuia || '',
+              finalizacao: registro.finalizacao || '',
+              dataSolicitacao: registro.dataSolicitacao || formatDateFromDB(previaData.data_solicitacao) || '',
+              dataParecer: registro.dataParecer || '',
+              tempoAnalise: registro.tempoAnalise || null,
+              observacoes: registro.observacoes || ''
+            }));
+            
+            console.log(`✅ [useEffect] Carregados ${parecerRegistrosProcessados.length} registros do parecer_registros_processed`);
+          }
+          // 2. Fallback: tentar carregar do campo JSON parecer_registros original
+          else if (previaData.parecer_registros) {
+            try {
+              const registrosFromJSON = JSON.parse(previaData.parecer_registros);
+              
+              if (Array.isArray(registrosFromJSON) && registrosFromJSON.length > 0) {
+                parecerRegistrosProcessados = registrosFromJSON.map((registro, index) => ({
+                  id: registro.id || (index + 1),
+                  parecer: registro.parecer || '',
+                  parecerGuia: registro.parecerGuia || registro.parecer_guia || '',
+                  finalizacao: registro.finalizacao || '',
+                  dataSolicitacao: registro.dataSolicitacao || formatDateFromDB(previaData.data_solicitacao) || '',
+                  dataParecer: registro.dataParecer || registro.data_parecer || '',
+                  tempoAnalise: registro.tempoAnalise || registro.tempo_analise || null,
+                  observacoes: registro.observacoes || ''
+                }));
+                
+                console.log(`✅ [useEffect] Carregados ${parecerRegistrosProcessados.length} registros do parecer_registros JSON`);
+              }
+            } catch (jsonError) {
+              console.error("❌ [useEffect] Erro ao fazer parse do JSON parecer_registros:", jsonError);
+              parecerRegistrosProcessados = [];
+            }
+          }
+          
+          // 3. Se não há registros do JSON, usar campos antigos como fallback
+          if (parecerRegistrosProcessados.length === 0) {
+            console.log("📄 [useEffect] Usando campos antigos como fallback");
+            
+            if (previaData.parecer || previaData.parecer_guia || previaData.finalizacao) {
+              parecerRegistrosProcessados = [{
+                id: 1,
+                parecer: previaData.parecer || '',
+                parecerGuia: previaData.parecer_guia || '',
+                finalizacao: previaData.finalizacao || '',
+                dataSolicitacao: formatDateFromDB(previaData.data_solicitacao) || '',
+                dataParecer: previaData.data_parecer_registrado ? formatDateFromDB(previaData.data_parecer_registrado) : '',
+                tempoAnalise: previaData.tempo_analise || null,
+                observacoes: ''
+              }];
+            } else {
+              parecerRegistrosProcessados = [{
+                id: 1,
+                parecer: '',
+                parecerGuia: '',
+                finalizacao: '',
+                dataSolicitacao: formatDateFromDB(previaData.data_solicitacao) || '',
+                dataParecer: '',
+                tempoAnalise: null,
+                observacoes: ''
+              }];
+            }
+          }
+          
+          console.log("📋 [useEffect] Registros finais processados:", parecerRegistrosProcessados);
+
+          // CORRIGIDO: Usar previaData em vez de previaDetails E incluir parecerRegistros
           setFormData(prevData => ({
             ...prevData,
-            id: previaData.id,                    // CORRIGIDO
-            paciente_id: previaData.paciente_id,  // CORRIGIDO
-            guia: previaData.guia || '',          // CORRIGIDO
-            protocolo: previaData.protocolo || '', // CORRIGIDO
-            cid: previaData.cid || '',            // CORRIGIDO
-            ciclos_previstos: previaData.ciclos_previstos || '', // CORRIGIDO
+            id: previaData.id,
+            paciente_id: previaData.paciente_id,
+            guia: previaData.guia || '',
+            protocolo: previaData.protocolo || '',
+            cid: previaData.cid || '',
+            ciclos_previstos: previaData.ciclos_previstos || '',
             ciclo: ciclosDiasData.length > 0 ? ciclosDiasData[0].ciclo : '',
             dia: ciclosDiasData.length > 0 ? ciclosDiasData[0].dia : '',
             dataEmissaoGuia: formatDateFromDB(previaData.data_emissao_guia),
@@ -3285,8 +3498,10 @@ const NovaPreviaView = () => {
             parecerGuia: previaData.parecer_guia,
             finalizacao: previaData.finalizacao,
             inconsistencia: previaData.inconsistencia,
-            titulo_atendimento: previaData.titulo_atendimento || '', // NOVO: Carregar título do atendimento
-            cicloDiaEntries: ciclosDiasData.length > 0 ? ciclosDiasData : [{ id: 1, ciclo: '', dia: '', protocolo: '' }]
+            titulo_atendimento: previaData.titulo_atendimento || '',
+            cicloDiaEntries: ciclosDiasData.length > 0 ? ciclosDiasData : [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
+            // *** CORREÇÃO: Incluir os registros processados ***
+            parecerRegistros: parecerRegistrosProcessados
           }));
           
           // Atualizar anexos
@@ -3300,8 +3515,12 @@ const NovaPreviaView = () => {
           
           setAttachments(formattedAnexos);
           
-          // Configurar data de parecer registrado
-          if (previaData.data_parecer_registrado) {
+          // Configurar data de parecer registrado (usar do primeiro registro se disponível)
+          const primeiroRegistro = parecerRegistrosProcessados[0];
+          if (primeiroRegistro && primeiroRegistro.dataParecer) {
+            setDataParecerRegistrado(primeiroRegistro.dataParecer);
+            setTempoParaAnalise(primeiroRegistro.tempoAnalise);
+          } else if (previaData.data_parecer_registrado) {
             setDataParecerRegistrado(formatDateFromDB(previaData.data_parecer_registrado));
             setTempoParaAnalise(previaData.tempo_analise);
           } else {
@@ -3372,7 +3591,7 @@ const NovaPreviaView = () => {
         dia: '',
         dataEmissaoGuia: '',
         dataEncaminhamentoAF: '',
-        dataSolicitacao: formatDate(new Date()),
+        dataSolicitacao: '', // CORREÇÃO: Não preencher automaticamente
         parecer: '',
         comentario: '',
         peso: '',
