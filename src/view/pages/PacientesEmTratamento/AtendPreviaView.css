@@ -171,7 +171,7 @@
 
 /* Melhorias no loading state */
 .loading-state {
-  background-color: white;
+  background-color: #F1F1F1;
   border-radius: 8px;
   margin: 20px;
   border: 1px solid #e5e7eb;

@@ -1140,6 +1140,7 @@ height: 100%;
 min-height: 300px;
 color: var(--color-text-light);
 text-align: center;
+background-color: #F1F1F1;
 }
 
 .spinner {

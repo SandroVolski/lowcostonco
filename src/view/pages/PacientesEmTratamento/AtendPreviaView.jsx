@@ -64,6 +64,10 @@ const AtendPreviaView = () => {
           aValue = ultimoRegistroA.finalizacao || '';
           bValue = ultimoRegistroB.finalizacao || '';
         }
+      } else if (field === 'titulo_atendimento') {
+        // TRATAMENTO ESPECIAL para título_atendimento - usar fallback para ordenação
+        aValue = a[field] || `Atend. ${a.numero_sequencial || a.id}`;
+        bValue = b[field] || `Atend. ${b.numero_sequencial || b.id}`;
       } else {
         aValue = a[field] || '';
         bValue = b[field] || '';
@@ -533,13 +537,30 @@ const AtendPreviaView = () => {
     const parecerColors = getStatusColor(ultimoRegistro.parecerGuia);
     const finalizacaoColors = getStatusColor(ultimoRegistro.finalizacao);
     
+    // Função para obter o título do atendimento
+    const getTituloAtendimento = () => {
+      if (previa.titulo_atendimento && previa.titulo_atendimento.trim()) {
+        // Truncar se for muito longo (máximo 25 caracteres para cards)
+        const titulo = previa.titulo_atendimento.trim();
+        return titulo.length > 25 ? `${titulo.substring(0, 22)}...` : titulo;
+      }
+      // Fallback para o formato antigo
+      return `Atend. ${previa.numero_sequencial || previa.id}`;
+    };
+    
     return (
       <div className="protocol-card" onClick={() => handleViewPrevia(previa)}>
         <div className="card-inner">
           <div className="card-front">
             <div className="card-header">
-              <div className="protocol-code">
-                Atend. {previa.numero_sequencial || previa.id}
+              <div 
+                className="protocol-code"
+                title={previa.titulo_atendimento && previa.titulo_atendimento.trim() ? 
+                  previa.titulo_atendimento : 
+                  `Atendimento ${previa.numero_sequencial || previa.id}`
+                }
+              >
+                {getTituloAtendimento()}
                 {/* Indicador de múltiplos registros - Design melhorado */}
                 {ultimoRegistro.totalRegistros > 1 && (
                   <span 
@@ -756,10 +777,27 @@ const AtendPreviaView = () => {
       );
     };
     
+    // Função para obter o título do atendimento para lista
+    const getTituloAtendimentoLista = () => {
+      if (previa.titulo_atendimento && previa.titulo_atendimento.trim()) {
+        // Para lista, usar até 20 caracteres
+        const titulo = previa.titulo_atendimento.trim();
+        return titulo.length > 20 ? `${titulo.substring(0, 17)}...` : titulo;
+      }
+      // Fallback para o formato antigo
+      return previa.numero_sequencial || previa.id;
+    };
+    
     return (
       <div className="patient-list-item previa-list-row" onClick={() => handleViewPrevia(previa)}>
-        <div className="list-item-code">
-          {previa.numero_sequencial || previa.id}
+        <div 
+          className="list-item-code"
+          title={previa.titulo_atendimento && previa.titulo_atendimento.trim() ? 
+            previa.titulo_atendimento : 
+            `Atendimento ${previa.numero_sequencial || previa.id}`
+          }
+        >
+          {getTituloAtendimentoLista()}
           {/* Indicador de múltiplos registros para o código - Design melhorado */}
           {ultimoRegistro.totalRegistros > 1 && (
             <span 
@@ -922,6 +960,7 @@ const AtendPreviaView = () => {
               onChange={(e) => handleSortChange(e.target.value)}
             >
               <option value="data_criacao">Data de Criação</option>
+              <option value="titulo_atendimento">Título do Atendimento</option>
               <option value="paciente_nome">Nome do Paciente</option>
               <option value="protocolo">Protocolo</option>
               <option value="guia">Guia</option>
@@ -1005,11 +1044,12 @@ const AtendPreviaView = () => {
               <div className="patients-list">
                 <div className="list-header">
                   <div 
-                    className={`list-header-code sortable ${sortField === 'numero_sequencial' ? 'active' : ''}`}
-                    onClick={() => handleSortChange('numero_sequencial')}
+                    className={`list-header-code sortable ${sortField === 'titulo_atendimento' ? 'active' : sortField === 'numero_sequencial' ? 'active' : ''}`}
+                    onClick={() => handleSortChange('titulo_atendimento')}
+                    title="Ordenar por Título do Atendimento"
                   >
-                    Atend.
-                    {sortField === 'numero_sequencial' && (
+                    Título
+                    {(sortField === 'titulo_atendimento' || sortField === 'numero_sequencial') && (
                       sortOrder === 'asc' ? <ArrowUpWideNarrow size={12} /> : <ArrowDownWideNarrow size={12} />
                     )}
                   </div>
