@@ -723,6 +723,12 @@ const AtendPreviaView = () => {
         <div 
           className="status-badge-wrapper"
           title={tooltipText}
+          style={{
+            position: 'relative',
+            display: 'inline-block',
+            // CORREÇÃO: Adicionar padding para acomodar a bolinha
+            padding: totalRegistros > 1 ? '10px 10px 0 0' : '0'
+          }}
         >
           <div 
             className="status-badge-custom"
@@ -746,33 +752,34 @@ const AtendPreviaView = () => {
             }}
           >
             {shortText}
-            {/* Indicador de múltiplos registros - Design melhorado */}
-            {totalRegistros > 1 && (
-              <span 
-                style={{
-                  position: 'absolute',
-                  top: '-8px',
-                  right: '-8px',
-                  fontSize: '9px',
-                  backgroundColor: '#8cb369',
-                  color: 'white',
-                  padding: '2px 6px',
-                  borderRadius: '10px',
-                  lineHeight: '1',
-                  fontWeight: '700',
-                  border: '2px solid white',
-                  boxShadow: '0 2px 6px rgba(140, 179, 105, 0.4)',
-                  minWidth: '18px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-                title={`${totalRegistros} registros de parecer`}
-              >
-                {totalRegistros}
-              </span>
-            )}
           </div>
+          {/* CORREÇÃO: Mover indicador para fora do badge */}
+          {totalRegistros > 1 && (
+            <span 
+              style={{
+                position: 'absolute',
+                top: '0px',
+                right: '0px',
+                fontSize: '9px',
+                backgroundColor: '#8cb369',
+                color: 'white',
+                padding: '3px 6px',
+                borderRadius: '12px',
+                lineHeight: '1',
+                fontWeight: '700',
+                border: '2px solid white',
+                boxShadow: '0 2px 6px rgba(140, 179, 105, 0.4)',
+                minWidth: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10
+              }}
+              title={`${totalRegistros} registros de parecer`}
+            >
+              {totalRegistros}
+            </span>
+          )}
         </div>
       );
     };
@@ -1283,11 +1290,42 @@ const addSortingStyles = () => {
       animation: pulse-indicator 2s ease-in-out infinite;
     }
     
+    /* CORREÇÃO: Estilos para evitar corte dos indicadores nas listas */
+    .list-item-birthday,
+    .list-item-first-request {
+      overflow: visible !important;
+      position: relative;
+      padding-top: 12px !important;
+      padding-bottom: 12px !important;
+    }
+    
+    .status-badge-wrapper {
+      overflow: visible !important;
+    }
+    
+    /* Garantir que as células da lista tenham altura suficiente */
+    .previa-list-row {
+      min-height: 60px;
+      align-items: center;
+    }
+    
+    .previa-list-row > div {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+    }
+
     /* Melhor responsividade para textos longos */
     @media (max-width: 1200px) {
       .status-badge-custom {
         max-width: 100px !important;
         font-size: 9px !important;
+      }
+      
+      /* Reduzir padding em telas menores */
+      .status-badge-wrapper {
+        padding: 8px 8px 0 0 !important;
       }
     }
     
@@ -1296,6 +1334,17 @@ const addSortingStyles = () => {
         max-width: 85px !important;
         font-size: 8px !important;
         padding: 4px 8px !important;
+      }
+      
+      /* Padding ainda menor para mobile */
+      .status-badge-wrapper {
+        padding: 6px 6px 0 0 !important;
+      }
+      
+      .list-item-birthday,
+      .list-item-first-request {
+        padding-top: 10px !important;
+        padding-bottom: 10px !important;
       }
     }
     

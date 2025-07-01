@@ -22,6 +22,60 @@ import './NovaPreviaView.css';
 // Import previasService as a fallback
 import { previasService } from '../../../services/previasService';
 
+// NOVO: Componente para mostrar informações do usuário em cada registro de parecer
+const ParecerUserInfoInline = ({ registro, isNewRecord = false }) => {
+  const { userName, userId } = useAuth();
+  
+  // Se é um novo registro, mostrar o usuário atual
+  if (isNewRecord) {
+    return (
+      <div className="parecer-user-info-inline new-record">
+        <User size={12} className="user-icon" />
+        <span className="parecer-user-text">
+          Criando: <strong>{userName}</strong>
+        </span>
+      </div>
+    );
+  }
+
+  // Se é um registro existente, mostrar as informações salvas
+  if (registro.usuario_criacao || registro.usuario_alteracao) {
+    return (
+      <div className="parecer-user-info-inline existing-record">
+        <div className="parecer-user-info-row">
+          {registro.usuario_criacao && (
+            <>
+              <div className="user-indicator created"></div>
+              <span className="parecer-user-text">
+                Por: <strong>{registro.usuario_criacao}</strong>
+              </span>
+              {(registro.data_criacao || registro.data_atualizacao) && (
+                <span className="parecer-user-timestamp">
+                  {registro.data_atualizacao ? 
+                    new Date(registro.data_atualizacao).toLocaleDateString('pt-BR') :
+                    new Date(registro.data_criacao).toLocaleDateString('pt-BR')
+                  }
+                </span>
+              )}
+            </>
+          )}
+          
+          {registro.usuario_alteracao && registro.usuario_alteracao !== registro.usuario_criacao && (
+            <>
+              <div className="user-indicator modified"></div>
+              <span className="parecer-user-text parecer-user-text-secondary">
+                Editado: <strong>{registro.usuario_alteracao}</strong>
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
+
 const StatusRegistrationSection = ({ 
   formData, 
   handleInputChange, 
@@ -325,17 +379,28 @@ const StatusRegistrationSection = ({
       console.log(`📝 Renderizando registro vazio ${registro.id}:`, registro);
     }
     
+    // Determinar se é um novo registro (sem informações de usuário salvas)
+    const isNewRecord = !registro.usuario_criacao && !registro.usuario_alteracao;
+    
     return (
       <div className="parecer-registro-item border border-gray-200 rounded-lg p-4 mb-4 bg-white">
-        {/* Cabeçalho do registro */}
-        <div className="flex justify-between items-center mb-4">
-          <h4 className="status-section-subtitle flex items-center">
-            <FileText size={16} className="mr-2" />
-            Registro de Parecer #{index + 1}
-            <span className="ml-2 text-xs text-gray-500">
-              ({index + 1}/{MAX_REGISTROS})
-            </span>
-          </h4>
+        {/* Cabeçalho do registro COM informações do usuário */}
+        <div className="parecer-registro-header">
+          <div className="parecer-registro-title-section">
+            <h4 className="status-section-subtitle flex items-center flex-wrap">
+              <FileText size={16} className="mr-2" />
+              Registro de Parecer #{index + 1}
+              <span className="ml-2 text-xs text-gray-500">
+                ({index + 1}/{MAX_REGISTROS})
+              </span>
+              
+              {/* NOVO: Informações do usuário para este registro específico - logo ao lado do contador */}
+              <ParecerUserInfoInline 
+                registro={registro} 
+                isNewRecord={isNewRecord}
+              />
+            </h4>
+          </div>
           
           {formData.parecerRegistros.length > 1 && (
             <button
@@ -377,9 +442,14 @@ const StatusRegistrationSection = ({
           </div>
         </div>
 
-        {/* SEÇÃO: Parecer da Guia - CORRIGIDA (removido debug text) */}
+        {/* SEÇÃO: Parecer da Guia - COM DEBUG */}
         <div className="status-section-group mb-4">
-          <h5 className="text-sm font-medium text-gray-700 mb-2">Parecer da Guia</h5>
+          <h5 className="text-sm font-medium text-gray-700 mb-2">
+            Parecer da Guia 
+            <span className="text-xs text-gray-500 ml-2">
+              (Atual: "{registro.parecerGuia || 'vazio'}")
+            </span>
+          </h5>
           
           <div className="status-cards-container">
             {statusOptions.map(option => {
@@ -391,6 +461,7 @@ const StatusRegistrationSection = ({
                   className={`status-card ${option.color} ${isSelected ? 'status-card-selected' : ''}`}
                   onClick={() => {
                     console.log(`🖱️ Clicando em ${option.value} para registro ${registro.id}`);
+                    console.log(`📊 Estado atual do registro:`, registro);
                     handleStatusCardSelectForRegistro(registro.id, 'parecerGuia', option.value);
                   }}
                   style={{
@@ -410,9 +481,14 @@ const StatusRegistrationSection = ({
           </div>
         </div>
         
-        {/* SEÇÃO: Finalização - CORRIGIDA (removido debug text) */}
+        {/* SEÇÃO: Finalização - COM DEBUG */}
         <div className="status-section-group mb-4">
-          <h5 className="text-sm font-medium text-gray-700 mb-2">Finalização</h5>
+          <h5 className="text-sm font-medium text-gray-700 mb-2">
+            Finalização 
+            <span className="text-xs text-gray-500 ml-2">
+              (Atual: "{registro.finalizacao || 'vazio'}")
+            </span>
+          </h5>
           
           <div className="status-cards-container">
             {statusOptions.map(option => {
@@ -424,6 +500,7 @@ const StatusRegistrationSection = ({
                   className={`status-card ${option.color} ${isSelected ? 'status-card-selected' : ''}`}
                   onClick={() => {
                     console.log(`🖱️ Clicando em Finalização ${option.value} para registro ${registro.id}`);
+                    console.log(`📊 Estado atual do registro (finalizacao):`, registro);
                     handleStatusCardSelectForRegistro(registro.id, 'finalizacao', option.value);
                   }}
                   style={{
@@ -1916,6 +1993,40 @@ const NovaPreviaView = () => {
         }
       }
 
+      // NOVO: Preparar registros de parecer com informações de usuário
+      const parecerRegistrosComUsuario = formData.parecerRegistros.map((registro, index) => {
+        const registroComUsuario = { ...registro };
+        
+        // Se é um registro novo (sem informações de usuário), adicionar o usuário atual
+        if (!registro.usuario_criacao && !registro.usuario_alteracao) {
+          registroComUsuario.usuario_criacao_id = userId;
+          registroComUsuario.data_criacao = new Date().toISOString();
+        } else if (formData.id) {
+          // Se estamos editando uma prévia existente, marcar como alteração
+          registroComUsuario.usuario_alteracao_id = userId;
+          registroComUsuario.data_atualizacao = new Date().toISOString();
+        }
+        
+        return {
+          id: registroComUsuario.id,
+          parecer: registroComUsuario.parecer || '',
+          // CORREÇÃO: Mapear corretamente o parecerGuia
+          parecerGuia: registroComUsuario.parecerGuia || '', // Frontend usa parecerGuia
+          parecer_guia: registroComUsuario.parecerGuia || '', // Backend pode esperar parecer_guia
+          finalizacao: registroComUsuario.finalizacao || '',
+          dataParecer: registroComUsuario.dataParecer || null,
+          data_parecer: registroComUsuario.dataParecer || null, // Compatibilidade
+          tempoAnalise: registroComUsuario.tempoAnalise || null,
+          tempo_analise: registroComUsuario.tempoAnalise || null, // Compatibilidade
+          observacoes: registroComUsuario.observacoes || '',
+          // Incluir informações de usuário
+          usuario_criacao_id: registroComUsuario.usuario_criacao_id || null,
+          data_criacao: registroComUsuario.data_criacao || null,
+          usuario_alteracao_id: registroComUsuario.usuario_alteracao_id || null,
+          data_atualizacao: registroComUsuario.data_atualizacao || null
+        };
+      });
+
       // Preparar dados para envio
       const dadosPrevia = {
         // Incluir id apenas se estiver editando
@@ -1944,20 +2055,8 @@ const NovaPreviaView = () => {
         data_parecer_registrado: dataParecerRegistrado || null,
         tempo_analise: tempoParaAnalise || 0,
         
-        // NOVO: Incluir dados de parecerRegistros
-        parecer_registros: formData.parecerRegistros.map(registro => ({
-          id: registro.id,
-          parecer: registro.parecer || '',
-          // CORREÇÃO: Mapear corretamente o parecerGuia
-          parecerGuia: registro.parecerGuia || '', // Frontend usa parecerGuia
-          parecer_guia: registro.parecerGuia || '', // Backend pode esperar parecer_guia
-          finalizacao: registro.finalizacao || '',
-          dataParecer: registro.dataParecer || null,
-          data_parecer: registro.dataParecer || null, // Compatibilidade
-          tempoAnalise: registro.tempoAnalise || null,
-          tempo_analise: registro.tempoAnalise || null, // Compatibilidade
-          observacoes: registro.observacoes || ''
-        })),
+        // MODIFICADO: Usar registros com informações de usuário
+        parecer_registros: parecerRegistrosComUsuario,
         
         // Adicionar IDs dos usuários
         ...(formData.id 
@@ -2188,20 +2287,28 @@ const NovaPreviaView = () => {
         data_atualizacao: previaDetails.data_atualizacao
       });
       
-      // *** CORREÇÃO PRINCIPAL: Processar múltiplos registros de parecer com novos campos ***
+      // *** CORREÇÃO: Usar registros processados com informações de usuário ***
       let parecerRegistrosProcessados = [];
 
-      // 1. Primeiro, tentar carregar do campo JSON parecer_registros_processed (que vem do backend melhorado)
+      // Processar registros mantendo as informações de usuário
       if (previaDetails.parecer_registros_processed && Array.isArray(previaDetails.parecer_registros_processed)) {
         parecerRegistrosProcessados = previaDetails.parecer_registros_processed.map((registro, index) => ({
           id: registro.id || (index + 1),
           parecer: registro.parecer || '',
           parecerGuia: registro.parecerGuia || '',
           finalizacao: registro.finalizacao || '',
-          dataSolicitacao: registro.dataSolicitacao || formatDateFromDB(previaDetails.data_solicitacao) || '', // NOVO CAMPO
+          dataSolicitacao: registro.dataSolicitacao || formatDateFromDB(previaDetails.data_solicitacao) || '',
           dataParecer: registro.dataParecer || '',
           tempoAnalise: registro.tempoAnalise || null,
-          observacoes: registro.observacoes || ''
+          observacoes: registro.observacoes || '',
+          
+          // NOVO: Incluir informações de usuário
+          usuario_criacao_id: registro.usuario_criacao_id || null,
+          usuario_criacao: registro.usuario_criacao || null,
+          data_criacao: registro.data_criacao || null,
+          usuario_alteracao_id: registro.usuario_alteracao_id || null,
+          usuario_alteracao: registro.usuario_alteracao || null,
+          data_atualizacao: registro.data_atualizacao || null
         }));
         
         console.log(`✅ Carregados ${parecerRegistrosProcessados.length} registros do backend melhorado`);
@@ -2217,10 +2324,18 @@ const NovaPreviaView = () => {
               parecer: registro.parecer || '',
               parecerGuia: registro.parecerGuia || registro.parecer_guia || '',
               finalizacao: registro.finalizacao || '',
-              dataSolicitacao: registro.dataSolicitacao || formatDateFromDB(previaDetails.data_solicitacao) || '', // NOVO CAMPO
+              dataSolicitacao: registro.dataSolicitacao || formatDateFromDB(previaDetails.data_solicitacao) || '',
               dataParecer: registro.dataParecer || registro.data_parecer || '',
               tempoAnalise: registro.tempoAnalise || registro.tempo_analise || null,
-              observacoes: registro.observacoes || ''
+              observacoes: registro.observacoes || '',
+              
+              // NOVO: Incluir informações de usuário do JSON se disponíveis
+              usuario_criacao_id: registro.usuario_criacao_id || null,
+              usuario_criacao: registro.usuario_criacao || null,
+              data_criacao: registro.data_criacao || null,
+              usuario_alteracao_id: registro.usuario_alteracao_id || null,
+              usuario_alteracao: registro.usuario_alteracao || null,
+              data_atualizacao: registro.data_atualizacao || null
             }));
             
             console.log(`✅ Carregados ${parecerRegistrosProcessados.length} registros do JSON original`);
@@ -2241,10 +2356,18 @@ const NovaPreviaView = () => {
             parecer: previaDetails.parecer || '',
             parecerGuia: previaDetails.parecer_guia || '',
             finalizacao: previaDetails.finalizacao || '',
-            dataSolicitacao: formatDateFromDB(previaDetails.data_solicitacao) || '', // NOVO CAMPO
+            dataSolicitacao: formatDateFromDB(previaDetails.data_solicitacao) || '',
             dataParecer: previaDetails.data_parecer_registrado ? formatDateFromDB(previaDetails.data_parecer_registrado) : '',
             tempoAnalise: previaDetails.tempo_analise || null,
-            observacoes: ''
+            observacoes: '',
+            
+            // Usar informações gerais da prévia
+            usuario_criacao_id: previaDetails.usuario_criacao_id,
+            usuario_criacao: previaDetails.nome_usuario_criacao,
+            data_criacao: previaDetails.data_criacao,
+            usuario_alteracao_id: previaDetails.usuario_alteracao_id,
+            usuario_alteracao: previaDetails.nome_usuario_alteracao,
+            data_atualizacao: previaDetails.data_atualizacao
           }];
         } else {
           parecerRegistrosProcessados = [{
@@ -2252,10 +2375,18 @@ const NovaPreviaView = () => {
             parecer: '',
             parecerGuia: '',
             finalizacao: '',
-            dataSolicitacao: formatDateFromDB(previaDetails.data_solicitacao) || '', // NOVO CAMPO
+            dataSolicitacao: formatDateFromDB(previaDetails.data_solicitacao) || '',
             dataParecer: '',
             tempoAnalise: null,
-            observacoes: ''
+            observacoes: '',
+            
+            // Sem informações de usuário para registros vazios
+            usuario_criacao_id: null,
+            usuario_criacao: null,
+            data_criacao: null,
+            usuario_alteracao_id: null,
+            usuario_alteracao: null,
+            data_atualizacao: null
           }];
         }
       }
@@ -2267,14 +2398,32 @@ const NovaPreviaView = () => {
           parecer: '',
           parecerGuia: '',
           finalizacao: '',
-          dataSolicitacao: formatDateFromDB(previaDetails.data_solicitacao) || '', // NOVO CAMPO
+          dataSolicitacao: formatDateFromDB(previaDetails.data_solicitacao) || '',
           dataParecer: '',
           tempoAnalise: null,
-          observacoes: ''
+          observacoes: '',
+          
+          // Sem informações de usuário para registros padrão
+          usuario_criacao_id: null,
+          usuario_criacao: null,
+          data_criacao: null,
+          usuario_alteracao_id: null,
+          usuario_alteracao: null,
+          data_atualizacao: null
         }];
       }
       
       console.log("📋 Registros finais carregados:", parecerRegistrosProcessados);
+      
+      // NOVO: Log detalhado dos campos de status
+      parecerRegistrosProcessados.forEach((registro, index) => {
+        console.log(`🔍 Registro ${index + 1}:`, {
+          id: registro.id,
+          parecerGuia: registro.parecerGuia,
+          finalizacao: registro.finalizacao,
+          parecer: registro.parecer ? 'tem conteúdo' : 'vazio'
+        });
+      });
       
       // Atualizar o formulário com os dados carregados
       setFormData({
@@ -3403,7 +3552,7 @@ const NovaPreviaView = () => {
             data_atualizacao: previaData.data_atualizacao
           });
           
-          // *** CORREÇÃO PRINCIPAL: Processar múltiplos registros de parecer ***
+          // *** CORREÇÃO: Processar múltiplos registros de parecer com informações de usuário ***
           let parecerRegistrosProcessados = [];
 
           // 1. Primeiro, tentar carregar do campo JSON parecer_registros_processed
@@ -3416,7 +3565,15 @@ const NovaPreviaView = () => {
               dataSolicitacao: registro.dataSolicitacao || formatDateFromDB(previaData.data_solicitacao) || '',
               dataParecer: registro.dataParecer || '',
               tempoAnalise: registro.tempoAnalise || null,
-              observacoes: registro.observacoes || ''
+              observacoes: registro.observacoes || '',
+              
+              // NOVO: Incluir informações de usuário
+              usuario_criacao_id: registro.usuario_criacao_id || null,
+              usuario_criacao: registro.usuario_criacao || null,
+              data_criacao: registro.data_criacao || null,
+              usuario_alteracao_id: registro.usuario_alteracao_id || null,
+              usuario_alteracao: registro.usuario_alteracao || null,
+              data_atualizacao: registro.data_atualizacao || null
             }));
             
             console.log(`✅ [useEffect] Carregados ${parecerRegistrosProcessados.length} registros do parecer_registros_processed`);
@@ -3435,7 +3592,15 @@ const NovaPreviaView = () => {
                   dataSolicitacao: registro.dataSolicitacao || formatDateFromDB(previaData.data_solicitacao) || '',
                   dataParecer: registro.dataParecer || registro.data_parecer || '',
                   tempoAnalise: registro.tempoAnalise || registro.tempo_analise || null,
-                  observacoes: registro.observacoes || ''
+                  observacoes: registro.observacoes || '',
+                  
+                  // NOVO: Incluir informações de usuário do JSON se disponíveis
+                  usuario_criacao_id: registro.usuario_criacao_id || null,
+                  usuario_criacao: registro.usuario_criacao || null,
+                  data_criacao: registro.data_criacao || null,
+                  usuario_alteracao_id: registro.usuario_alteracao_id || null,
+                  usuario_alteracao: registro.usuario_alteracao || null,
+                  data_atualizacao: registro.data_atualizacao || null
                 }));
                 
                 console.log(`✅ [useEffect] Carregados ${parecerRegistrosProcessados.length} registros do parecer_registros JSON`);
@@ -3459,7 +3624,15 @@ const NovaPreviaView = () => {
                 dataSolicitacao: formatDateFromDB(previaData.data_solicitacao) || '',
                 dataParecer: previaData.data_parecer_registrado ? formatDateFromDB(previaData.data_parecer_registrado) : '',
                 tempoAnalise: previaData.tempo_analise || null,
-                observacoes: ''
+                observacoes: '',
+                
+                // Usar informações gerais da prévia
+                usuario_criacao_id: previaData.usuario_criacao_id,
+                usuario_criacao: previaData.nome_usuario_criacao,
+                data_criacao: previaData.data_criacao,
+                usuario_alteracao_id: previaData.usuario_alteracao_id,
+                usuario_alteracao: previaData.nome_usuario_alteracao,
+                data_atualizacao: previaData.data_atualizacao
               }];
             } else {
               parecerRegistrosProcessados = [{
@@ -3470,12 +3643,30 @@ const NovaPreviaView = () => {
                 dataSolicitacao: formatDateFromDB(previaData.data_solicitacao) || '',
                 dataParecer: '',
                 tempoAnalise: null,
-                observacoes: ''
+                observacoes: '',
+                
+                // Sem informações de usuário para registros vazios
+                usuario_criacao_id: null,
+                usuario_criacao: null,
+                data_criacao: null,
+                usuario_alteracao_id: null,
+                usuario_alteracao: null,
+                data_atualizacao: null
               }];
             }
           }
           
           console.log("📋 [useEffect] Registros finais processados:", parecerRegistrosProcessados);
+
+          // NOVO: Log detalhado dos campos de status no useEffect
+          parecerRegistrosProcessados.forEach((registro, index) => {
+            console.log(`🔍 [useEffect] Registro ${index + 1}:`, {
+              id: registro.id,
+              parecerGuia: registro.parecerGuia,
+              finalizacao: registro.finalizacao,
+              parecer: registro.parecer ? 'tem conteúdo' : 'vazio'
+            });
+          });
 
           // CORRIGIDO: Usar previaData em vez de previaDetails E incluir parecerRegistros
           setFormData(prevData => ({
@@ -5071,6 +5262,145 @@ const NovaPreviaView = () => {
           
           .status-button-text {
             font-size: 10px;
+          }
+        }
+
+        /* NOVOS ESTILOS PARA INFORMAÇÕES DE USUÁRIO NOS REGISTROS DE PARECER */
+        
+        .parecer-registro-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 1rem;
+        }
+        
+        .parecer-registro-title-section {
+          flex: 1;
+        }
+        
+        .parecer-registro-title-section .status-section-subtitle {
+          gap: 0.5rem;
+          align-items: center;
+        }
+        
+        .parecer-user-info-inline {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          padding: 0.25rem 0.5rem;
+          border-radius: 0.375rem;
+          font-size: 0.7rem;
+          border: 1px solid;
+          white-space: nowrap;
+          flex-shrink: 0;
+          margin-left: 0.75rem;
+        }
+        
+        .parecer-user-info-inline.new-record {
+          background-color: #f0f9ff;
+          border-color: #0ea5e9;
+          color: #0c4a6e;
+        }
+        
+        .parecer-user-info-inline.existing-record {
+          background-color: #f8fafc;
+          border-color: #e2e8f0;
+          color: #475569;
+        }
+        
+        .parecer-user-info-row {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+        
+        .parecer-user-text {
+          font-size: 0.75rem;
+          line-height: 1;
+        }
+        
+        .parecer-user-text-secondary {
+          color: #64748b;
+          margin-left: 0.5rem;
+        }
+        
+        .parecer-user-timestamp {
+          font-size: 0.7rem;
+          color: #94a3b8;
+          margin-left: 0.25rem;
+        }
+        
+        .user-indicator {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+        
+        .user-indicator.created {
+          background-color: #22c55e;
+        }
+        
+        .user-indicator.modified {
+          background-color: #f59e0b;
+        }
+        
+        .user-icon {
+          color: #6b7280;
+          flex-shrink: 0;
+        }
+        
+        /* Responsividade para informações de usuário */
+        @media (max-width: 1024px) and (min-width: 769px) {
+          .parecer-user-info-inline {
+            font-size: 0.65rem;
+            padding: 0.25rem 0.5rem;
+            margin-left: 0.5rem;
+          }
+        }
+        
+        @media (max-width: 768px) {
+          .parecer-registro-header {
+            flex-direction: column;
+            gap: 1rem;
+          }
+          
+          .parecer-registro-title-section .status-section-subtitle {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+          }
+          
+          .parecer-user-info-inline {
+            font-size: 0.65rem;
+            padding: 0.25rem 0.5rem;
+            margin-left: 0;
+          }
+          
+          .parecer-user-info-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.25rem;
+          }
+          
+          .parecer-user-text-secondary {
+            margin-left: 0;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .parecer-user-timestamp {
+            display: none;
+          }
+          
+          .parecer-user-info-inline {
+            font-size: 0.6rem;
+            padding: 0.2rem 0.4rem;
+          }
+          
+          .parecer-registro-title-section .status-section-subtitle {
+            font-size: 0.8rem;
           }
         }
       `}</style>
