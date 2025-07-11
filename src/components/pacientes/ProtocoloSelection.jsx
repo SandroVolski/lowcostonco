@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X, Check, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { normalizeString } from '../../utils/stringUtils';
 
 const PROTOCOLO_CACHE_KEY = 'cached_protocolos';
 const PROTOCOLO_CACHE_TIMESTAMP = 'cached_protocolos_timestamp';
@@ -90,10 +91,10 @@ const ProtocoloSelection = ({
       
       // Filter by search term if provided
       if (search && search.trim() !== '') {
-        const normalizedSearch = search.toLowerCase();
+        const normalizedSearch = normalizeString(search);
         return cachedProtocolos.filter(protocolo => 
-          protocolo.nome.toLowerCase().includes(normalizedSearch) || 
-          (protocolo.sigla && protocolo.sigla.toLowerCase().includes(normalizedSearch))
+          normalizeString(protocolo.nome).includes(normalizedSearch) || 
+          (protocolo.sigla && normalizeString(protocolo.sigla).includes(normalizedSearch))
         );
       }
       

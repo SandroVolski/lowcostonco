@@ -189,7 +189,7 @@ const StatusRegistrationSection = ({
   };
 
   // CORREÇÃO PRINCIPAL: Função para alterar dados do registro
-  const handleParecerRegistroChange = (registroId, field, value) => {
+  const handleParecerRegistroChange = useCallback((registroId, field, value) => {
     console.log(`🔧 Alterando registro ${registroId}, campo ${field}, valor:`, value);
     
     const updatedRegistros = formData.parecerRegistros.map(registro => {
@@ -237,42 +237,96 @@ const StatusRegistrationSection = ({
     };
     
     handleInputChange(syntheticEvent);
-  };
+  }, [formData.parecerRegistros, formData.dataSolicitacao, handleInputChange]);
 
   // Função específica para status cards
-  const handleStatusCardSelectForRegistro = (registroId, field, value) => {
+  const handleStatusCardSelectForRegistro = useCallback((registroId, field, value) => {
     console.log(`🎯 Selecionando ${field} = ${value} para registro ${registroId}`);
     
     // NOVO: Se está selecionando um Parecer da Guia, preencher data de solicitação automaticamente
-    if (field === 'parecerGuia' && value && !formData.dataSolicitacao) {
-      const currentDate = getCurrentDateFormatted();
-      
-      // Preencher no formulário principal
-      handleInputChange({
-        target: {
-          name: 'dataSolicitacao',
-          value: currentDate
+    if (field === 'parecerGuia' && value) {
+      // MODIFICAÇÃO: Aplicar regra especial SOMENTE para o primeiro registro
+      if (registroId === 1) {
+        // Para o primeiro registro (#1), usar data de encaminhamento AF se disponível
+        let dataParaUsar;
+        
+        if (formData.dataEncaminhamentoAF && formData.dataEncaminhamentoAF.trim() !== '') {
+          dataParaUsar = formData.dataEncaminhamentoAF;
+          console.log(`📅 Registro #1: usando Data de Encaminhamento AF: ${dataParaUsar}`);
+        } else {
+          dataParaUsar = getCurrentDateFormatted();
+          console.log(`📅 Registro #1: Data de Encaminhamento AF não disponível, usando data atual: ${dataParaUsar}`);
         }
-      });
-      
-      // Também preencher em todos os registros de parecer que não têm data
-      const updatedRegistros = formData.parecerRegistros.map(registro => ({
-        ...registro,
-        dataSolicitacao: registro.dataSolicitacao || currentDate
-      }));
-      
-      handleInputChange({
-        target: {
-          name: 'parecerRegistros',
-          value: updatedRegistros
+        
+        // Preencher no formulário principal apenas se estiver vazio
+        if (!formData.dataSolicitacao) {
+          handleInputChange({
+            target: {
+              name: 'dataSolicitacao',
+              value: dataParaUsar
+            }
+          });
         }
-      });
-      
-      console.log(`📅 Data de solicitação preenchida automaticamente: ${currentDate}`);
+        
+        // Preencher APENAS no primeiro registro se ele não tiver data ainda
+        const updatedRegistros = formData.parecerRegistros.map(registro => {
+          if (registro.id === registroId && !registro.dataSolicitacao) {
+            return {
+              ...registro,
+              dataSolicitacao: dataParaUsar
+            };
+          }
+          return registro; // Outros registros permanecem inalterados
+        });
+        
+        handleInputChange({
+          target: {
+            name: 'parecerRegistros',
+            value: updatedRegistros
+          }
+        });
+        
+        console.log(`📅 Data de solicitação preenchida no registro #1: ${dataParaUsar}`);
+      } else {
+        // Para registros #2, #3, #4, #5 - comportamento normal (data atual)
+        const currentDate = getCurrentDateFormatted();
+        
+        console.log(`📅 Registro #${registroId}: usando data atual: ${currentDate}`);
+        
+        // Preencher no formulário principal apenas se estiver vazio
+        if (!formData.dataSolicitacao) {
+          handleInputChange({
+            target: {
+              name: 'dataSolicitacao',
+              value: currentDate
+            }
+          });
+        }
+        
+        // Preencher apenas no registro específico se ele não tiver data ainda
+        const updatedRegistros = formData.parecerRegistros.map(registro => {
+          if (registro.id === registroId && !registro.dataSolicitacao) {
+            return {
+              ...registro,
+              dataSolicitacao: currentDate
+            };
+          }
+          return registro; // Outros registros permanecem inalterados
+        });
+        
+        handleInputChange({
+          target: {
+            name: 'parecerRegistros',
+            value: updatedRegistros
+          }
+        });
+        
+        console.log(`📅 Data de solicitação preenchida no registro #${registroId}: ${currentDate}`);
+      }
     }
     
     handleParecerRegistroChange(registroId, field, value);
-  };
+  }, [formData.dataEncaminhamentoAF, formData.dataSolicitacao, formData.parecerRegistros, handleInputChange, handleParecerRegistroChange]);
 
   // NOVA: Função para aplicar máscara de data
   const applyDateMask = (value) => {
@@ -288,6 +342,26 @@ const StatusRegistrationSection = ({
     }
   };
 
+  // NOVA: Handler para teclas especiais nos campos de data
+  const handleDateKeyDown = (e) => {
+    // Permitir: backspace, delete, tab, escape, enter
+    if ([8, 9, 27, 13, 46].indexOf(e.keyCode) !== -1 ||
+      // Permitir: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+      (e.keyCode === 65 && e.ctrlKey === true) ||
+      (e.keyCode === 67 && e.ctrlKey === true) ||
+      (e.keyCode === 86 && e.ctrlKey === true) ||
+      (e.keyCode === 88 && e.ctrlKey === true) ||
+      // Permitir: home, end, left, right
+      (e.keyCode >= 35 && e.keyCode <= 39)) {
+      return; // Deixa passar
+    }
+    
+    // Garantir que é um número
+    if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+      e.preventDefault();
+    }
+  };
+
   // NOVA: Handler para campos de data com máscara
   const handleDateChange = (registroId, value) => {
     const maskedValue = applyDateMask(value);
@@ -295,16 +369,31 @@ const StatusRegistrationSection = ({
   };
 
   // Componente para exibir métricas de tempo
-  const TempoAnaliseMetrics = ({ registro }) => {
+  const TempoAnaliseMetrics = ({ registro, localDataSolicitacao, localDataParecer }) => {
     const getStatusColor = (dias) => {
       if (dias <= 2) return 'text-green-600 bg-green-100';
       if (dias <= 5) return 'text-yellow-600 bg-yellow-100';
       return 'text-red-600 bg-red-100';
     };
     
-    const dataSolicitacao = registro.dataSolicitacao || formData.dataSolicitacao;
+    // NOVO: Usar valores locais para cálculo em tempo real
+    const dataSolicitacaoAtual = localDataSolicitacao || registro.dataSolicitacao || formData.dataSolicitacao;
+    const dataParecerAtual = localDataParecer || registro.dataParecer;
     
-    if (!dataSolicitacao) return null;
+    // NOVO: Calcular tempo de análise em tempo real
+    const tempoAnaliseAtual = useMemo(() => {
+      if (dataSolicitacaoAtual && dataParecerAtual) {
+        // Verificar se as datas estão completas (formato DD/MM/AAAA)
+        if (dataSolicitacaoAtual.length === 10 && dataParecerAtual.length === 10) {
+          const dias = calculateDaysDifference(dataSolicitacaoAtual, dataParecerAtual);
+          console.log(`⚡ Tempo real calculado: ${dias} dias (${dataSolicitacaoAtual} → ${dataParecerAtual})`);
+          return dias;
+        }
+      }
+      return null;
+    }, [dataSolicitacaoAtual, dataParecerAtual]);
+    
+    if (!dataSolicitacaoAtual) return null;
     
     return (
       <div className="tempo-analise-metrics">
@@ -313,25 +402,61 @@ const StatusRegistrationSection = ({
         <div className="grid grid-cols-2 gap-4">
           <div className="metric-item">
             <span className="text-xs text-gray-500">Data Solicitação:</span>
-            <span className="block text-sm font-medium">{dataSolicitacao}</span>
+            <span className="block text-sm font-medium">
+              {dataSolicitacaoAtual || 'Não informado'}
+            </span>
           </div>
           
           <div className="metric-item">
             <span className="text-xs text-gray-500">Data Parecer:</span>
-            <span className="block text-sm font-medium">{registro.dataParecer || 'Não informado'}</span>
+            <span className="block text-sm font-medium">
+              {dataParecerAtual || 'Não informado'}
+            </span>
           </div>
         </div>
         
-        {registro.tempoAnalise !== null && registro.tempoAnalise !== undefined && (
+        {/* NOVO: Usar tempo de análise calculado em tempo real */}
+        {tempoAnaliseAtual !== null && tempoAnaliseAtual !== undefined && (
           <div className="mt-3 flex items-center justify-between tempo-indicator">
             <div className="flex items-center">
               <Clock8 size={16} className="text-gray-500 mr-2" />
               <span className="text-sm font-medium">Tempo para análise:</span>
             </div>
             
-            <div className={`tempo-badge ${getStatusColor(registro.tempoAnalise)}`}>
-              {registro.tempoAnalise} {registro.tempoAnalise === 1 ? 'dia' : 'dias'}
+            <div className={`tempo-badge ${getStatusColor(tempoAnaliseAtual)}`}>
+              {tempoAnaliseAtual} {tempoAnaliseAtual === 1 ? 'dia' : 'dias'}
             </div>
+          </div>
+        )}
+        
+        {/* NOVO: Indicador visual quando está digitando */}
+        {dataSolicitacaoAtual && dataParecerAtual && 
+         (dataSolicitacaoAtual.length < 10 || dataParecerAtual.length < 10) && (
+          <div className="mt-3 flex items-center justify-center text-xs text-gray-500 bg-yellow-50 border border-yellow-200 rounded-md p-2 tempo-status-indicator">
+            <Clock8 size={14} className="mr-1 text-yellow-600" />
+            <span className="text-yellow-700">
+              Digite as datas completas (DD/MM/AAAA) para ver o tempo de análise
+            </span>
+          </div>
+        )}
+        
+        {/* NOVO: Indicador quando apenas uma data está preenchida */}
+        {((dataSolicitacaoAtual && dataSolicitacaoAtual.length === 10) && (!dataParecerAtual || dataParecerAtual.length < 10)) && (
+          <div className="mt-3 flex items-center justify-center text-xs text-gray-500 bg-blue-50 border border-blue-200 rounded-md p-2 tempo-status-indicator">
+            <Clock8 size={14} className="mr-1 text-blue-600" />
+            <span className="text-blue-700">
+              Preencha a data do parecer para calcular o tempo de análise
+            </span>
+          </div>
+        )}
+        
+        {/* NOVO: Indicador quando apenas data parecer está preenchida */}
+        {((!dataSolicitacaoAtual || dataSolicitacaoAtual.length < 10) && (dataParecerAtual && dataParecerAtual.length === 10)) && (
+          <div className="mt-3 flex items-center justify-center text-xs text-gray-500 bg-blue-50 border border-blue-200 rounded-md p-2 tempo-status-indicator">
+            <Clock8 size={14} className="mr-1 text-blue-600" />
+            <span className="text-blue-700">
+              Preencha a data de solicitação para calcular o tempo de análise
+            </span>
           </div>
         )}
       </div>
@@ -343,10 +468,18 @@ const StatusRegistrationSection = ({
     // CORREÇÃO DO BUG: Estado local para o parecer técnico
     const [localParecer, setLocalParecer] = useState(registro.parecer || '');
     
+    // NOVO: Estado local para a data do parecer
+    const [localDataParecer, setLocalDataParecer] = useState(registro.dataParecer || '');
+    
+    // NOVO: Estado local para a data de solicitação
+    const [localDataSolicitacao, setLocalDataSolicitacao] = useState(registro.dataSolicitacao || formData.dataSolicitacao || '');
+    
     // Sincronizar estado local quando o registro muda (navegação entre páginas)
     useEffect(() => {
       setLocalParecer(registro.parecer || '');
-    }, [registro.id, registro.parecer]);
+      setLocalDataParecer(registro.dataParecer || '');
+      setLocalDataSolicitacao(registro.dataSolicitacao || formData.dataSolicitacao || '');
+    }, [registro.id, registro.parecer, registro.dataParecer, registro.dataSolicitacao, formData.dataSolicitacao]);
     
     // Função para atualizar o formData apenas quando necessário
     const updateParecerInFormData = useCallback((newValue) => {
@@ -362,6 +495,59 @@ const StatusRegistrationSection = ({
       };
       handleInputChange(syntheticEvent);
     }, [registro.id, formData.parecerRegistros, handleInputChange]);
+
+    // NOVO: Função para atualizar a data do parecer no formData
+    const updateDataParecerInFormData = useCallback((newValue) => {
+      const maskedValue = applyDateMask(newValue);
+      
+      const syntheticEvent = {
+        target: {
+          name: 'parecerRegistros',
+          value: formData.parecerRegistros.map(r => 
+            r.id === registro.id 
+              ? { 
+                  ...r, 
+                  dataParecer: maskedValue,
+                  tempoAnalise: calculateDaysDifference(r.dataSolicitacao || formData.dataSolicitacao, maskedValue)
+                }
+              : r
+          )
+        }
+      };
+      handleInputChange(syntheticEvent);
+    }, [registro.id, formData.parecerRegistros, formData.dataSolicitacao, handleInputChange]);
+
+    // NOVO: Função para atualizar a data de solicitação no formData
+    const updateDataSolicitacaoInFormData = useCallback((newValue) => {
+      const maskedValue = applyDateMask(newValue);
+      
+      const syntheticEvent = {
+        target: {
+          name: 'parecerRegistros',
+          value: formData.parecerRegistros.map(r => 
+            r.id === registro.id 
+              ? { 
+                  ...r, 
+                  dataSolicitacao: maskedValue,
+                  tempoAnalise: calculateDaysDifference(maskedValue, r.dataParecer)
+                }
+              : r
+          )
+        }
+      };
+      handleInputChange(syntheticEvent);
+      
+      // NOVO: Também atualizar a data de solicitação geral do formData se for o primeiro registro
+      if (index === 0) {
+        const generalDataEvent = {
+          target: {
+            name: 'dataSolicitacao',
+            value: maskedValue
+          }
+        };
+        handleInputChange(generalDataEvent);
+      }
+    }, [registro.id, formData.parecerRegistros, index, handleInputChange]);
     
     // Debounce para atualizar o formData (evita muitas atualizações)
     useEffect(() => {
@@ -373,7 +559,22 @@ const StatusRegistrationSection = ({
       
       return () => clearTimeout(timeoutId);
     }, [localParecer, registro.parecer, updateParecerInFormData]);
+
+    // REMOVIDO: Debounce para permitir digitação contínua
+    // A atualização será feita apenas no onBlur (quando sair do campo)
     
+    // NOVO: Função para aplicar máscara de data localmente (Data Parecer)
+    const handleLocalDateChange = useCallback((value) => {
+      const maskedValue = applyDateMask(value);
+      setLocalDataParecer(maskedValue);
+    }, []);
+
+    // NOVO: Função para aplicar máscara de data localmente (Data Solicitação)
+    const handleLocalDataSolicitacaoChange = useCallback((value) => {
+      const maskedValue = applyDateMask(value);
+      setLocalDataSolicitacao(maskedValue);
+    }, []);
+
     // Log mais silencioso - apenas quando há problemas
     if (!registro.parecerGuia && !registro.finalizacao && !registro.parecer) {
       console.log(`📝 Renderizando registro vazio ${registro.id}:`, registro);
@@ -530,24 +731,15 @@ const StatusRegistrationSection = ({
                 <label className="form-label text-xs">Data Solicitação</label>
                 <input
                   type="text"
-                  value={registro.dataSolicitacao || formData.dataSolicitacao || ''}
-                  readOnly
-                  className="form-input bg-gray-100 text-gray-600 cursor-not-allowed"
-                  placeholder="DD/MM/AAAA"
-                  style={{
-                    backgroundColor: '#f9fafb',
-                    color: '#6b7280'
-                  }}
-                />
-                <span className="text-xs text-gray-500 mt-1">Preenchido automaticamente</span>
-              </div>
-              
-              <div className="form-field">
-                <label className="form-label text-xs">Data Parecer</label>
-                <input
-                  type="text"
-                  value={registro.dataParecer || ''}
-                  onChange={(e) => handleDateChange(registro.id, e.target.value)}
+                  value={localDataSolicitacao}
+                  onChange={(e) => handleLocalDataSolicitacaoChange(e.target.value)}
+                  onBlur={useCallback(() => {
+                    // Atualizar apenas se o valor mudou
+                    if (localDataSolicitacao !== (registro.dataSolicitacao || formData.dataSolicitacao)) {
+                      updateDataSolicitacaoInFormData(localDataSolicitacao);
+                    }
+                  }, [localDataSolicitacao, registro.dataSolicitacao, formData.dataSolicitacao, updateDataSolicitacaoInFormData])}
+                  onKeyDown={handleDateKeyDown}
                   className="form-input"
                   placeholder="DD/MM/AAAA"
                   maxLength="10"
@@ -556,7 +748,31 @@ const StatusRegistrationSection = ({
                     border: '1px solid #d1d5db'
                   }}
                 />
-                <span className="text-xs text-gray-500 mt-1">Preenchido automaticamente ao finalizar</span>
+                <span className="text-xs text-gray-500 mt-1">Data de solicitação do parecer</span>
+              </div>
+              
+              <div className="form-field">
+                <label className="form-label text-xs">Data Parecer</label>
+                <input
+                  type="text"
+                  value={localDataParecer}
+                  onChange={(e) => handleLocalDateChange(e.target.value)}
+                  onBlur={useCallback(() => {
+                    // Atualizar apenas se o valor mudou
+                    if (localDataParecer !== registro.dataParecer) {
+                      updateDataParecerInFormData(localDataParecer);
+                    }
+                  }, [localDataParecer, registro.dataParecer, updateDataParecerInFormData])}
+                  onKeyDown={handleDateKeyDown}
+                  className="form-input"
+                  placeholder="DD/MM/AAAA"
+                  maxLength="10"
+                  style={{
+                    backgroundColor: '#fff',
+                    border: '1px solid #d1d5db'
+                  }}
+                />
+                <span className="text-xs text-gray-500 mt-1">Data de emissão do parecer</span>
               </div>
             </div>
           </div>
@@ -564,7 +780,11 @@ const StatusRegistrationSection = ({
         
         {/* Métricas de tempo de análise - CONDICIONAL */}
         {(registro.parecerGuia || registro.finalizacao) && (
-          <TempoAnaliseMetrics registro={registro} />
+          <TempoAnaliseMetrics 
+            registro={registro} 
+            localDataSolicitacao={localDataSolicitacao}
+            localDataParecer={localDataParecer}
+          />
         )}
         
         {/* Botão para adicionar novo registro */}
@@ -645,7 +865,7 @@ const StatusRegistrationSection = ({
           ) : (
             formData.parecerRegistros.map((registro, index) => (
               <ParecerRegistroItem 
-                key={`registro-${registro.id}-${currentPage}`} 
+                key={`registro-${registro.id}`} 
                 registro={registro} 
                 index={index}
               />
@@ -1636,9 +1856,23 @@ const NovaPreviaView = () => {
         }]
       };
       
-      // Verificar se já não é o paciente atual (evitar recarregamento desnecessário)
-      if (selectedPatient && selectedPatient.id === patient.id) {
-        console.log("Paciente já está selecionado, apenas atualizando dados");
+      // Verificar se é o mesmo paciente - permitir re-seleção mas otimizar o processo
+      const isSamePatient = selectedPatient && selectedPatient.id === patient.id;
+      
+      if (isSamePatient) {
+        console.log("Re-selecionando o mesmo paciente - fechando modal");
+        
+        // Apenas fechar modal de busca sem resetar o formulário
+        setShowSearchModal(false);
+        
+        // Mostrar feedback ao usuário
+        toast({
+          title: "Paciente selecionado",
+          description: `${patient.Nome} continua selecionado.`,
+          variant: "success"
+        });
+        
+        console.log("Mesmo paciente selecionado - modal fechado");
         setIsLoadingPatient(false);
         return;
       }
@@ -2968,31 +3202,125 @@ const NovaPreviaView = () => {
   // Componente para inputs dinâmicos de Ciclo/Dia
   const CicloDiaInputs = ({ value, onChange }) => {
     // Estado para controlar os múltiplos ciclos/dias
-    const [cicloDiaEntries, setCicloDiaEntries] = useState([
+    const [cicloDiaEntries, setCicloDiaEntries] = useState(() => [
       { id: 1, ciclo: '', dia: '', protocolo: '' }
     ]);
     
     // Estado para controlar o tipo de solicitação
     const [requestType, setRequestType] = useState('single'); // 'single', 'multiple', ou 'fullCycle'
     
-    // Efeito para inicializar a partir de valores existentes
+    // NOVO: Ref para rastrear se requestType foi definido manualmente pelo usuário
+    const requestTypeSetManually = useRef(false);
+    
+    // NOVO: Ref para armazenar o valor atual do requestType (evita problemas de closure)
+    const requestTypeRef = useRef(requestType);
+    
+    // NOVO: Ref para debounce de mudanças do requestType
+    const requestTypeDebounce = useRef(null);
+    
+    // Sincronizar ref com estado
     useEffect(() => {
-      if (value && Array.isArray(value) && value.length > 0) {
-        setCicloDiaEntries(value);
-        
-        // Determinar o tipo de solicitação
-        if (value.length > 1) {
-          setRequestType('multiple');
-        } else if (value.length === 1 && value[0].fullCycle) {
-          setRequestType('fullCycle');
-        } else {
-          setRequestType('single');
-        }
-      }
+      requestTypeRef.current = requestType;
+    }, [requestType]);
+    
+    // NOVO: Estado local para os valores dos campos (evita re-renderizações)
+    const [localValues, setLocalValues] = useState({});
+    
+    // CORREÇÃO: Usar useMemo para detectar mudanças estruturais importantes
+    const structuralHash = useMemo(() => {
+      if (!value || !Array.isArray(value)) return 'empty';
+      
+      // Só gerar hash baseado em mudanças estruturais importantes
+      return JSON.stringify({
+        length: value.length,
+        hasFullCycle: value.some(entry => entry.fullCycle),
+        ids: value.map(entry => entry.id)
+      });
     }, [value]);
     
+    // NOVO: Estado para rastrear se já foi inicializado
+    const [isInitialized, setIsInitialized] = useState(false);
+    
+    // CORREÇÃO: Efeito para inicializar apenas quando realmente necessário
+    useEffect(() => {
+      // Para simplicidade, vamos apenas resetar quando value muda drasticamente
+      // (isso acontece quando paciente muda ou página muda)
+      
+      if (!value || !Array.isArray(value)) {
+        // Se não há value, resetar para estado inicial
+        if (isInitialized) {
+          requestTypeSetManually.current = false;
+          setIsInitialized(false);
+        }
+        return;
+      }
+      
+      // Verificar se realmente mudou estruturalmente
+      const hasStructuralChanges = 
+        cicloDiaEntries.length !== value.length ||
+        cicloDiaEntries.some((entry, index) => 
+          !value[index] || entry.id !== value[index].id
+        );
+      
+             // Só sincronizar se houver mudanças estruturais ou se não foi inicializado
+       if (hasStructuralChanges || !isInitialized) {
+         setCicloDiaEntries(value);
+         
+         // Sincronizar valores locais apenas para novos campos
+         const newLocalValues = { ...localValues };
+         value.forEach(entry => {
+           if (!newLocalValues[`ciclo-${entry.id}`]) {
+             newLocalValues[`ciclo-${entry.id}`] = entry.ciclo || '';
+           }
+           if (!newLocalValues[`dia-${entry.id}`]) {
+             newLocalValues[`dia-${entry.id}`] = entry.dia || '';
+           }
+           if (!newLocalValues[`protocolo-${entry.id}`]) {
+             newLocalValues[`protocolo-${entry.id}`] = entry.protocolo || '';
+           }
+         });
+         setLocalValues(newLocalValues);
+         
+         // Se é a primeira inicialização OU se há mudanças estruturais e tudo está vazio
+         // (indicando uma reinicialização), resetar a flag manual
+         const isReinitializing = !isInitialized || 
+           (hasStructuralChanges && value.every(entry => 
+             (!entry.ciclo || entry.ciclo === '') && 
+             (!entry.dia || entry.dia === '') && 
+             (!entry.protocolo || entry.protocolo === '')
+           ));
+         
+         if (isReinitializing) {
+           // console.log(`🔄 CicloDiaInputs: Reinicializando - resetando flag manual`);
+           requestTypeSetManually.current = false;
+         }
+         
+         // Determinar o tipo de solicitação APENAS na inicialização ou mudanças estruturais importantes
+         if (!isInitialized || (hasStructuralChanges && !requestTypeSetManually.current)) {
+           const newRequestType = value.length > 1 ? 'multiple' : 
+                                  (value.length === 1 && value[0].fullCycle) ? 'fullCycle' : 'single';
+           
+           if (requestTypeRef.current !== newRequestType) {
+             // console.log(`🔧 CicloDiaInputs: Alterando requestType automaticamente de ${requestTypeRef.current} para ${newRequestType}`);
+             setRequestType(newRequestType);
+           }
+           
+           setIsInitialized(true);
+         } else if (requestTypeSetManually.current) {
+           // console.log(`🔒 CicloDiaInputs: RequestType ${requestTypeRef.current} mantido (definido manualmente)`);
+         }
+       }
+      
+      // Cleanup do debounce
+      return () => {
+        if (requestTypeDebounce.current) {
+          clearTimeout(requestTypeDebounce.current);
+        }
+      };
+    }, [structuralHash, isInitialized]);
+    
     // Função para adicionar uma nova entrada
-    const addEntry = () => {
+    const addEntry = useCallback(() => {
       const newEntry = {
         id: Date.now(),
         ciclo: '',
@@ -3003,27 +3331,53 @@ const NovaPreviaView = () => {
       const updatedEntries = [...cicloDiaEntries, newEntry];
       setCicloDiaEntries(updatedEntries);
       
+      // Inicializar valores locais para a nova entrada
+      setLocalValues(prev => ({
+        ...prev,
+        [`ciclo-${newEntry.id}`]: '',
+        [`dia-${newEntry.id}`]: '',
+        [`protocolo-${newEntry.id}`]: ''
+      }));
+      
       // Notificar o componente pai
       if (onChange) {
         onChange(updatedEntries);
       }
-    };
+    }, [cicloDiaEntries, onChange]);
     
     // Função para remover uma entrada
-    const removeEntry = (id) => {
+    const removeEntry = useCallback((id) => {
       if (cicloDiaEntries.length <= 1) return;
       
       const updatedEntries = cicloDiaEntries.filter(entry => entry.id !== id);
       setCicloDiaEntries(updatedEntries);
       
+      // Limpar valores locais da entrada removida
+      setLocalValues(prev => {
+        const newValues = { ...prev };
+        delete newValues[`ciclo-${id}`];
+        delete newValues[`dia-${id}`];
+        delete newValues[`protocolo-${id}`];
+        return newValues;
+      });
+      
       // Notificar o componente pai
       if (onChange) {
         onChange(updatedEntries);
       }
-    };
+    }, [cicloDiaEntries, onChange]);
     
-    // Função para atualizar uma entrada
-    const updateEntry = (id, field, value) => {
+    // NOVO: Função para atualizar apenas valor local (durante digitação)
+    const updateLocalValue = useCallback((id, field, value) => {
+      const key = `${field}-${id}`;
+      setLocalValues(prev => ({
+        ...prev,
+        [key]: value
+      }));
+    }, []);
+    
+    // Função para atualizar uma entrada (sincronizar com estado global)
+    const updateEntry = useCallback((id, field, value) => {
       const updatedEntries = cicloDiaEntries.map(entry => {
         if (entry.id === id) {
           return { ...entry, [field]: value };
@@ -3037,10 +3391,33 @@ const NovaPreviaView = () => {
       if (onChange) {
         onChange(updatedEntries);
       }
-    };
+    }, [cicloDiaEntries, onChange]);
+    
+    // NOVO: Função para sincronizar valor local com estado global
+    const syncLocalValue = useCallback((id, field) => {
+      const key = `${field}-${id}`;
+      const localValue = localValues[key] || '';
+      
+      // Só atualizar se o valor local for diferente do valor global
+      const currentEntry = cicloDiaEntries.find(entry => entry.id === id);
+      if (currentEntry && currentEntry[field] !== localValue) {
+        updateEntry(id, field, localValue);
+      }
+    }, [localValues, cicloDiaEntries, updateEntry]);
     
     // Função para alternar entre ciclos completos ou dias específicos
-    const handleRequestTypeChange = (type) => {
+    const handleRequestTypeChange = useCallback((type) => {
+      // Limpar qualquer debounce pendente
+      if (requestTypeDebounce.current) {
+        clearTimeout(requestTypeDebounce.current);
+        requestTypeDebounce.current = null;
+      }
+      
+      // Marcar que o requestType foi definido manualmente de forma persistente
+      requestTypeSetManually.current = true;
+      
+      // console.log(`👤 CicloDiaInputs: RequestType alterado MANUALMENTE para ${type} (flag setada)`);
+      
       // Primeiro atualizamos o estado de tipo
       setRequestType(type);
       
@@ -3055,6 +3432,13 @@ const NovaPreviaView = () => {
         };
         
         setCicloDiaEntries([updatedEntry]);
+        
+        // Sincronizar valores locais para fullCycle
+        setLocalValues({
+          [`ciclo-${updatedEntry.id}`]: updatedEntry.ciclo || '',
+          [`dia-${updatedEntry.id}`]: updatedEntry.dia || '',
+          [`protocolo-${updatedEntry.id}`]: updatedEntry.protocolo || ''
+        });
         
         // Notificar o componente pai
         if (onChange) {
@@ -3079,6 +3463,17 @@ const NovaPreviaView = () => {
           const updatedEntries = [currentEntry, newEntry];
           setCicloDiaEntries(updatedEntries);
           
+          // Sincronizar valores locais para múltiplas entradas
+          setLocalValues(prev => ({
+            ...prev,
+            [`ciclo-${currentEntry.id}`]: currentEntry.ciclo || '',
+            [`dia-${currentEntry.id}`]: currentEntry.dia || '',
+            [`protocolo-${currentEntry.id}`]: currentEntry.protocolo || '',
+            [`ciclo-${newEntry.id}`]: newEntry.ciclo || '',
+            [`dia-${newEntry.id}`]: newEntry.dia || '',
+            [`protocolo-${newEntry.id}`]: newEntry.protocolo || ''
+          }));
+          
           // Notificar o componente pai
           if (onChange) {
             onChange(updatedEntries);
@@ -3091,6 +3486,15 @@ const NovaPreviaView = () => {
           }));
           
           setCicloDiaEntries(updatedEntries);
+          
+          // Sincronizar valores locais para entradas existentes
+          const newLocalValues = {};
+          updatedEntries.forEach(entry => {
+            newLocalValues[`ciclo-${entry.id}`] = entry.ciclo || '';
+            newLocalValues[`dia-${entry.id}`] = entry.dia || '';
+            newLocalValues[`protocolo-${entry.id}`] = entry.protocolo || '';
+          });
+          setLocalValues(newLocalValues);
           
           // Notificar o componente pai
           if (onChange) {
@@ -3106,21 +3510,28 @@ const NovaPreviaView = () => {
         
         setCicloDiaEntries([updatedEntry]);
         
+        // Sincronizar valores locais para single
+        setLocalValues({
+          [`ciclo-${updatedEntry.id}`]: updatedEntry.ciclo || '',
+          [`dia-${updatedEntry.id}`]: updatedEntry.dia || '',
+          [`protocolo-${updatedEntry.id}`]: updatedEntry.protocolo || ''
+        });
+        
         // Notificar o componente pai
         if (onChange) {
           onChange([updatedEntry]);
         }
       }
-    };
+    }, [cicloDiaEntries, onChange]);
     
     // Função para obter a classe CSS com base no tipo
-    const getTypeButtonClass = (type) => {
+    const getTypeButtonClass = useCallback((type) => {
       return `px-4 py-2 text-sm rounded-md transition-all ${
         requestType === type 
           ? 'bg-[#8cb369] text-white font-medium shadow-md' 
           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
       }`;
-    };
+    }, [requestType]);
     
     return (
       <div className="ciclo-dia-container">
@@ -3204,9 +3615,11 @@ const NovaPreviaView = () => {
                 <div className="entry-field">
                   <label className="form-label">Ciclo</label>
                   <input
+                    key={`ciclo-${entry.id}`}
                     type="text"
-                    value={entry.ciclo}
-                    onChange={(e) => updateEntry(entry.id, 'ciclo', e.target.value)}
+                    value={localValues[`ciclo-${entry.id}`] || entry.ciclo || ''}
+                    onChange={(e) => updateLocalValue(entry.id, 'ciclo', e.target.value)}
+                    onBlur={() => syncLocalValue(entry.id, 'ciclo')}
                     className="form-input"
                     placeholder="Ciclo"
                   />
@@ -3217,9 +3630,11 @@ const NovaPreviaView = () => {
                   <div className="entry-field">
                     <label className="form-label">Dia</label>
                     <input
+                      key={`dia-${entry.id}`}
                       type="text"
-                      value={entry.dia}
-                      onChange={(e) => updateEntry(entry.id, 'dia', e.target.value)}
+                      value={localValues[`dia-${entry.id}`] || entry.dia || ''}
+                      onChange={(e) => updateLocalValue(entry.id, 'dia', e.target.value)}
+                      onBlur={() => syncLocalValue(entry.id, 'dia')}
                       className="form-input"
                       placeholder="Dia"
                     />
@@ -3231,9 +3646,11 @@ const NovaPreviaView = () => {
                   <div className="entry-field">
                     <label className="form-label">Protocolo</label>
                     <input
+                      key={`protocolo-${entry.id}`}
                       type="text"
-                      value={entry.protocolo}
-                      onChange={(e) => updateEntry(entry.id, 'protocolo', e.target.value)}
+                      value={localValues[`protocolo-${entry.id}`] || entry.protocolo || ''}
+                      onChange={(e) => updateLocalValue(entry.id, 'protocolo', e.target.value)}
+                      onBlur={() => syncLocalValue(entry.id, 'protocolo')}
                       className="form-input"
                       placeholder="(Opcional)"
                     />
@@ -3836,7 +4253,14 @@ const NovaPreviaView = () => {
       {selectedPatient && (
         <button 
           className="search-new-patient"
-          onClick={() => setShowSearchModal(true)}
+          onClick={() => {
+            console.log("Abrindo modal de busca de paciente");
+            setShowSearchModal(true);
+            // Limpar termo de busca anterior para permitir nova busca
+            setLocalSearchTerm("");
+            setFilteredPatients([]);
+            setSearchResults([]);
+          }}
         >
           <Search size={16} />
           Buscar Paciente
@@ -3856,7 +4280,10 @@ const NovaPreviaView = () => {
             >
               <h2 className="modal-title-previa">Buscar Paciente</h2>
               <p className="modal-description-previa">
-                Digite o nome ou código do paciente para continuar com a Nova Prévia
+                {selectedPatient 
+                  ? `Paciente atual: ${selectedPatient.Nome}. Digite para buscar outro paciente.`
+                  : "Digite o nome ou código do paciente para continuar com a Nova Prévia"
+                }
               </p>
               
               <div className="search-container">
@@ -3922,6 +4349,8 @@ const NovaPreviaView = () => {
                 </div>
               )}
               
+
+
               {/* Área de resultados com loading condicional */}
               <div className="results-area">
                 {isSearching ? (
@@ -4435,7 +4864,7 @@ const NovaPreviaView = () => {
             <div className="form-field">
               <label className="form-label-datas">Ciclo / Dia</label>
               <CicloDiaInputs
-                key={`ciclodia-${selectedPatient?.id}-${currentPage}`}
+                key={`ciclodia-${selectedPatient?.id}`}
                 value={formData.cicloDiaEntries}
                 onChange={(entries) => {
                   setFormData(prev => ({
@@ -5136,6 +5565,33 @@ const NovaPreviaView = () => {
           font-weight: 600;
         }
 
+        /* NOVOS ESTILOS PARA MÉTRICAS DE TEMPO REAL */
+
+        .tempo-status-indicator {
+          animation: fade-in 0.3s ease-in-out;
+          transition: all 0.2s ease;
+        }
+
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(-5px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .tempo-analise-metrics {
+          transition: all 0.3s ease;
+        }
+
+        .tempo-analise-metrics:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
         .form-textarea {
           width: 100%;
           padding: 0.75rem;
@@ -5264,6 +5720,8 @@ const NovaPreviaView = () => {
             font-size: 10px;
           }
         }
+
+
 
         /* NOVOS ESTILOS PARA INFORMAÇÕES DE USUÁRIO NOS REGISTROS DE PARECER */
         

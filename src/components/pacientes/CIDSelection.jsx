@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X, Check, Plus } from 'lucide-react';
+import { normalizeString } from '../../utils/stringUtils';
 
 // Cache keys
 const CID_CACHE_KEY = 'cached_cids';
@@ -241,10 +242,10 @@ const CIDSelection = ({
       
       // Filter by search term if provided
       if (search && search.trim() !== '') {
-        const normalizedSearch = search.toLowerCase();
+        const normalizedSearch = normalizeString(search);
         return cachedCIDs.filter(cid => 
-          cid.codigo.toLowerCase().includes(normalizedSearch) || 
-          (cid.descricao && cid.descricao.toLowerCase().includes(normalizedSearch))
+          normalizeString(cid.codigo).includes(normalizedSearch) || 
+          (cid.descricao && normalizeString(cid.descricao).includes(normalizedSearch))
         );
       }
       

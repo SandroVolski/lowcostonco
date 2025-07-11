@@ -2618,15 +2618,16 @@ const ProtocoloCard = ({
                   <label htmlFor="protocoloNome" className="form-label text-sm font-medium text-gray-700 block mb-1">
                     Nome do Protocolo*
                   </label>
-                  <input 
-                    type="text"
+                  <textarea
                     id="protocoloNome"
                     name="Protocolo_Nome"
                     value={formData.Protocolo_Nome}
                     onChange={handleInputChange}
-                    className="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-vertical"
                     required
                     placeholder="Nome do protocolo"
+                    rows="2"
+                    style={{ minHeight: '42px', maxHeight: '120px' }}
                   />
                 </div>
                 
@@ -2634,15 +2635,16 @@ const ProtocoloCard = ({
                   <label htmlFor="protocoloSigla" className="form-label text-sm font-medium text-gray-700 block mb-1">
                     Descrição do Protocolo*
                   </label>
-                  <input 
-                    type="text"
+                  <textarea
                     id="protocoloSigla"
                     name="Protocolo_Sigla"
                     value={formData.Protocolo_Sigla}
                     onChange={handleInputChange}
-                    className="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="form-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-vertical"
                     required
                     placeholder="Descrição do protocolo"
+                    rows="3"
+                    style={{ minHeight: '60px', maxHeight: '150px' }}
                   />
                 </div>
               </div>
@@ -3492,6 +3494,20 @@ const ProtocoloCard = ({
           border-radius: 50%;
           background-color: rgba(140, 179, 105, 0.3);
           animation: bubble-float 2s ease-in-out infinite;
+        }
+
+        /* Estilos para textareas de nome e descrição do protocolo */
+        .form-input.resize-vertical {
+          resize: vertical !important;
+          overflow-y: auto;
+          font-family: inherit;
+          line-height: 1.4;
+          word-wrap: break-word;
+          white-space: pre-wrap;
+        }
+
+        .form-input.resize-vertical:focus {
+          box-shadow: 0 0 0 3px rgba(140, 179, 105, 0.1) !important;
         }
       `}</style>
     </div>

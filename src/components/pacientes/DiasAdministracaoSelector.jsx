@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { normalizeString } from '../../utils/stringUtils';
 
 const DiasAdministracaoSelector = ({ 
   value = '', 
@@ -61,7 +62,7 @@ const DiasAdministracaoSelector = ({
   
   // Dias filtrados para pesquisa
   const diasFiltrados = DIAS_OPTIONS.filter(dia => 
-    dia.label.toLowerCase().includes(searchText.toLowerCase())
+    normalizeString(dia.label).includes(normalizeString(searchText))
   );
   
   // Agrupar dias para visualização em modo isolado
