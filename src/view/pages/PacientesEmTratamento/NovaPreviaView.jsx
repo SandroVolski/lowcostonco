@@ -8,6 +8,7 @@ import CIDSelection from '../../../components/pacientes/CIDSelection';
 import ProtocoloSelection from '../../../components/pacientes/ProtocoloSelection';
 import PreviasCacheControl from '../../../components/PreviasCacheControl'; // New import for cache control component
 import { useAuth } from '../../../auth/AuthProvider';
+import PrestadorSearch from '../../../components/pacientes/PrestadorSearch';
 
 import {
   Search, X, UserPlus, Save, Paperclip, Download, Trash2, Eye,
@@ -938,7 +939,8 @@ const NovaPreviaView = () => {
     selectPatient,
     loading: patientContextLoading,
     pageSize: contextPageSize,
-    changePage
+    changePage,
+    prestadores // <- lista de clínicas/prestadores
   } = usePatient();
 
   // NOVOS ESTADOS PARA ORDENAÇÃO E VISUALIZAÇÃO
@@ -1145,6 +1147,7 @@ const NovaPreviaView = () => {
     finalizacao: '',
     inconsistencia: '',
     titulo_atendimento: '', // NOVO: Campo para nomear o atendimento
+    clinica: '', // NOVO: Campo para clínica/prestador
     cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
     // NOVO: Array para múltiplos registros de parecer/status
     parecerRegistros: [{ 
@@ -1843,6 +1846,7 @@ const NovaPreviaView = () => {
         finalizacao: '',
         inconsistencia: '',
         titulo_atendimento: '', // NOVO: Campo para título do atendimento
+        clinica: '', // NOVO: Campo para clínica/prestador
         cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
         // NOVO: Incluir parecerRegistros
         parecerRegistros: [{ 
@@ -3828,6 +3832,7 @@ const NovaPreviaView = () => {
         finalizacao: '',
         inconsistencia: '',
         titulo_atendimento: '', // NOVO: Campo para título do atendimento
+        clinica: '', // NOVO: Campo para clínica/prestador
         cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
         // NOVO: Incluir parecerRegistros
         parecerRegistros: [{ 
@@ -4235,6 +4240,14 @@ const NovaPreviaView = () => {
       setFilteredPatients(sorted);
     }
   }, [patientSortField, patientSortOrder, searchResults, sortPatientsAlphabetically]);
+  
+  // Handler para mudança no campo de clínica
+  const handleClinicaSelect = (selectedClinica) => {
+    setFormData(prev => ({
+      ...prev,
+      clinica: selectedClinica
+    }));
+  };
   
   return (
     <motion.div 
@@ -4680,6 +4693,23 @@ const NovaPreviaView = () => {
                 />
                 <div className="form-helper-text">
                   Este título aparecerá nos botões de navegação para identificar facilmente este atendimento
+                </div>
+              </div>
+            </div>
+            {/* NOVA LINHA: Seleção de Clínica/Prestador */}
+            <div className="form-grid-1-col">
+              <div className="form-field">
+                <label htmlFor="clinica" className="form-label">
+                  Clínica/Prestador <span className="form-label-required">*</span>
+                </label>
+                <PrestadorSearch
+                  prestadores={prestadores}
+                  selectedPrestador={formData.clinica}
+                  onSelect={handleClinicaSelect}
+                  required={true}
+                />
+                <div className="form-helper-text">
+                  Selecione a clínica responsável por esta prévia
                 </div>
               </div>
             </div>
