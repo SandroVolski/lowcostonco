@@ -1147,6 +1147,7 @@ const NovaPreviaView = () => {
     finalizacao: '',
     inconsistencia: '',
     titulo_atendimento: '', // NOVO: Campo para nomear o atendimento
+    prestador_id: null, // CORREÇÃO: ID do prestador
     clinica: '', // NOVO: Campo para clínica/prestador
     cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
     // NOVO: Array para múltiplos registros de parecer/status
@@ -1846,6 +1847,7 @@ const NovaPreviaView = () => {
         finalizacao: '',
         inconsistencia: '',
         titulo_atendimento: '', // NOVO: Campo para título do atendimento
+        prestador_id: null, // ADICIONAR: ID do prestador
         clinica: '', // NOVO: Campo para clínica/prestador
         cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
         // NOVO: Incluir parecerRegistros
@@ -2200,7 +2202,7 @@ const NovaPreviaView = () => {
       });
       return;
     }
-
+  
     if (!selectedPatient || !selectedPatient.id) {
       toast({
         title: "Erro de dados",
@@ -2209,7 +2211,7 @@ const NovaPreviaView = () => {
       });
       return;
     }
-
+  
     // Verificar se temos o ID do usuário
     if (!userId) {
       toast({
@@ -2219,7 +2221,17 @@ const NovaPreviaView = () => {
       });
       return;
     }
-
+  
+    // NOVO: Validar se o campo clínica está preenchido
+    if (!formData.clinica || formData.clinica.trim() === '') {
+      toast({
+        title: "Campo obrigatório",
+        description: "Selecione uma clínica/prestador para continuar",
+        variant: "destructive"
+      });
+      return;
+    }
+  
     setIsLoading(true);
     try {
       // CORREÇÃO: Processar ciclos_previstos de forma mais robusta
@@ -2230,7 +2242,7 @@ const NovaPreviaView = () => {
           ciclosPrevistos = ciclosNum;
         }
       }
-
+  
       // NOVO: Preparar registros de parecer com informações de usuário
       const parecerRegistrosComUsuario = formData.parecerRegistros.map((registro, index) => {
         const registroComUsuario = { ...registro };
@@ -2264,7 +2276,7 @@ const NovaPreviaView = () => {
           data_atualizacao: registroComUsuario.data_atualizacao || null
         };
       });
-
+  
       // Preparar dados para envio
       const dadosPrevia = {
         // Incluir id apenas se estiver editando
@@ -2290,6 +2302,12 @@ const NovaPreviaView = () => {
         finalizacao: formData.finalizacao || '',
         inconsistencia: formData.inconsistencia || '',
         titulo_atendimento: formData.titulo_atendimento || '', // NOVO: Incluir título do atendimento
+        
+        // CORREÇÃO CRÍTICA: Enviar o campo clinica que será usado pelo backend
+        prestador_id: formData.prestador_id, // ADICIONAR: ID do prestador
+        clinica: formData.clinica || '', // Campo principal para o backend
+        prestador: formData.clinica || '', // Compatibilidade
+        
         data_parecer_registrado: dataParecerRegistrado || null,
         tempo_analise: tempoParaAnalise || 0,
         
@@ -2309,12 +2327,15 @@ const NovaPreviaView = () => {
           is_full_cycle: entry.fullCycle ? 1 : 0
         }))
       };
-
+  
       // CORREÇÃO: Log detalhado para debug
-      console.log("Dados enviados (incluindo ciclos_previstos):", {
+      console.log("Dados enviados para backend:", {
         ...dadosPrevia,
-        ciclos_previstos_original: formData.ciclos_previstos,
-        ciclos_previstos_processado: ciclosPrevistos
+        debug_clinica: {
+          formData_clinica: formData.clinica,
+          dadosPrevia_clinica: dadosPrevia.clinica,
+          dadosPrevia_prestador: dadosPrevia.prestador
+        }
       });
       
       let response;
@@ -2359,6 +2380,23 @@ const NovaPreviaView = () => {
         });
       }
       
+      // CORREÇÃO: Log da resposta do backend para debug
+      console.log("Resposta do backend:", response);
+      
+      // Se a resposta contém debug info, logar
+      if (response.debug_info) {
+        console.log("Debug do backend:", response.debug_info);
+        
+        // Se o prestador não foi resolvido, mostrar aviso
+        if (!response.clinica_resolvida && response.clinica_nome) {
+          toast({
+            title: "Aviso sobre Prestador",
+            description: `A clínica/prestador "${response.clinica_nome}" não foi encontrada no cadastro. A prévia foi salva, mas verifique o nome da clínica.`,
+            variant: "warning"
+          });
+        }
+      }
+      
       // Recarregar dados do paciente para atualizar a lista de consultas
       console.log("Recarregando dados do paciente após salvar...");
       
@@ -2386,9 +2424,15 @@ const NovaPreviaView = () => {
       
     } catch (error) {
       console.error("Erro ao salvar prévia:", error);
+      
+      // Log detalhado do erro
+      if (error.response) {
+        console.error("Resposta de erro do servidor:", error.response);
+      }
+      
       toast({
         title: "Erro",
-        description: "Não foi possível salvar a prévia",
+        description: "Não foi possível salvar a prévia. Verifique os dados e tente novamente.",
         variant: "destructive"
       });
     } finally {
@@ -2683,11 +2727,28 @@ const NovaPreviaView = () => {
         parecerGuia: previaDetails.parecer_guia,
         finalizacao: previaDetails.finalizacao,
         inconsistencia: previaDetails.inconsistencia,
-        titulo_atendimento: previaDetails.titulo_atendimento || '', // NOVO: Carregar título do atendimento
+        titulo_atendimento: previaDetails.titulo_atendimento || '',
+        
+        // CORREÇÃO CRÍTICA: Carregar o nome do prestador corretamente
+        prestador_id: previaDetails.prestador_id || null, // ADICIONAR: ID do prestador
+        clinica: previaDetails.prestador_nome || previaDetails.clinica || '', // <-- ESTA LINHA É IMPORTANTE
+        
         cicloDiaEntries: ciclosDias.length > 0 ? ciclosDias : [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
-        // *** CORREÇÃO: Usar os registros processados com os novos campos ***
         parecerRegistros: parecerRegistrosProcessados
       });
+
+      // Log para debug (adicionar após o setFormData)
+      console.log("🔍 DEBUG - Dados da prévia carregados:", {
+        prestador_id: previaDetails.prestador_id,
+        prestador_nome: previaDetails.prestador_nome,
+        clinica_field: previaDetails.clinica,
+        debug_info: previaDetails.debug_info
+      });
+
+      // Se há debug_info, logar também
+      if (previaDetails.debug_info && previaDetails.debug_info.prestador_info) {
+        console.log("🔍 DEBUG - Info do prestador:", previaDetails.debug_info.prestador_info);
+      }
       
       // Atualizar anexos
       const formattedAnexos = anexos.map(anexo => ({
@@ -4112,10 +4173,22 @@ const NovaPreviaView = () => {
             finalizacao: previaData.finalizacao,
             inconsistencia: previaData.inconsistencia,
             titulo_atendimento: previaData.titulo_atendimento || '',
+            
+                    // CORREÇÃO CRÍTICA: Carregar o nome do prestador corretamente AQUI TAMBÉM
+        prestador_id: previaData.prestador_id || null, // ADICIONAR: ID do prestador
+        clinica: previaData.prestador_nome || previaData.clinica || '', // <-- ESTA LINHA É IMPORTANTE
+            
             cicloDiaEntries: ciclosDiasData.length > 0 ? ciclosDiasData : [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
-            // *** CORREÇÃO: Incluir os registros processados ***
             parecerRegistros: parecerRegistrosProcessados
           }));
+          
+          // Log para debug (adicionar após o setFormData do useEffect também)
+          console.log("🔍 DEBUG - Prévia específica carregada da URL:", {
+            prestador_id: previaData.prestador_id,
+            prestador_nome: previaData.prestador_nome,
+            clinica_field: previaData.clinica,
+            debug_info: previaData.debug_info
+          });
           
           // Atualizar anexos
           const formattedAnexos = anexosData.map(anexo => ({
@@ -4241,13 +4314,50 @@ const NovaPreviaView = () => {
     }
   }, [patientSortField, patientSortOrder, searchResults, sortPatientsAlphabetically]);
   
-  // Handler para mudança no campo de clínica
-  const handleClinicaSelect = (selectedClinica) => {
-    setFormData(prev => ({
-      ...prev,
-      clinica: selectedClinica
-    }));
+  // CORREÇÃO: Handler para trabalhar com ID e nome do prestador
+  const handleClinicaSelect = (selectedPrestador) => {
+    console.log("Prestador selecionado:", selectedPrestador);
+    
+    // Se recebeu um objeto com id e nome
+    if (typeof selectedPrestador === 'object' && selectedPrestador.id) {
+      setFormData(prev => ({
+        ...prev,
+        prestador_id: selectedPrestador.id,
+        clinica: selectedPrestador.nome || selectedPrestador.nome_fantasia
+      }));
+    } 
+    // Se recebeu apenas uma string (nome)
+    else if (typeof selectedPrestador === 'string') {
+      // Buscar o prestador na lista para obter o ID
+      const prestadorEncontrado = prestadores.find(p => 
+        p.nome === selectedPrestador || 
+        p.nome_fantasia === selectedPrestador
+      );
+      
+      if (prestadorEncontrado) {
+        setFormData(prev => ({
+          ...prev,
+          prestador_id: prestadorEncontrado.id,
+          clinica: selectedPrestador
+        }));
+      } else {
+        // Se não encontrou, salvar apenas o nome
+        setFormData(prev => ({
+          ...prev,
+          prestador_id: null,
+          clinica: selectedPrestador
+        }));
+      }
+    }
   };
+  
+  useEffect(() => {
+    console.log("FormData atualizado:", {
+      prestador_id: formData.prestador_id,
+      clinica: formData.clinica,
+      // outros campos relevantes...
+    });
+  }, [formData.prestador_id, formData.clinica]);
   
   return (
     <motion.div 
@@ -4703,9 +4813,32 @@ const NovaPreviaView = () => {
                   Clínica/Prestador <span className="form-label-required">*</span>
                 </label>
                 <PrestadorSearch
-                  prestadores={prestadores}
+                  prestadores={prestadores.map(p => ({
+                    id: p.id,
+                    nome: p.nome,
+                    nome_fantasia: p.nome_fantasia || p.nome
+                  }))}
                   selectedPrestador={formData.clinica}
-                  onSelect={handleClinicaSelect}
+                  onSelect={(selectedValue) => {
+                    // Se é uma string (nome), buscar o prestador
+                    if (typeof selectedValue === 'string') {
+                      const prestador = prestadores.find(p => 
+                        p.nome === selectedValue || 
+                        (p.nome_fantasia && p.nome_fantasia === selectedValue)
+                      );
+                      
+                      if (prestador) {
+                        handleClinicaSelect({
+                          id: prestador.id,
+                          nome: prestador.nome_fantasia || prestador.nome
+                        });
+                      } else {
+                        handleClinicaSelect(selectedValue);
+                      }
+                    } else {
+                      handleClinicaSelect(selectedValue);
+                    }
+                  }}
                   required={true}
                 />
                 <div className="form-helper-text">
