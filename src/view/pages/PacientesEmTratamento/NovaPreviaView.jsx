@@ -2478,6 +2478,7 @@ const NovaPreviaView = () => {
   };
   
   // Modificado para usar o contexto com cache
+  // Função corrigida para carregar dados da prévia - substitua a função existente
   const handleLoadPreviousPage = async (pageNumber) => {
     setCurrentPage(pageNumber);
     
@@ -2486,7 +2487,7 @@ const NovaPreviaView = () => {
       setLoadingSection(true);
       setTimeout(() => setLoadingSection(false), 300);
       
-      // NOVO: Limpar informações do usuário para novo atendimento
+      // Limpar informações do usuário para novo atendimento
       setPreviaUserInfo({
         usuario_criacao: null,
         usuario_alteracao: null,
@@ -2502,22 +2503,23 @@ const NovaPreviaView = () => {
         ciclos_previstos: '',
         ciclo: '',
         dia: '',
-        dataSolicitacao: '', // CORREÇÃO: Não preencher automaticamente
+        dataSolicitacao: '',
         parecer: '',
         comentario: '',
         peso: '',
         altura: '',
         parecerGuia: '',
         inconsistencia: '',
-        titulo_atendimento: '', // NOVO: Campo para título do atendimento
+        titulo_atendimento: '',
+        prestador_id: null, // Limpar ID do prestador
+        clinica: '', // Limpar nome da clínica
         cicloDiaEntries: [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
-        // NOVO: Incluir parecerRegistros com dataSolicitacao
         parecerRegistros: [{ 
           id: 1, 
           parecer: '', 
           parecerGuia: '', 
           finalizacao: '', 
-          dataSolicitacao: '', // CORREÇÃO: Não preencher automaticamente
+          dataSolicitacao: '',
           dataParecer: '',
           tempoAnalise: null,
           observacoes: ''
@@ -2561,7 +2563,7 @@ const NovaPreviaView = () => {
       const ciclosDias = await getCiclosDias(previaId);
       const anexos = await getAnexos(previaId);
       
-      // NOVO: Atualizar informações do usuário
+      // Atualizar informações do usuário
       setPreviaUserInfo({
         usuario_criacao: previaDetails.nome_usuario_criacao,
         usuario_alteracao: previaDetails.nome_usuario_alteracao,
@@ -2569,10 +2571,9 @@ const NovaPreviaView = () => {
         data_atualizacao: previaDetails.data_atualizacao
       });
       
-      // *** CORREÇÃO: Usar registros processados com informações de usuário ***
+      // *** CORREÇÃO: Processar registros de parecer com informações de usuário ***
       let parecerRegistrosProcessados = [];
 
-      // Processar registros mantendo as informações de usuário
       if (previaDetails.parecer_registros_processed && Array.isArray(previaDetails.parecer_registros_processed)) {
         parecerRegistrosProcessados = previaDetails.parecer_registros_processed.map((registro, index) => ({
           id: registro.id || (index + 1),
@@ -2583,8 +2584,6 @@ const NovaPreviaView = () => {
           dataParecer: registro.dataParecer || '',
           tempoAnalise: registro.tempoAnalise || null,
           observacoes: registro.observacoes || '',
-          
-          // NOVO: Incluir informações de usuário
           usuario_criacao_id: registro.usuario_criacao_id || null,
           usuario_criacao: registro.usuario_criacao || null,
           data_criacao: registro.data_criacao || null,
@@ -2595,7 +2594,6 @@ const NovaPreviaView = () => {
         
         console.log(`✅ Carregados ${parecerRegistrosProcessados.length} registros do backend melhorado`);
       }
-      // 2. Fallback: tentar carregar do campo JSON parecer_registros original
       else if (previaDetails.parecer_registros) {
         try {
           const registrosFromJSON = JSON.parse(previaDetails.parecer_registros);
@@ -2610,8 +2608,6 @@ const NovaPreviaView = () => {
               dataParecer: registro.dataParecer || registro.data_parecer || '',
               tempoAnalise: registro.tempoAnalise || registro.tempo_analise || null,
               observacoes: registro.observacoes || '',
-              
-              // NOVO: Incluir informações de usuário do JSON se disponíveis
               usuario_criacao_id: registro.usuario_criacao_id || null,
               usuario_criacao: registro.usuario_criacao || null,
               data_criacao: registro.data_criacao || null,
@@ -2628,7 +2624,7 @@ const NovaPreviaView = () => {
         }
       }
       
-      // 3. Se não há registros do JSON, usar campos antigos como fallback
+      // Fallback para campos antigos
       if (parecerRegistrosProcessados.length === 0) {
         console.log("📄 Usando campos antigos como fallback");
         
@@ -2642,8 +2638,6 @@ const NovaPreviaView = () => {
             dataParecer: previaDetails.data_parecer_registrado ? formatDateFromDB(previaDetails.data_parecer_registrado) : '',
             tempoAnalise: previaDetails.tempo_analise || null,
             observacoes: '',
-            
-            // Usar informações gerais da prévia
             usuario_criacao_id: previaDetails.usuario_criacao_id,
             usuario_criacao: previaDetails.nome_usuario_criacao,
             data_criacao: previaDetails.data_criacao,
@@ -2661,8 +2655,6 @@ const NovaPreviaView = () => {
             dataParecer: '',
             tempoAnalise: null,
             observacoes: '',
-            
-            // Sem informações de usuário para registros vazios
             usuario_criacao_id: null,
             usuario_criacao: null,
             data_criacao: null,
@@ -2673,7 +2665,7 @@ const NovaPreviaView = () => {
         }
       }
       
-      // 4. Se ainda não temos registros, criar um padrão
+      // Criar registro padrão se ainda estiver vazio
       if (parecerRegistrosProcessados.length === 0) {
         parecerRegistrosProcessados = [{
           id: 1,
@@ -2684,8 +2676,6 @@ const NovaPreviaView = () => {
           dataParecer: '',
           tempoAnalise: null,
           observacoes: '',
-          
-          // Sem informações de usuário para registros padrão
           usuario_criacao_id: null,
           usuario_criacao: null,
           data_criacao: null,
@@ -2697,15 +2687,44 @@ const NovaPreviaView = () => {
       
       console.log("📋 Registros finais carregados:", parecerRegistrosProcessados);
       
-      // NOVO: Log detalhado dos campos de status
-      parecerRegistrosProcessados.forEach((registro, index) => {
-        console.log(`🔍 Registro ${index + 1}:`, {
-          id: registro.id,
-          parecerGuia: registro.parecerGuia,
-          finalizacao: registro.finalizacao,
-          parecer: registro.parecer ? 'tem conteúdo' : 'vazio'
-        });
-      });
+      // *** CORREÇÃO CRÍTICA: Carregar dados do prestador corretamente ***
+      let prestadorNome = '';
+      let prestadorId = null;
+      
+      // Prioridade 1: Usar dados do prestador_info se disponível
+      if (previaDetails.prestador_info && previaDetails.prestador_info.nome_completo) {
+        prestadorNome = previaDetails.prestador_info.nome_completo;
+        prestadorId = previaDetails.prestador_info.id;
+        console.log("✅ Prestador carregado do prestador_info:", prestadorNome);
+      }
+      // Prioridade 2: Usar prestador_nome se disponível
+      else if (previaDetails.prestador_nome) {
+        prestadorNome = previaDetails.prestador_nome;
+        prestadorId = previaDetails.prestador_id;
+        console.log("✅ Prestador carregado do prestador_nome:", prestadorNome);
+      }
+      // Prioridade 3: Usar campo clinica se disponível
+      else if (previaDetails.clinica) {
+        prestadorNome = previaDetails.clinica;
+        prestadorId = previaDetails.prestador_id;
+        console.log("✅ Prestador carregado do campo clinica:", prestadorNome);
+      }
+      // Prioridade 4: Se tem apenas o ID, tentar buscar na lista de prestadores
+      else if (previaDetails.prestador_id && prestadores && prestadores.length > 0) {
+        const prestadorEncontrado = prestadores.find(p => p.id === previaDetails.prestador_id);
+        if (prestadorEncontrado) {
+          prestadorNome = prestadorEncontrado.nome_fantasia || prestadorEncontrado.nome || '';
+          prestadorId = prestadorEncontrado.id;
+          console.log("✅ Prestador carregado da lista local:", prestadorNome);
+        }
+      }
+      
+      // Se ainda não temos nome mas temos ID, mostrar pelo menos o ID
+      if (!prestadorNome && previaDetails.prestador_id) {
+        prestadorNome = `Prestador ID: ${previaDetails.prestador_id}`;
+        prestadorId = previaDetails.prestador_id;
+        console.log("⚠️ Usando ID do prestador como fallback:", prestadorNome);
+      }
       
       // Atualizar o formulário com os dados carregados
       setFormData({
@@ -2729,26 +2748,22 @@ const NovaPreviaView = () => {
         inconsistencia: previaDetails.inconsistencia,
         titulo_atendimento: previaDetails.titulo_atendimento || '',
         
-        // CORREÇÃO CRÍTICA: Carregar o nome do prestador corretamente
-        prestador_id: previaDetails.prestador_id || null, // ADICIONAR: ID do prestador
-        clinica: previaDetails.prestador_nome || previaDetails.clinica || '', // <-- ESTA LINHA É IMPORTANTE
+        // *** CORREÇÃO CRÍTICA: Campos do prestador ***
+        prestador_id: prestadorId,
+        clinica: prestadorNome,
         
         cicloDiaEntries: ciclosDias.length > 0 ? ciclosDias : [{ id: 1, ciclo: '', dia: '', protocolo: '' }],
         parecerRegistros: parecerRegistrosProcessados
       });
 
-      // Log para debug (adicionar após o setFormData)
+      // Log para debug detalhado
       console.log("🔍 DEBUG - Dados da prévia carregados:", {
-        prestador_id: previaDetails.prestador_id,
-        prestador_nome: previaDetails.prestador_nome,
-        clinica_field: previaDetails.clinica,
-        debug_info: previaDetails.debug_info
+        prestador_id: prestadorId,
+        prestador_nome: prestadorNome,
+        clinica_field: prestadorNome,
+        debug_info: previaDetails.debug_info,
+        prestador_info: previaDetails.prestador_info
       });
-
-      // Se há debug_info, logar também
-      if (previaDetails.debug_info && previaDetails.debug_info.prestador_info) {
-        console.log("🔍 DEBUG - Info do prestador:", previaDetails.debug_info.prestador_info);
-      }
       
       // Atualizar anexos
       const formattedAnexos = anexos.map(anexo => ({
@@ -2761,7 +2776,7 @@ const NovaPreviaView = () => {
       
       setAttachments(formattedAnexos);
       
-      // Configurar data de parecer registrado (usar do primeiro registro se disponível)
+      // Configurar data de parecer registrado
       const primeiroRegistro = parecerRegistrosProcessados[0];
       if (primeiroRegistro && primeiroRegistro.dataParecer) {
         setDataParecerRegistrado(primeiroRegistro.dataParecer);
