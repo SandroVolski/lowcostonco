@@ -1,8 +1,8 @@
 // src/components/prestadores/PrestadorSearchPrevias.jsx
-// Versão específica para o sistema de prévias
+// Versão melhorada para o sistema de prévias
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { Search, X, ChevronDown, ChevronUp, AlertCircle, Building2, MapPin } from 'lucide-react';
 
 const PrestadorSearchPrevias = ({ 
   prestadores = [],
@@ -32,10 +32,18 @@ const PrestadorSearchPrevias = ({
   
   // Inicializar o termo de busca com o prestador selecionado
   useEffect(() => {
-    if (selectedPrestador && typeof selectedPrestador === 'string') {
-      setSearchTerm(selectedPrestador);
-    } else if (selectedPrestador && typeof selectedPrestador === 'object') {
-      setSearchTerm(selectedPrestador.nome || selectedPrestador.nome_fantasia || '');
+    if (selectedPrestador) {
+      if (typeof selectedPrestador === 'string') {
+        setSearchTerm(selectedPrestador);
+      } else if (typeof selectedPrestador === 'object') {
+        // Priorizar nome_exibicao, depois nome_fantasia, depois nome_completo, depois nome
+        const displayName = selectedPrestador.nome_exibicao || 
+                           selectedPrestador.nome_fantasia || 
+                           selectedPrestador.nome_completo || 
+                           selectedPrestador.nome || 
+                           selectedPrestador.clinica || '';
+        setSearchTerm(displayName);
+      }
     } else {
       setSearchTerm('');
     }
@@ -60,14 +68,17 @@ const PrestadorSearchPrevias = ({
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       
       const filtered = prestadores.filter(prestador => {
-        // Buscar tanto no nome quanto no nome fantasia
-        const nome = (prestador.nome || '').toLowerCase()
-          .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const nomeFantasia = (prestador.nome_fantasia || '').toLowerCase()
-          .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-          
-        return nome.includes(normalizedSearchTerm) || 
-               nomeFantasia.includes(normalizedSearchTerm);
+        // Buscar em todos os campos possíveis
+        const searchFields = [
+          prestador.nome || '',
+          prestador.nome_fantasia || '',
+          prestador.nome_exibicao || '',
+          prestador.nome_completo || '',
+          prestador.cidade || '',
+          prestador.estado || ''
+        ].map(field => field.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+        
+        return searchFields.some(field => field.includes(normalizedSearchTerm));
       });
       
       setFilteredPrestadores(filtered);
@@ -146,7 +157,10 @@ const PrestadorSearchPrevias = ({
     console.log("Prestador selecionado:", prestador);
     
     // Determinar qual nome usar para exibição
-    const nomeParaExibir = prestador.nome_fantasia || prestador.nome || '';
+    const nomeParaExibir = prestador.nome_exibicao || 
+                          prestador.nome_fantasia || 
+                          prestador.nome_completo || 
+                          prestador.nome || '';
     
     // Atualizar o campo de busca
     setSearchTerm(nomeParaExibir);
@@ -157,7 +171,10 @@ const PrestadorSearchPrevias = ({
         id: prestador.id,
         nome: prestador.nome || '',
         nome_fantasia: prestador.nome_fantasia || '',
-        nome_exibicao: nomeParaExibir
+        nome_exibicao: nomeParaExibir,
+        nome_completo: prestador.nome_completo || nomeParaExibir,
+        cidade: prestador.cidade || '',
+        estado: prestador.estado || ''
       });
     }
     
@@ -174,9 +191,68 @@ const PrestadorSearchPrevias = ({
     searchRef.current?.focus();
   };
   
+  // Renderizar item do prestador
+  const renderPrestadorItem = (prestador, index) => {
+    const nomeExibicao = prestador.nome_exibicao || 
+                        prestador.nome_fantasia || 
+                        prestador.nome_completo || 
+                        prestador.nome || '';
+    
+    const temNomeAlternativo = prestador.nome && 
+                              prestador.nome_fantasia && 
+                              prestador.nome !== prestador.nome_fantasia;
+    
+    const temLocalizacao = prestador.cidade || prestador.estado;
+    
+    return (
+      <li
+        key={`${prestador.id}-${index}`}
+        onClick={() => handleSelectPrestador(prestador)}
+        onMouseEnter={() => setHighlightedIndex(index)}
+        className={`prestador-item ${
+          highlightedIndex === index ? 'highlighted' : ''
+        }`}
+      >
+        <div className="prestador-item-content">
+          {/* Nome principal */}
+          <div className="prestador-nome-principal">
+            <Building2 size={14} className="prestador-icon" />
+            <span className="prestador-nome">{nomeExibicao}</span>
+          </div>
+          
+          {/* Nome alternativo se existir */}
+          {temNomeAlternativo && (
+            <div className="prestador-nome-alternativo">
+              {prestador.nome}
+            </div>
+          )}
+          
+          {/* Localização se existir */}
+          {temLocalizacao && (
+            <div className="prestador-localizacao">
+              <MapPin size={12} className="prestador-location-icon" />
+              <span>
+                {prestador.cidade}
+                {prestador.cidade && prestador.estado && ', '}
+                {prestador.estado}
+              </span>
+            </div>
+          )}
+          
+          {/* ID para debug em desenvolvimento */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="prestador-debug">
+              ID: {prestador.id}
+            </div>
+          )}
+        </div>
+      </li>
+    );
+  };
+  
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
-      <div className="relative w-full">
+    <div className={`prestador-search-container ${className}`} ref={dropdownRef}>
+      <div className="prestador-search-input-container">
         <input
           ref={searchRef}
           type="text"
@@ -188,81 +264,55 @@ const PrestadorSearchPrevias = ({
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={isLoading ? "Carregando prestadores..." : placeholder}
-          className="form-input w-full pl-10 pr-10"
+          className={`prestador-search-input ${required && !searchTerm ? 'required-empty' : ''}`}
           required={required}
           disabled={isLoading}
         />
         
-        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-          {isLoading ? (
-            <div className="animate-spin h-4 w-4 border-2 border-gray-500 rounded-full border-t-transparent"></div>
-          ) : (
-            <Search size={18} className="text-gray-400" />
+        <div className="prestador-search-icons">
+          <Search size={18} className="search-icon" />
+          
+          {searchTerm && !isLoading && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="clear-button"
+              title="Limpar seleção"
+            >
+              <X size={16} />
+            </button>
           )}
-        </div>
-        
-        {searchTerm && (
+          
           <button
             type="button"
-            onClick={handleClear}
-            className="absolute inset-y-0 right-10 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+            onClick={() => !isLoading && setIsOpen(!isOpen)}
+            className="dropdown-button"
+            disabled={isLoading}
+            title={isOpen ? "Fechar lista" : "Abrir lista"}
           >
-            <X size={18} />
+            {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </button>
-        )}
-        
-        <button
-          type="button"
-          onClick={() => !isLoading && setIsOpen(!isOpen)}
-          className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
-          disabled={isLoading}
-        >
-          {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-        </button>
+        </div>
       </div>
       
       {isOpen && !isLoading && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+        <div className="prestador-dropdown">
           {filteredPrestadores.length === 0 ? (
-            <div className="px-4 py-2 text-sm text-gray-500">
+            <div className="prestador-no-results">
               {prestadores.length === 0 
                 ? "Nenhum prestador disponível" 
                 : "Nenhum prestador encontrado"}
             </div>
           ) : (
-            <ul ref={listRef} className="py-1 text-sm">
-              {filteredPrestadores.map((prestador, index) => {
-                const nomeExibicao = prestador.nome_fantasia || prestador.nome || '';
-                const temNomeFantasia = prestador.nome_fantasia && 
-                                       prestador.nome_fantasia !== prestador.nome;
-                
-                return (
-                  <li
-                    key={`${prestador.id}-${index}`}
-                    onClick={() => handleSelectPrestador(prestador)}
-                    onMouseEnter={() => setHighlightedIndex(index)}
-                    className={`px-4 py-2 cursor-pointer hover:bg-gray-100 ${
-                      highlightedIndex === index ? 'bg-blue-50' : ''
-                    }`}
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-medium text-gray-900">
-                        {nomeExibicao}
-                      </span>
-                      {temNomeFantasia && (
-                        <span className="text-xs text-gray-500">
-                          {prestador.nome}
-                        </span>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
+            <ul ref={listRef} className="prestador-list">
+              {filteredPrestadores.map((prestador, index) => 
+                renderPrestadorItem(prestador, index)
+              )}
             </ul>
           )}
           
           {filteredPrestadores.length > 0 && (
-            <div className="px-4 py-2 text-xs text-gray-500 border-t border-gray-200">
+            <div className="prestador-footer">
               {filteredPrestadores.length} de {prestadores.length} prestadores
             </div>
           )}
@@ -270,18 +320,238 @@ const PrestadorSearchPrevias = ({
       )}
       
       {isLoading && (
-        <div className="text-xs text-amber-600 mt-1 flex items-center">
-          <AlertCircle size={12} className="mr-1" />
+        <div className="prestador-loading">
+          <AlertCircle size={12} className="loading-icon" />
           Carregando lista de prestadores...
         </div>
       )}
       
       {/* Debug info - remover em produção */}
       {process.env.NODE_ENV === 'development' && (
-        <div className="text-xs text-gray-400 mt-1">
+        <div className="prestador-debug-info">
           Debug: {prestadores.length} prestadores, selected: {JSON.stringify(selectedPrestador)}
         </div>
       )}
+      
+      <style jsx>{`
+        .prestador-search-container {
+          position: relative;
+          width: 100%;
+        }
+        
+        .prestador-search-input-container {
+          position: relative;
+          width: 100%;
+        }
+        
+        .prestador-search-input {
+          width: 100%;
+          padding: 0.75rem 3.5rem 0.75rem 1rem;
+          border: 1px solid #d1d5db;
+          border-radius: 0.375rem;
+          font-size: 0.875rem;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        
+        .prestador-search-input:focus {
+          outline: none;
+          border-color: #8cb369;
+          box-shadow: 0 0 0 3px rgba(140, 179, 105, 0.1);
+        }
+        
+        .prestador-search-input.required-empty {
+          border-color: #ef4444;
+        }
+        
+        .prestador-search-input:disabled {
+          background-color: #f9fafb;
+          color: #6b7280;
+          cursor: not-allowed;
+        }
+        
+        .prestador-search-icons {
+          position: absolute;
+          right: 0.75rem;
+          top: 50%;
+          transform: translateY(-50%);
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        
+        .search-icon {
+          color: #6b7280;
+          pointer-events: none;
+        }
+        
+        .clear-button,
+        .dropdown-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0.25rem;
+          background: none;
+          border: none;
+          color: #6b7280;
+          cursor: pointer;
+          border-radius: 0.25rem;
+          transition: color 0.2s, background-color 0.2s;
+        }
+        
+        .clear-button:hover,
+        .dropdown-button:hover {
+          color: #374151;
+          background-color: #f3f4f6;
+        }
+        
+        .clear-button:disabled,
+        .dropdown-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        
+        .prestador-dropdown {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          right: 0;
+          z-index: 50;
+          margin-top: 0.25rem;
+          background: white;
+          border: 1px solid #d1d5db;
+          border-radius: 0.375rem;
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+          max-height: 16rem;
+          overflow: hidden;
+        }
+        
+        .prestador-no-results {
+          padding: 1rem;
+          text-align: center;
+          color: #6b7280;
+          font-size: 0.875rem;
+        }
+        
+        .prestador-list {
+          max-height: 14rem;
+          overflow-y: auto;
+          margin: 0;
+          padding: 0;
+          list-style: none;
+        }
+        
+        .prestador-item {
+          padding: 0.75rem;
+          cursor: pointer;
+          border-bottom: 1px solid #f3f4f6;
+          transition: background-color 0.2s;
+        }
+        
+        .prestador-item:last-child {
+          border-bottom: none;
+        }
+        
+        .prestador-item:hover,
+        .prestador-item.highlighted {
+          background-color: #f8fafc;
+        }
+        
+        .prestador-item-content {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+        
+        .prestador-nome-principal {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-weight: 500;
+          color: #1f2937;
+        }
+        
+        .prestador-icon {
+          color: #8cb369;
+          flex-shrink: 0;
+        }
+        
+        .prestador-nome {
+          flex: 1;
+        }
+        
+        .prestador-nome-alternativo {
+          font-size: 0.75rem;
+          color: #6b7280;
+          margin-left: 1.75rem;
+        }
+        
+        .prestador-localizacao {
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+          font-size: 0.75rem;
+          color: #6b7280;
+          margin-left: 1.75rem;
+        }
+        
+        .prestador-location-icon {
+          flex-shrink: 0;
+        }
+        
+        .prestador-debug {
+          font-size: 0.625rem;
+          color: #9ca3af;
+          margin-left: 1.75rem;
+        }
+        
+        .prestador-footer {
+          padding: 0.5rem 0.75rem;
+          background-color: #f9fafb;
+          border-top: 1px solid #e5e7eb;
+          font-size: 0.75rem;
+          color: #6b7280;
+          text-align: center;
+        }
+        
+        .prestador-loading {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-top: 0.25rem;
+          font-size: 0.75rem;
+          color: #f59e0b;
+        }
+        
+        .loading-icon {
+          flex-shrink: 0;
+        }
+        
+        .prestador-debug-info {
+          margin-top: 0.25rem;
+          font-size: 0.75rem;
+          color: #6b7280;
+          background-color: #f9fafb;
+          padding: 0.25rem;
+          border-radius: 0.25rem;
+          border: 1px solid #e5e7eb;
+        }
+        
+        /* Responsividade */
+        @media (max-width: 640px) {
+          .prestador-item {
+            padding: 0.5rem;
+          }
+          
+          .prestador-nome-principal {
+            font-size: 0.875rem;
+          }
+          
+          .prestador-nome-alternativo,
+          .prestador-localizacao {
+            font-size: 0.7rem;
+          }
+        }
+      `}</style>
     </div>
   );
 };
