@@ -4813,7 +4813,6 @@ const NovaPreviaView = () => {
                   onChange={handleInputChange}
                   className="form-input"
                   placeholder="Ex: Quimioterapia Adjuvante, Protocolo de Resgate, etc."
-                  maxLength="50"
                   key={`titulo-${selectedPatient?.id}-${currentPage}`}
                 />
                 <div className="form-helper-text">
