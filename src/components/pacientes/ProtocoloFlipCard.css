@@ -2,531 +2,600 @@
 
 /* Definição de variáveis */
 :root {
-    --color-primary: #8cb369;
-    --color-primary-hover: #a6b344;
-    --color-primary-light: rgba(140, 179, 105, 0.2);
-    --color-secondary: #c6d651;
-    --color-secondary-light: #e4e9c0;
-    --color-text: #575654;
-    --color-text-light: #64748b;
-    --color-text-dark: #1e293b;
-    --color-bg: #f1f1f1;
-    --color-bg-light: #f8fafc;
-    --color-bg-card: white;
-    --color-border: #e2e8f0;
-    --color-info: #3b82f6;
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --radius-sm: 6px;
-    --radius-md: 8px;
-    --transition-default: all 0.2s ease;
+  --color-primary: #8cb369;
+  --color-primary-hover: #a6b344;
+  --color-primary-light: rgba(140, 179, 105, 0.2);
+  --color-secondary: #c6d651;
+  --color-secondary-light: #e4e9c0;
+  --color-text: #575654;
+  --color-text-light: #64748b;
+  --color-text-dark: #1e293b;
+  --color-bg: #f1f1f1;
+  --color-bg-light: #f8fafc;
+  --color-bg-card: white;
+  --color-border: #e2e8f0;
+  --color-info: #3b82f6;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --transition-default: all 0.2s ease;
+}
+
+/* Container principal do card */
+.protocol-card {
+  position: relative;
+  perspective: 1000px;
+  height: 280px;
+  width: 100%;
+  cursor: pointer;
+  margin-bottom: 16px;
+  transition: height 0.3s ease-out;
+}
+
+/* Container interno que fará o flip */
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: left;
+  transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transform-style: preserve-3d;
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-md);
+}
+
+/* Quando o card está selecionado */
+.protocol-card.selected .card-inner {
+  border: 2px solid var(--color-secondary);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Efeito hover */
+.protocol-card:hover .card-inner:not(.flipped) {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Estado de flip */
+.card-inner.flipped {
+  transform: rotateY(180deg);
+}
+
+/* Frente e verso do card */
+.card-front, 
+.card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-front {
+  background-color: white;
+  z-index: 2;
+}
+
+.card-back {
+  background-color: white;
+  transform: rotateY(180deg);
+}
+
+/* Cabeçalho do card */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: var(--color-bg-light);
+  border-bottom: 1px solid var(--color-border);
+  gap: 10px;
+  flex-wrap: wrap; /* permite quebra no mobile */
+}
+
+.card-back .card-header {
+  background: linear-gradient(to right, #edf8ed, #f8fafc);
+}
+
+.protocol-code {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-primary);
+  max-width: 150px; /* ajuste conforme necessário */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  position: relative;
+}
+
+/* ✅ ESTILOS PARA EFEITO MARQUEE NO CÓDIGO DO PROTOCOLO */
+.protocol-code.marquee-enabled {
+  overflow: hidden;
+  position: relative;
+}
+
+.marquee-container {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.marquee-content {
+  display: flex;
+  animation: marquee-scroll 10s linear infinite;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.marquee-content span {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Animação do marquee com pausa inicial e deslizamento até o final */
+@keyframes marquee-scroll {
+  0% {
+    transform: translateX(0);
   }
-  
-  /* Container principal do card */
-  .protocol-card {
-    position: relative;
-    perspective: 1000px;
-    height: 280px;
-    width: 100%;
-    cursor: pointer;
-    margin-bottom: 16px;
-    transition: height 0.3s ease-out;
+  20% {
+    transform: translateX(0); /* Pausa no início (3s) */
   }
-  
-  /* Container interno que fará o flip */
-  .card-inner {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    text-align: left;
-    transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    transform-style: preserve-3d;
-    box-shadow: var(--shadow-sm);
-    border-radius: var(--radius-md);
+  100% {
+    transform: translateX(-100%); /* Desliza até o final completo */
   }
-  
-  /* Quando o card está selecionado */
-  .protocol-card.selected .card-inner {
-    border: 2px solid var(--color-secondary);
-    box-shadow: var(--shadow-lg);
-  }
-  
-  /* Efeito hover */
-  .protocol-card:hover .card-inner:not(.flipped) {
-    transform: translateY(-5px);
-    box-shadow: var(--shadow-md);
-  }
-  
-  /* Estado de flip */
-  .card-inner.flipped {
-    transform: rotateY(180deg);
-  }
-  
-  /* Frente e verso do card */
-  .card-front, 
-  .card-back {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-    border-radius: var(--radius-md);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .card-front {
-    background-color: white;
-    z-index: 2;
-  }
-  
-  .card-back {
-    background-color: white;
-    transform: rotateY(180deg);
-  }
-  
-  /* Cabeçalho do card */
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px;
-    background-color: var(--color-bg-light);
-    border-bottom: 1px solid var(--color-border);
-  }
-  
-  .card-back .card-header {
-    background: linear-gradient(to right, #edf8ed, #f8fafc);
+}
+
+/* Pausa a animação no hover */
+.protocol-code.marquee-enabled:hover .marquee-content {
+  animation-play-state: paused;
+}
+
+/* Efeito de fade apenas na borda direita para suavizar */
+.protocol-code.marquee-enabled::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 20px;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(to left, var(--color-bg-light) 0%, transparent 100%);
+}
+
+/* Responsividade para marquee */
+@media (max-width: 768px) {
+  .marquee-content {
+    animation-duration: 8s; /* Mantém proporção da pausa inicial */
   }
   
   .protocol-code {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--color-primary);
+    max-width: 120px;
+  }
+}
+
+@media (max-width: 480px) {
+  .marquee-content {
+    animation-duration: 6s; /* Mantém proporção da pausa inicial */
   }
   
-  .protocol-cid {
-    background-color: var(--color-primary-light);
-    color: var(--color-primary);
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 500;
+  .protocol-code {
+    max-width: 100px;
   }
+}
+
+.protocol-cid {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ESTILOS ATUALIZADOS PARA O NOME DO PROTOCOLO COM TRUNCAMENTO MELHORADO */
+.protocol-name {
+  padding: 12px 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-dark);
+  border-bottom: 1px solid var(--color-bg-light);
   
-  .protocol-name {
-    padding: 12px 16px;
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--color-text-dark);
-    border-bottom: 1px solid var(--color-bg-light);
-    
-    /* Configuração para truncamento e animação */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    position: relative;
-    max-width: 100%;
-    cursor: default;
-    
-    /* Transição suave */
-    transition: all 0.3s ease;
-  }
+  /* Configuração para truncamento controlado */
+  min-height: 52px; /* Altura mínima para manter consistência */
+  display: flex;
+  align-items: flex-start;
+  line-height: 1.3;
+  position: relative;
   
-  /* Container para o texto que vai fazer a animação */
-  .protocol-name-text {
-    display: inline-block;
-    transition: transform 0.3s ease;
-    will-change: transform;
-    backface-visibility: hidden;
-  }
+  /* Transição suave para efeitos */
+  transition: all 0.3s ease;
+}
+
+/* Container para o texto que será truncado */
+.protocol-name-text {
+  display: block;
+  width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
   
-  /* Animação de marquee para hover */
-  .protocol-name:hover .protocol-name-text {
-    animation: protocol-marquee 4s ease-in-out;
-  }
+  /* Permite quebra de linha controlada */
+  max-height: 2.6em; /* Máximo 2 linhas */
+  overflow: hidden;
   
-  @keyframes protocol-marquee {
-    0%, 25% {
-      transform: translateX(0);
-    }
-    75%, 100% {
-      transform: translateX(calc(-100% + 200px));
-    }
-  }
+  /* Transição suave para animações */
+  transition: transform 0.3s ease;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/* Efeito de hover melhorado */
+.protocol-name:hover {
+  background-color: rgba(140, 179, 105, 0.05);
+  cursor: help;
+}
+
+/* Quando o texto tem overflow, adiciona indicador visual */
+.protocol-name[title] {
+  cursor: help;
+}
+
+/* Tooltip aprimorado para texto completo */
+.protocol-name[title]:hover::before {
+  content: attr(title);
+  position: absolute;
+  top: 100%;
+  left: 12px;
+  right: 12px;
+  background-color: rgba(0, 0, 0, 0.92);
+  color: white;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 1000;
+  white-space: normal;
+  word-wrap: break-word;
+  line-height: 1.4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  transform: translateY(-5px);
+  animation: tooltip-fade-in 0.3s ease 0.5s forwards;
+  margin-top: 4px;
   
-  /* Fade gradient à direita para indicar texto cortado */
-  .protocol-name::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 25px;
-    background: linear-gradient(to right, transparent, white);
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-  }
-  
-  .protocol-name:hover::after {
-    opacity: 0;
-  }
-  
-  /* Tooltip para mostrar texto completo */
-  .protocol-name[title]:hover::before {
-    content: attr(title);
-    position: absolute;
-    top: 100%;
-    left: 12px;
-    right: 12px;
-    background-color: rgba(0, 0, 0, 0.9);
-    color: white;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    z-index: 1000;
-    white-space: normal;
-    word-wrap: break-word;
-    line-height: 1.4;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    opacity: 0;
-    animation: tooltip-fade-in 0.3s ease 0.8s forwards;
-    margin-top: 4px;
-  }
-  
-  @keyframes tooltip-fade-in {
-    from {
+  /* Seta do tooltip */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Animação melhorada para o tooltip */
+@keyframes tooltip-fade-in {
+  from {
       opacity: 0;
       transform: translateY(-5px);
-    }
-    to {
+  }
+  to {
       opacity: 1;
       transform: translateY(0);
-    }
   }
-  
-  /* Melhorias para textos detectados automaticamente como longos */
-  .protocol-name.has-overflow {
-    /* Classe será adicionada automaticamente pelo JavaScript */
-  }
-  
-  .protocol-name.has-overflow::after {
-    opacity: 1;
-  }
-  
-  .protocol-name.has-overflow:hover::after {
-    opacity: 0;
-  }
-  
-  /* Responsividade */
-  @media (max-width: 768px) {
-    .protocol-name {
+}
+
+/* Indicador visual para textos truncados */
+.protocol-name.has-overflow::after {
+  content: '';
+  position: absolute;
+  bottom: 12px;
+  right: 16px;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(135deg, transparent 40%, var(--color-primary) 100%);
+  border-radius: 50%;
+  opacity: 0.6;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.protocol-name.has-overflow:hover::after {
+  opacity: 0.8;
+}
+
+/* Responsividade aprimorada */
+@media (max-width: 768px) {
+  .protocol-name {
       font-size: 15px;
       padding: 10px 14px;
-    }
-    
-    @keyframes protocol-marquee {
-      0%, 25% {
-        transform: translateX(0);
-      }
-      75%, 100% {
-        transform: translateX(calc(-100% + 150px));
-      }
-    }
+      min-height: 48px;
   }
   
-  @media (max-width: 480px) {
-    .protocol-name {
+  .protocol-name-text {
+      max-height: 2.4em;
+  }
+}
+
+@media (max-width: 480px) {
+  .protocol-name {
       font-size: 14px;
       padding: 8px 12px;
-      /* Em mobile, usar versão de duas linhas */
-      white-space: normal;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      line-height: 1.3;
-      max-height: 2.6em;
-    }
-    
-    .protocol-name::after {
-      display: none; /* Remove gradient em mobile */
-    }
-    
-    .protocol-name:hover .protocol-name-text {
-      animation: none; /* Remove animação em mobile */
-    }
-    
-    @keyframes protocol-marquee {
-      0%, 25% {
-        transform: translateX(0);
-      }
-      75%, 100% {
-        transform: translateX(calc(-100% + 120px));
-      }
-    }
+      min-height: 44px;
   }
   
-  /* Estilo especial para cards selecionados */
-  .protocol-card.selected .protocol-name {
-    background-color: rgba(198, 214, 81, 0.05);
+  .protocol-name-text {
+      max-height: 2.2em;
   }
   
-  .protocol-info {
-    padding: 12px 16px;
-    flex-grow: 1;
+  /* Tooltip mais compacto em mobile */
+  .protocol-name[title]:hover::before {
+      font-size: 13px;
+      padding: 10px;
+      left: 8px;
+      right: 8px;
   }
-  
-  .info-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
-    font-size: 13px;
-    color: var(--color-text-light);
-  }
-  
-  .info-row:last-child {
-    margin-bottom: 0;
-  }
-  
-  .info-row svg {
-    color: var(--color-primary);
-  }
-  
-  /* Ações no card */
-  .card-actions {
-    padding: 12px 16px;
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    background-color: var(--color-bg-light);
-    border-top: 1px solid var(--color-border);
-  }
-  
-  .card-actions.back {
-    margin-top: auto;
-    justify-content: space-between;
-    background: linear-gradient(to right, #f0f7f0, #f8fafc);
-  }
-  
-  .card-actions .action-button-pacientes {
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    color: var(--color-text-light);
-    background: none;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-  }
-  
-  .card-actions .action-button-pacientes:hover {
-    background-color: rgba(255, 255, 255, 0.8);
-    color: var(--color-primary);
-    transform: translateY(-2px);
-  }
-  
-  .card-actions .action-button-pacientes.info {
-    color: var(--color-info);
-  }
-  
-  .card-actions .action-button-pacientes.edit {
-    color: var(--color-primary);
-  }
-  
-  .card-actions .action-button-pacientes.flip {
-    color: var(--color-secondary);
-    animation: pulse 2s infinite;
-  }
-  
-  .card-actions .action-button-pacientes.flip-back {
-    color: var(--color-text-dark);
-  }
-  
-  @keyframes pulse {
-    0% {
+}
+
+/* Estilo especial para cards selecionados */
+.protocol-card.selected .protocol-name {
+  background-color: rgba(198, 214, 81, 0.08);
+  border-color: rgba(198, 214, 81, 0.3);
+}
+
+/* Resto dos estilos existentes (manter como está) */
+.protocol-info {
+  padding: 12px 16px;
+  flex-grow: 1;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--color-text-light);
+}
+
+.info-row:last-child {
+  margin-bottom: 0;
+}
+
+.info-row svg {
+  color: var(--color-primary);
+}
+
+/* Ações no card */
+.card-actions {
+  padding: 12px 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  background-color: var(--color-bg-light);
+  border-top: 1px solid var(--color-border);
+}
+
+.card-actions.back {
+  margin-top: auto;
+  justify-content: space-between;
+  background: linear-gradient(to right, #f0f7f0, #f8fafc);
+}
+
+.card-actions .action-button-pacientes {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: var(--color-text-light);
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.card-actions .action-button-pacientes:hover {
+  background-color: rgba(255, 255, 255, 0.8);
+  color: var(--color-primary);
+  transform: translateY(-2px);
+}
+
+.card-actions .action-button-pacientes.info {
+  color: var(--color-info);
+}
+
+.card-actions .action-button-pacientes.edit {
+  color: var(--color-primary);
+}
+
+.card-actions .action-button-pacientes.flip {
+  color: var(--color-secondary);
+  animation: pulse 2s infinite;
+}
+
+.card-actions .action-button-pacientes.flip-back {
+  color: var(--color-text-dark);
+}
+
+@keyframes pulse {
+  0% {
       box-shadow: 0 0 0 0 rgba(198, 214, 81, 0.4);
-    }
-    70% {
+  }
+  70% {
       box-shadow: 0 0 0 6px rgba(198, 214, 81, 0);
-    }
-    100% {
+  }
+  100% {
       box-shadow: 0 0 0 0 rgba(198, 214, 81, 0);
-    }
   }
-  
-  /* Conteúdo de medicamentos */
-  .medicamentos-container {
-    flex-grow: 1;
-    overflow-y: auto;
-    padding: 12px;
-    background-color: white;
-  }
-  
-  .medicamentos-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  
-  .medicamento-item {
-    background-color: #f0f7f0;
-    border-radius: 8px;
-    padding: 12px;
-    transition: transform 0.2s, background-color 0.2s;
-    border-left: 3px solid var(--color-primary);
-  }
-  
-  .medicamento-item:hover {
-    background-color: #e6f3e6;
-    transform: translateX(3px);
-  }
-  
-  .medicamento-nome {
-    font-weight: 600;
-    font-size: 14px;
-    margin-bottom: 8px;
-    color: var(--color-text-dark);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  
-  .med-icon {
-    color: var(--color-primary);
-  }
-  
-  .medicamento-details {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  
-  .pill-detail {
-    background-color: white;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 11px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--color-text-dark);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  }
-  
-  .pill-detail svg {
-    color: var(--color-primary);
-  }
-  
-  .empty-medicamentos {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: var(--color-text-light);
-    font-size: 13px;
-    padding: 24px 0;
-  }
-  
-  /* Botões no verso do card */
-  .detail-button, .edit-button {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 13px;
-    transition: all 0.2s ease;
-    border: 1px solid var(--color-border);
-    background: none;
-    cursor: pointer;
-  }
-  
-  .detail-button {
-    background-color: white;
-    color: var(--color-info);
-  }
-  
-  .detail-button:hover {
-    background-color: var(--color-info);
-    color: white;
-    border-color: var(--color-info);
-  }
-  
-  .edit-button {
-    background-color: white;
-    color: var(--color-primary);
-  }
-  
-  .edit-button:hover {
-    background-color: var(--color-primary);
-    color: white;
-    border-color: var(--color-primary);
-  }
-  
-  /* Loading indicator */
-  .loading-indicator {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    padding: 20px;
-    gap: 12px;
-    color: var(--color-text-light);
-  }
-  
-  .spinner-small {
-    width: 24px;
-    height: 24px;
-    border: 3px solid rgba(140, 179, 105, 0.3);
-    border-radius: 50%;
-    border-top-color: var(--color-primary);
-    animation: spin 1s linear infinite;
-  }
-  
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-  
-  /* Animação de brilho */
-  @keyframes card-glow {
-    0% { box-shadow: 0 0 5px rgba(140, 179, 105, 0.3); }
-    50% { box-shadow: 0 0 20px rgba(140, 179, 105, 0.7); }
-    100% { box-shadow: 0 0 5px rgba(140, 179, 105, 0.3); }
-  }
-  
-  .card-inner.flipped {
-    animation: card-glow 2s ease-in-out;
-  }
-  
-  /* Correções específicas para navegadores */
-  /* Safari */
-  @media not all and (min-resolution:.001dpcm) {
-    @supports (-webkit-appearance:none) {
+}
+
+/* Conteúdo de medicamentos */
+.medicamentos-container {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 12px;
+  background-color: white;
+}
+
+.medicamentos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.medicamento-item {
+  background-color: #f0f7f0;
+  border-radius: 8px;
+  padding: 12px;
+  transition: transform 0.2s, background-color 0.2s;
+  border-left: 3px solid var(--color-primary);
+}
+
+.medicamento-item:hover {
+  background-color: #e6f3e6;
+  transform: translateX(3px);
+}
+
+.medicamento-nome {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: var(--color-text-dark);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.med-icon {
+  color: var(--color-primary);
+}
+
+.medicamento-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill-detail {
+  background-color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-dark);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.pill-detail svg {
+  color: var(--color-primary);
+}
+
+.empty-medicamentos {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-light);
+  font-size: 13px;
+  padding: 24px 0;
+}
+
+/* Botões no verso do card */
+.detail-button, .edit-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  transition: all 0.2s ease;
+  border: 1px solid var(--color-border);
+  background: none;
+  cursor: pointer;
+}
+
+.detail-button {
+  background-color: white;
+  color: var(--color-info);
+}
+
+.detail-button:hover {
+  background-color: var(--color-info);
+  color: white;
+  border-color: var(--color-info);
+}
+
+.edit-button {
+  background-color: white;
+  color: var(--color-primary);
+}
+
+.edit-button:hover {
+  background-color: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+/* Loading indicator */
+.loading-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 20px;
+  gap: 12px;
+  color: var(--color-text-light);
+}
+
+.spinner-small {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(140, 179, 105, 0.3);
+  border-radius: 50%;
+  border-top-color: var(--color-primary);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Animação de brilho */
+@keyframes card-glow {
+  0% { box-shadow: 0 0 5px rgba(140, 179, 105, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(140, 179, 105, 0.7); }
+  100% { box-shadow: 0 0 5px rgba(140, 179, 105, 0.3); }
+}
+
+.card-inner.flipped {
+  animation: card-glow 2s ease-in-out;
+}
+
+/* Correções específicas para navegadores */
+/* Safari */
+@media not all and (min-resolution:.001dpcm) {
+  @supports (-webkit-appearance:none) {
       .card-inner {
-        -webkit-transform-style: preserve-3d;
+          -webkit-transform-style: preserve-3d;
       }
       
       .card-front, .card-back {
-        -webkit-backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
       }
-    }
   }
-  
-  /* Firefox */
-  @supports (-moz-appearance:none) {
-    .card-back {
+}
+
+/* Firefox */
+@supports (-moz-appearance:none) {
+  .card-back {
       transform: rotateY(180deg) translateZ(1px);
-    }
   }
+}
